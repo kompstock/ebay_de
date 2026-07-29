@@ -172,13 +172,14 @@ def processor_aspect(processor: str, series: str, review: Review) -> str:
                            ("AMD Ryzen 3", r"RYZEN 3"), ("AMD Ryzen 5", r"RYZEN 5"),
                            ("AMD Ryzen 7", r"RYZEN 7"), ("AMD Ryzen 9", r"RYZEN 9")):
         if re.search(pattern, p):
-            digits = re.search(r"\b([2-9])\d{3}\b", p)
+            digits = re.search(r"\b([2-9])\d{3}", p)
             return f"{label} {digits.group(1)}000 Series" if digits else label
-    intel = re.search(r"\bI([3579])[- ]?(\d{4,5})", p)
+    intel = re.search(r"\bI([3579])[- ]?(\d{4,5})([A-Z]*)", p)
     if intel:
+        exact = f"Intel Core i{intel.group(1)}-{intel.group(2)}{intel.group(3)}"
         num = intel.group(2)
         gen = num[:2] if len(num) == 5 else num[0]
-        return f"Intel Core i{intel.group(1)} {int(gen)}. Generation"
+        return f"{exact}|{int(gen)}. Gen"
     if "CELERON" in p:
         return "Intel Celeron"
     if "PENTIUM" in p:
@@ -235,7 +236,7 @@ def features_aspect(attrs: dict, ports, aspects: dict) -> str:
     if any(norm(l).startswith(("rj-45", "rj45")) for _, l in ports):
         out.append("10/100 LAN Karte")
     if norm(attrs.get("Kamera", "")).startswith("tak"):
-        out.append("Webcam")
+        out.append(aspects["besonderheiten"]["_webcam"])
     allowed = aspects["besonderheiten"]["_dozwolone"]
     return "|".join(v for v in out if v in allowed)
 
@@ -297,6 +298,28 @@ def gpsr_block(producent: str, manufacturers: dict) -> tuple[dict[str, str], str
         "Responsible Person 1 Email": r["email"],
         "Responsible Person 1 ContactURL": r.get("url", ""),
     }, ""
+
+
+def vocab_match(aspect: str, value: str, vocab: dict, review: Review, prefix: str = "") -> str:
+    """Dopasowuje wartosc do slownika eBaya. Brak dopasowania -> puste pole + review."""
+    allowed = vocab["aspekty"].get(aspect)
+    if not allowed or not value:
+        return value
+    if value in allowed:
+        return value
+    by_norm = {norm(a): a for a in allowed}
+    if norm(value) in by_norm:
+        return by_norm[norm(value)]
+    target = norm(f"{prefix} {value}".strip())
+    best = ""
+    for candidate in allowed:
+        nc = norm(candidate)
+        if (target == nc or target.startswith(nc + " ")) and len(nc) > len(norm(best)):
+            best = candidate
+    if best:
+        return best
+    review.add("aspekt", f"C:{aspect}", value)
+    return ""
 
 
 def spec_row(label: str, value: str) -> str:
@@ -431,6 +454,17 @@ def build_row(offer, attrs, cfg, headers, review):
     grade = condition_class(attrs.get("Kondycja sprzętu", ""))
     cond_map = aspects["condition_id"][aspects["condition_id"]["_tryb"]]
 
+    vocab = cfg["vocab"]
+    raw_cpu = processor_aspect(attrs.get("Procesor", ""), attrs.get("Seria procesora", ""), review)
+    cpu_aspect = ""
+    for option in raw_cpu.split("|"):
+        candidate = vocab_match("Prozessor", option.strip(), vocab, Review(), "Intel Core")
+        if candidate:
+            cpu_aspect = candidate
+            break
+    if not cpu_aspect:
+        review.add("aspekt", "C:Prozessor", raw_cpu)
+
     quantity = int(float(offer.get("stock", "0") or 0))
     cap = int(settings.get("max_quantity", 0) or 0)
     if cap:
@@ -446,32 +480,31 @@ def build_row(offer, attrs, cfg, headers, review):
         "*ConditionID": cond_map.get(grade, cond_map["_brak"]),
         "VAT%": settings["vat_percent"],
         "*C:Marke": brand_name(attrs.get("Producent", "")),
-        "*C:Bildschirmgröße": screen_size_de(attrs.get("Przekątna ekranu", "")),
-        "*C:Prozessor": processor_aspect(
-            attrs.get("Procesor", ""), attrs.get("Seria procesora", ""), review),
+        "*C:Bildschirmgröße": vocab_match("Bildschirmgröße", screen_size_de(attrs.get("Przekątna ekranu", "")), vocab, review, ""),
+        "*C:Prozessor": cpu_aspect,
         "C:Festplattentyp": aspects["festplattentyp"].get(attrs.get("Typ dysku", ""), ""),
         "C:Produktart": "Notebook / Laptop",
-        "C:Festplattenkapazität": disk,
+        "C:Festplattenkapazität": vocab_match("Festplattenkapazität", disk, vocab, review, ""),
         "C:Besonderheiten": features_aspect(attrs, ports, aspects),
         "C:SSD-Festplattenkapazität": disk if attrs.get("Typ dysku") == "SSD" else "",
-        "C:Grafikprozessor": attrs.get("Model karty graficznej", ""),
-        "C:Erscheinungsjahr": year_aspect(model, aspects),
-        "C:Farbe": colour_aspect(model, aspects),
-        "C:Prozessorgeschwindigkeit": base_clock(attrs.get("Taktowanie", "")),
-        "C:Maximale Auflösung": attrs.get("Rozdzielczość ekranu", ""),
+        "C:Grafikprozessor": vocab_match("Grafikprozessor", aspects["grafikprozessor_alias"].get(norm(attrs.get("Model karty graficznej", "")), attrs.get("Model karty graficznej", "")), vocab, review, ""),
+        "C:Erscheinungsjahr": vocab_match("Erscheinungsjahr", year_aspect(model, aspects), vocab, review),
+        "C:Farbe": vocab_match("Farbe", colour_aspect(model, aspects), vocab, review),
+        "C:Prozessorgeschwindigkeit": vocab_match("Prozessorgeschwindigkeit", base_clock(attrs.get("Taktowanie", "")), vocab, review, ""),
+        "C:Maximale Auflösung": vocab_match("Maximale Auflösung", attrs.get("Rozdzielczość ekranu", ""), vocab, review, ""),
         "C:Herstellernummer": "Nicht zutreffend",
-        "C:Modell": model,
+        "C:Modell": vocab_match("Modell", model, vocab, review, brand_name(attrs.get("Producent", ""))),
         "C:Betriebssystem": aspects["betriebssystem"].get(
             attrs.get("Zainstalowany system", attrs.get("Licencja", "")), ""),
         "C:Anzahl der Einheiten": "1",
         "C:Maßeinheit": "Einheit",
         "C:Inklusive Ladegerät": "Ja" if attrs.get("W zestawie") else "",
-        "C:Arbeitsspeichergröße": ram,
+        "C:Arbeitsspeichergröße": vocab_match("Arbeitsspeichergröße", ram, vocab, review, ""),
         "C:Grafikprozessortyp": aspects["grafikprozessortyp"].get(
             attrs.get("Rodzaj karty graficznej", ""), ""),
         "C:Konnektivität": connectivity_aspect(ports, aspects, review),
-        "C:Herstellergarantie": "Keine",
-        "C:Serie": series_aspect(model, aspects),
+        "C:Herstellergarantie": aspects["herstellergarantie"]["wartosc"],
+        "C:Serie": vocab_match("Serie", series_aspect(model, aspects), vocab, review),
         "C:Passend für": "|".join(aspects["passend_fuer"]["wartosci"]),
         "PicURL": "|".join(images),
         "GalleryType": settings["gallery_type"],
@@ -487,6 +520,12 @@ def build_row(offer, attrs, cfg, headers, review):
         "Product Safety Pictograms": settings["product_safety_pictograms"],
         **gpsr,
     }
+    for aspect in cfg["vocab"]["_wymagane"]:
+        for column in (f"*C:{aspect}", f"C:{aspect}"):
+            if column in values and not values[column]:
+                review.add("blokada", attrs.get("SKU", ""), f"puste pole wymagane C:{aspect}")
+                return None, f"aspekt: puste wymagane C:{aspect}"
+
     return {h: values.get(h, "") for h in headers}, ""
 
 
@@ -576,6 +615,7 @@ def main() -> int:
         "manufacturers": load_json(ROOT / "config" / "manufacturers.json"),
         "template": (ROOT / "templates" / "description.html").read_text(encoding="utf-8"),
         "headers": read_headers(ROOT / "config" / "ebay-header.csv"),
+        "vocab": load_json(ROOT / "config" / "ebay-vocab.json"),
     }
     feed = args.feed_file.read_bytes() if args.feed_file else fetch_bytes(settings["feed_url"])
     nbp = ({"currency": "euro", "code": "EUR", "table": "A", "number": "TEST",
