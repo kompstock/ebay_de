@@ -1,0 +1,28 @@
+{
+  "feed_url": "https://kompre.esolu-hub.pl/storage/feeds/kompre.xml",
+  "nbp_url": "https://api.nbp.pl/api/exchangerates/rates/A/EUR/?format=json",
+  "ebay_category": "177",
+  "vat_percent": "19",
+  "location": "Rogaszyce",
+  "format": "FixedPrice",
+  "duration": "GTC",
+  "gallery_type": "Gallery",
+  "max_images": 24,
+  "shipping_profile_name": "9B27: Free / 2-10d / 14d return / D2C3DAE5 / 20-21 EUR/2-10d ... - (ID: 263690853019)",
+  "return_profile_name": "30 days - International 30 days (254124780019) - (ID: 254124780019)",
+  "payment_profile_name": "lap / 167E / PL / 8E61164E / PL - (ID: 254124776019)",
+  "company_since": "2019",
+  "company_country": "Poland",
+  "xml_categories": [
+    "Laptopy",
+    "Laptopy 14 cali",
+    "Laptopy 15 cali",
+    "Laptopy 13 cali",
+    "Laptopy 12 cali"
+  ],
+  "max_quantity": 0,
+  "title_suffix": "Win11 Pro",
+  "product_safety_pictograms": "EBPSP201",
+  "company_locations_de": "In Polen",
+  "os_language_note_de": "Die Systemsprache lässt sich in Windows jederzeit auf Deutsch umstellen."
+}
