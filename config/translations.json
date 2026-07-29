@@ -1,62 +1,40 @@
 {
-  "yes_no": {
-    "Tak": "Ja",
-    "Nie": "Nein",
-    "Tak, wbudowana": "Ja, integriert",
-    "Nie, brak": "Nein"
+  "_about": "Tlumaczenia dopasowywane do CALEJ wartosci pola. Brak trafienia = produkt nie idzie do CSV.",
+  "_zasada": "Nigdy nie sklejamy tlumaczen z fragmentow - tak wyciekaja polskie slowa.",
+  "values": {
+    "\"a\" bez wad matrycy": "Klasse A, Display ohne bekannte Mängel",
+    "bad pixel widoczny na ciemnym tle": "Ein fehlerhafter Pixel ist auf dunklem Hintergrund sichtbar",
+    "bez wad": "Keine bekannten Mängel",
+    "bez wad - nowa matryca fhd ips": "Keine bekannten Mängel, neues FHD-IPS-Display",
+    "bez wad matrycy": "Display ohne bekannte Mängel",
+    "ekran bez wad, klasa \"a\"": "Display ohne bekannte Mängel, Klasse A",
+    "mikro slady uzytkowania typowe dla ekranow dotykowych, klasa a": "Minimale, für Touchscreens typische Gebrauchsspuren, Klasse A",
+    "mozliwe drobne przejasnienia": "Kleine Aufhellungen möglich",
+    "nowa matryca fhd ips - bez wad!": "Neues FHD-IPS-Display ohne bekannte Mängel",
+    "male slady uzytkowania w postaci otarc, malo widocznych sladow po naklejce": "Leichte Gebrauchsspuren in Form von Abrieb und kaum sichtbaren Aufkleberspuren",
+    "minimalne slady uzytkowania": "Minimale Gebrauchsspuren",
+    "normalne, delikatne slady uzytkowania": "Normale, leichte Gebrauchsspuren",
+    "normalne, delikatne slady uzytkowania, mozliwy skin": "Normale, leichte Gebrauchsspuren; ein professionell angebrachter Skin ist möglich",
+    "normalne, male slady uzytkowania": "Normale, leichte Gebrauchsspuren",
+    "normalne, male slady uzytkowania, mozliwy skin": "Normale, leichte Gebrauchsspuren; ein professionell angebrachter Skin ist möglich",
+    "normalne, minimalne slady uzytkowania, mozliwy skin": "Normale, minimale Gebrauchsspuren; ein professionell angebrachter Skin ist möglich",
+    "normalne,delikatne slady uzytkowania": "Normale, leichte Gebrauchsspuren",
+    "normalne,male slady uzytkowania, mozliwy profesjonalnie przygotowany skin": "Normale, leichte Gebrauchsspuren; ein professionell angebrachter Skin ist möglich",
+    "normalne,male slady uzytkowania": "Normale, leichte Gebrauchsspuren",
+    "oferujemy malowane klapy w roznych kolorach": "Lackierte Displaydeckel sind in verschiedenen Farben erhältlich",
+    "standardowe slady uzytkowania": "Übliche Gebrauchsspuren",
+    "[klasa a] laptop poleasingowy, w 100% sprawny, przetestowany i gotowy do pracy": "Geprüfter Leasingrückläufer, voll funktionsfähig und sofort einsatzbereit.",
+    "[klasa a-] laptop poleasingowy, w 100% sprawny, przetestowany i gotowy do pracy": "Geprüfter Leasingrückläufer, voll funktionsfähig und sofort einsatzbereit. Normale Gebrauchsspuren sind vorhanden und unten im Detail beschrieben.",
+    "[klasa b] laptop poleasingowy, w 100% sprawny, przetestowany i gotowy do pracy": "Geprüfter Leasingrückläufer, voll funktionsfähig und sofort einsatzbereit. Sichtbare Gebrauchsspuren sind vorhanden und unten im Detail beschrieben.",
+    "normalne slady uzytkowania": "Normale Gebrauchsspuren.",
+    "normalne slady uzytkowania, na klapie profesjonalnie wykonany skin": "Normale Gebrauchsspuren. Auf dem Deckel ein professionell angebrachter Skin.",
+    "drobne ryski, otarcia, poswiatki": "Feine Kratzer, Abriebspuren und leichte Aufhellungen möglich.",
+    "oryginalna, od 1h do 4h (uzywana)": "Original, gebraucht, ca. 1 bis 4 Stunden je nach Nutzung. Verschleißteil.",
+    "zasilacz z przewodem": "Notebook, Netzteil mit Kabel.",
+    "klawiatura odnowiona!": "Erneuert bzw. aufgefrischt.",
+    "klawiatura odnowiona": "Erneuert bzw. aufgefrischt."
   },
-  "gpu_type": {
-    "Zintegrowana": "Integriert",
-    "Dedykowana": "Dediziert"
-  },
-  "screen_finish": {
-    "Matowa": "Matt",
-    "Błyszcząca": "Glänzend",
-    "Antyrefleksyjna": "Entspiegelt"
-  },
-  "drive": {
-    "Beznapędowy": "Nicht vorhanden",
-    "DVD": "DVD",
-    "DVD-RW": "DVD-RW",
-    "Nagrywarka DVD": "DVD-Brenner",
-    "Blu-ray": "Blu-ray"
-  },
-  "license_type": {
-    "OEM": "OEM",
-    "MAR": "MAR"
-  },
-  "condition_class": {
-    "[Klasa A]": "Klasse A",
-    "[Klasa A-]": "Klasse A-",
-    "[Klasa B]": "Klasse B",
-    "Laptop powystawowy lub leżak magazynowy": "Ausstellungsgerät oder Lagerware"
-  },
-  "exact_states": {
-    "\"A\" Bez wad matrycy": "Klasse A, Display ohne bekannte Mängel",
-    "Bad pixel widoczny na ciemnym tle": "Ein fehlerhafter Pixel ist auf dunklem Hintergrund sichtbar",
-    "Bez wad": "Keine bekannten Mängel",
-    "Bez wad - nowa matryca FHD IPS": "Keine bekannten Mängel, neues FHD-IPS-Display",
-    "Bez wad matrycy": "Display ohne bekannte Mängel",
-    "Ekran bez wad, klasa \"A\"": "Display ohne bekannte Mängel, Klasse A",
-    "Mikro ślady użytkowania typowe dla ekranów dotykowych, klasa A": "Minimale, für Touchscreens typische Gebrauchsspuren, Klasse A",
-    "Możliwe drobne przejaśnienia": "Kleine Aufhellungen möglich",
-    "Nowa matryca FHD IPS - bez wad!": "Neues FHD-IPS-Display ohne bekannte Mängel",
-    "Małe ślady użytkowania w postaci otarć, mało widocznych śladów po naklejce": "Leichte Gebrauchsspuren in Form von Abrieb und kaum sichtbaren Aufkleberspuren",
-    "Minimalne ślady użytkowania": "Minimale Gebrauchsspuren",
-    "Normalne, delikatne ślady użytkowania": "Normale, leichte Gebrauchsspuren",
-    "Normalne, delikatne ślady użytkowania, możliwy skin": "Normale, leichte Gebrauchsspuren; ein professionell angebrachter Skin ist möglich",
-    "Normalne, małe slady użytkowania": "Normale, leichte Gebrauchsspuren",
-    "Normalne, małe ślady uzytkowania": "Normale, leichte Gebrauchsspuren",
-    "Normalne, małe ślady użytkowania": "Normale, leichte Gebrauchsspuren",
-    "Normalne, małe ślady użytkowania, możliwy skin": "Normale, leichte Gebrauchsspuren; ein professionell angebrachter Skin ist möglich",
-    "Normalne, minimalne ślady użytkowania, możliwy skin": "Normale, minimale Gebrauchsspuren; ein professionell angebrachter Skin ist möglich",
-    "Normalne,delikatne ślady użytkowania": "Normale, leichte Gebrauchsspuren",
-    "Normalne,małe ślady uzytkowania, możliwy profesjonalnie przygotowany skin": "Normale, leichte Gebrauchsspuren; ein professionell angebrachter Skin ist möglich",
-    "Normalne,małe ślady użytkowania": "Normale, leichte Gebrauchsspuren",
-    "Oferujemy malowane klapy w różnych kolorach": "Lackierte Displaydeckel sind in verschiedenen Farben erhältlich",
-    "Standardowe ślady użytkowania": "Übliche Gebrauchsspuren"
-  },
-  "phrases": {
+  "_podpowiedzi": {
     "laptop poleasingowy": "Business-Notebook aus Leasingrücklauf",
     "w 100% sprawny": "voll funktionsfähig",
     "przetestowany": "geprüft",
@@ -86,5 +64,28 @@
     "minimalne": "minimale",
     "ślady użytkowania": "Gebrauchsspuren",
     "możliwy skin": "ein professionell angebrachter Skin ist möglich"
-  }
+  },
+  "yes_no": {
+    "Tak": "Ja",
+    "Nie": "Nein",
+    "Tak, wbudowana": "Ja, integriert",
+    "Nie, brak": "nicht vorhanden"
+  },
+  "gpu_type": {
+    "Zintegrowana": "integriert",
+    "Dedykowana": "dediziert"
+  },
+  "screen_finish": {
+    "Matowa": "matt",
+    "Błyszcząca": "glänzend",
+    "Antyrefleksyjna": "entspiegelt"
+  },
+  "drive": {
+    "Beznapędowy": "nicht vorhanden",
+    "DVD": "DVD",
+    "DVD-RW": "DVD-RW",
+    "Nagrywarka DVD": "DVD-Brenner",
+    "Blu-ray": "Blu-ray"
+  },
+  "_zasada_encje": "Wartosci trzymamy z prawdziwymi umlautami. CSV jest UTF-8, a e() escapuje tylko & < > \" - encje w zrodle daja podwojne escapowanie."
 }
