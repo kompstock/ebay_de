@@ -24,5 +24,6 @@
   "title_suffix": "Win11 Pro",
   "product_safety_pictograms": "EBPSP201",
   "company_locations_de": "In Polen",
-  "os_language_note_de": "Die Systemsprache lässt sich in Windows jederzeit auf Deutsch umstellen."
+  "os_language_note_de": "Die Systemsprache lässt sich in Windows jederzeit auf Deutsch umstellen.",
+  "max_skipped_ratio": 0.3
 }

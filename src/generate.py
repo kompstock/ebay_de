@@ -107,6 +107,11 @@ class Review:
     def rows(self) -> list[tuple[str, str, str]]:
         return sorted(self.items)
 
+    def top(self, kind: str, by: str = "value", limit: int = 20):
+        idx = 1 if by == "field" else 2
+        counter = Counter(item[idx] for item in self.items if item[0] == kind)
+        return [{"wartosc": v, "produktow": n} for v, n in counter.most_common(limit)]
+
 
 def suggest_translation(value: str, translations: dict) -> str:
     out = value
@@ -433,6 +438,7 @@ def build_row(offer, attrs, cfg, headers, review):
 
     gpsr, gpsr_error = gpsr_block(attrs.get("Producent", ""), manufacturers)
     if gpsr_error:
+        review.add("gpsr", attrs.get("Producent", ""), gpsr_error)
         return None, gpsr_error
 
     images: list[str] = []
@@ -591,6 +597,12 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path) -> dict[str, Any]:
         "products_skipped": sum(skipped.values()),
         "skipped_reasons": dict(skipped),
         "review_items": len(review.rows()),
+        "do_uzupelnienia": {
+            "marki_bez_gpsr": review.top("gpsr", by="field"),
+            "brakujace_tlumaczenia": review.top("tlumaczenie"),
+            "wartosci_aspektow": review.top("aspekt"),
+            "etykiety_portow": review.top("port"),
+        },
         "nbp": nbp,
         "condition_mode": cfg["aspects"]["condition_id"]["_tryb"],
         "csv_columns": len(headers),
