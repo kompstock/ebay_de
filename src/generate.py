@@ -1,5 +1,18 @@
 #!/usr/bin/env python3
-"""Generate an eBay DE CSV from the public KOMPRE XML feed."""
+"""Generuje CSV eBay DE z feedu XML KOMPRE.
+
+Zasady egzekwowane twardo:
+  1. Brak kompletnych danych GPSR (producent + osoba odpowiedzialna w UE)
+     -> produkt NIE trafia do CSV.
+  2. Wartosc opisowa bez dokladnego tlumaczenia w slowniku
+     -> produkt NIE trafia do CSV, laduje w kolejce review.
+  3. Wartosc aspektu spoza zamknietego slownika
+     -> pole zostaje puste, wartosc laduje w kolejce review.
+  4. Polskie slowo lub znak diakrytyczny w gotowym opisie
+     -> produkt NIE trafia do CSV.
+  5. Klasa stanu ([Klasa A-]) nie pojawia sie w opisie.
+     Sluzy wylacznie do wyboru ConditionID.
+"""
 
 from __future__ import annotations
 
@@ -10,6 +23,7 @@ import json
 import math
 import re
 import sys
+import unicodedata
 import urllib.request
 import xml.etree.ElementTree as ET
 from collections import Counter
@@ -17,74 +31,32 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-
 ROOT = Path(__file__).resolve().parents[1]
-
-HEADERS = [
-    "*Action(SiteID=Germany|Country=PL|Currency=EUR|Version=1193|CC=UTF-8)",
-    "CustomLabel", "*Category", "StoreCategory", "*Title", "Subtitle",
-    "Relationship", "RelationshipDetails", "ScheduleTime", "*ConditionID", "VAT%",
-    "*C:Marke", "*C:Bildschirmgröße", "*C:Prozessor", "C:Festplattentyp",
-    "C:Produktart", "C:Festplattenkapazität", "C:Besonderheiten",
-    "C:SSD-Festplattenkapazität", "C:Grafikprozessor", "C:Erscheinungsjahr",
-    "C:Farbe", "C:Prozessorgeschwindigkeit", "C:Maximale Auflösung",
-    "C:Herstellernummer", "C:Modell", "C:Betriebssystem", "C:Anzahl der Einheiten",
-    "C:Maßeinheit", "C:Inklusive Ladegerät", "C:Ladebereich des Geräts",
-    "C:Arbeitsspeichergröße", "C:Grafikprozessortyp", "C:Konnektivität",
-    "C:Herstellergarantie", "C:Ursprungsland", "C:Serie", "C:Breite", "C:Gewicht",
-    "C:Höhe", "C:Länge", "C:Passend für", "PicURL", "GalleryType", "VideoID",
-    "*Description", "*Format", "*Duration", "*StartPrice", "BuyItNowPrice",
-    "BestOfferEnabled", "BestOfferAutoAcceptPrice", "MinimumBestOfferPrice",
-    "*Quantity", "ImmediatePayRequired", "*Location", "ShippingType",
-    "ShippingService-1:Option", "ShippingService-1:Cost", "ShippingService-2:Option",
-    "ShippingService-2:Cost", "*DispatchTimeMax", "PromotionalShippingDiscount",
-    "ShippingDiscountProfileID", "DomesticRateTable", "*ReturnsAcceptedOption",
-    "ReturnsWithinOption", "RefundOption", "ShippingCostPaidByOption",
-    "AdditionalDetails", "ShippingProfileName", "ReturnProfileName",
-    "PaymentProfileName", "TakeBackPolicyID", "Regional TakeBackPolicies",
-    "ProductCompliancePolicyID", "Regional ProductCompliancePolicies",
-    "EcoParticipationFee", "RepairScore", "Product Safety Pictograms",
-    "Product Safety Statements", "Product Safety Component", "Regulatory Document Ids",
-    "Manufacturer Name", "Manufacturer AddressLine1", "Manufacturer AddressLine2",
-    "Manufacturer City", "Manufacturer Country", "Manufacturer PostalCode",
-    "Manufacturer StateOrProvince", "Manufacturer Phone", "Manufacturer Email",
-    "Manufacturer ContactURL", "Responsible Person 1", "Responsible Person 1 Type",
-    "Responsible Person 1 AddressLine1", "Responsible Person 1 AddressLine2",
-    "Responsible Person 1 City", "Responsible Person 1 Country",
-    "Responsible Person 1 PostalCode", "Responsible Person 1 StateOrProvince",
-    "Responsible Person 1 Phone", "Responsible Person 1 Email",
-    "Responsible Person 1 ContactURL",
-]
 
 REQUIRED_XML = (
     "Producent", "SKU", "Model", "Procesor", "Przekątna ekranu",
     "Ilość pamięci RAM", "Dysk",
 )
 
-PORT_PATTERNS = [
-    (r"thunderbolt\s*4", "Thunderbolt 4"),
-    (r"thunderbolt\s*3", "Thunderbolt 3"),
-    (r"mini\s*displayport", "Mini DisplayPort"),
-    (r"displayport", "DisplayPort"),
-    (r"hdmi(?:\s*[0-9.]+[a-z]?)?", None),
-    (r"usb\s*typu\s*c|usb[\s-]*c", "USB-C"),
-    (r"usb\s*3\.2(?:\s*gen\s*[0-9])?", None),
-    (r"usb\s*3\.1(?:\s*gen\s*[0-9])?", None),
-    (r"usb\s*3\.0", "USB 3.0"),
-    (r"usb\s*2\.0", "USB 2.0"),
-    (r"rj[\s-]*45", "RJ-45"),
-    (r"micro\s*sd", "microSD"),
-    (r"czytnik\s+kart", "Kartenleser"),
-    (r"audio|słuchawk|mikrofon", "Audio"),
-]
+REQUIRED_TRANSLATIONS = (
+    "Kondycja sprzętu", "Stan obudowy", "Stan ekranu", "Bateria", "W zestawie",
+)
+
+POLISH_CHARS = set("ąćęłńóśźżĄĆĘŁŃÓŚŹŻ")
+POLISH_WORDS = re.compile(
+    r"(?<![\wäöüß])(i|oraz|lub|albo|we|ze|na|do|dla|od|po|przy|jest|są|"
+    r"może|możliwy|możliwe|brak|bez|nowy|nowa|używany|używana|sprawny|"
+    r"laptop|klawiatura|ekran|obudowa|zasilacz|sprzęt|typu|złącze|gniazdo|czytnik)(?![\wäöüß])",
+    re.IGNORECASE,
+)
 
 
 def load_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def fetch_bytes(url: str, timeout: int = 90) -> bytes:
-    request = urllib.request.Request(url, headers={"User-Agent": "kompre-ebay-csv/1.0"})
+def fetch_bytes(url: str, timeout: int = 120) -> bytes:
+    request = urllib.request.Request(url, headers={"User-Agent": "kompre-ebay-csv/2.0"})
     with urllib.request.urlopen(request, timeout=timeout) as response:
         return response.read()
 
@@ -92,14 +64,24 @@ def fetch_bytes(url: str, timeout: int = 90) -> bytes:
 def fetch_nbp_rate(url: str) -> dict[str, Any]:
     payload = json.loads(fetch_bytes(url).decode("utf-8"))
     rate = payload["rates"][0]
-    return {
-        "currency": payload["currency"],
-        "code": payload["code"],
-        "table": payload["table"],
-        "number": rate["no"],
-        "effective_date": rate["effectiveDate"],
-        "rate": float(rate["mid"]),
-    }
+    return {"currency": payload["currency"], "code": payload["code"],
+            "table": payload["table"], "number": rate["no"],
+            "effective_date": rate["effectiveDate"], "rate": float(rate["mid"])}
+
+
+def norm(value: str) -> str:
+    value = unicodedata.normalize("NFKD", str(value or ""))
+    value = "".join(c for c in value if not unicodedata.combining(c))
+    value = value.replace("\u0142", "l").replace("\u0141", "l")
+    return re.sub(r"\s+", " ", value).strip().lower()
+
+
+def normalize_space(value: str) -> str:
+    return re.sub(r"\s+", " ", value or "").strip()
+
+
+def e(value: Any) -> str:
+    return html.escape(str(value or ""), quote=True)
 
 
 def text(node: ET.Element | None) -> str:
@@ -107,385 +89,500 @@ def text(node: ET.Element | None) -> str:
 
 
 def offer_attrs(offer: ET.Element) -> dict[str, str]:
-    result: dict[str, str] = {}
+    out: dict[str, str] = {}
     for item in offer.findall("./attrs/a"):
         name = (item.get("name") or "").strip()
         if name:
-            result[name] = text(item)
-    return result
+            out[name] = normalize_space(text(item))
+    return out
 
 
-def normalize_space(value: str) -> str:
-    return re.sub(r"\s+", " ", value).strip()
+class Review:
+    def __init__(self) -> None:
+        self.items: set[tuple[str, str, str]] = set()
+
+    def add(self, kind: str, field: str, value: str) -> None:
+        self.items.add((kind, field, value))
+
+    def rows(self) -> list[tuple[str, str, str]]:
+        return sorted(self.items)
+
+
+def suggest_translation(value: str, translations: dict) -> str:
+    out = value
+    for source, target in sorted(
+        translations.get("_podpowiedzi", {}).items(), key=lambda i: len(i[0]), reverse=True
+    ):
+        out = re.sub(re.escape(source), target, out, flags=re.IGNORECASE)
+    return normalize_space(out)
+
+
+def translate_value(field: str, value: str, translations: dict, review: Review) -> str | None:
+    if not value:
+        return ""
+    hit = translations["values"].get(norm(value))
+    if hit:
+        return hit
+    review.add("tlumaczenie", field,
+               f"{value}  ->  [propozycja] {suggest_translation(value, translations)}")
+    return None
+
+
+def has_polish_leak(text_value: str) -> str | None:
+    """Sprawdza tylko tekst widoczny dla kupujacego.
+
+    CSS musi wypasc PRZED sprawdzeniem - selektor '.kpx-key i{...}' zawiera
+    samotne 'i' i bez tego wywala falszywy alarm na kazdym produkcie.
+    """
+    plain = re.sub(r"(?is)<(style|script)\b.*?</\1>", " ", text_value)
+    plain = re.sub(r"(?s)<!--.*?-->", " ", plain)
+    plain = html.unescape(re.sub(r"<[^>]+>", " ", plain))
+    for char in plain:
+        if char in POLISH_CHARS:
+            return f"znak diakrytyczny {char!r}"
+    match = POLISH_WORDS.search(plain)
+    return f"polskie slowo {match.group(0)!r}" if match else None
+
+
+def brand_name(value: str) -> str:
+    known = {"lenovo": "Lenovo", "dell": "Dell", "hp": "HP", "fujitsu": "Fujitsu",
+             "apple": "Apple", "acer": "Acer", "asus": "ASUS", "toshiba": "Toshiba",
+             "microsoft": "Microsoft", "panasonic": "Panasonic", "samsung": "Samsung"}
+    return known.get(norm(value), value.title())
 
 
 def clean_capacity(value: str) -> str:
-    value = normalize_space(value)
-    value = re.sub(r"(?i)\s*(GB|TB)$", r" \1", value)
-    return value
+    return normalize_space(re.sub(r"(?i)(\d)\s*(GB|TB|MB)\b", r"\1 \2", value or ""))
 
 
 def screen_size_de(value: str) -> str:
-    number = re.search(r"\d+(?:[.,]\d+)?", value)
-    return f"{number.group(0).replace('.', ',')} Zoll" if number else value
+    number = re.search(r"\d+(?:[.,]\d+)?", value or "")
+    return f"{number.group(0).replace('.', ',')} Zoll" if number else ""
 
 
-def brand(value: str) -> str:
-    known = {
-        "LENOVO": "Lenovo", "DELL": "Dell", "HP": "HP", "FUJITSU": "Fujitsu",
-        "APPLE": "Apple", "ACER": "Acer", "ASUS": "ASUS", "TOSHIBA": "Toshiba",
-        "MICROSOFT": "Microsoft", "PANASONIC": "Panasonic", "SAMSUNG": "Samsung",
-    }
-    return known.get(value.upper(), value.title())
+def base_clock(value: str) -> str:
+    match = re.search(r"(\d+[.,]\d+)", value or "")
+    return f"{match.group(1).replace('.', ',')} GHz" if match else ""
 
 
-def processor_aspect(processor: str, series: str) -> str:
-    p = processor.upper()
-    if "RYZEN 5 PRO" in p:
-        match = re.search(r"\b([4-9])\d{3}", p)
-        return f"AMD Ryzen 5 PRO {match.group(1)}000 Series" if match else "AMD Ryzen 5 PRO"
-    if "RYZEN 7 PRO" in p:
-        match = re.search(r"\b([3-9])\d{3}", p)
-        return f"AMD Ryzen 7 PRO {match.group(1)}000 Series" if match else "AMD Ryzen 7 PRO"
-    if "RYZEN 5" in p:
-        match = re.search(r"\b([3-9])\d{3}", p)
-        return f"AMD Ryzen 5 {match.group(1)}000 Series" if match else "AMD Ryzen 5"
-    if "RYZEN 7" in p:
-        match = re.search(r"\b([3-9])\d{3}", p)
-        return f"AMD Ryzen 7 {match.group(1)}000 Series" if match else "AMD Ryzen 7"
-    intel = re.search(r"\bI([3579])[- ]?(\d{4,5})[A-Z]*\b", p)
+def processor_aspect(processor: str, series: str, review: Review) -> str:
+    p = (processor or "").upper()
+    for label, pattern in (("AMD Ryzen 3 PRO", r"RYZEN 3 PRO"), ("AMD Ryzen 5 PRO", r"RYZEN 5 PRO"),
+                           ("AMD Ryzen 7 PRO", r"RYZEN 7 PRO"), ("AMD Ryzen 9 PRO", r"RYZEN 9 PRO"),
+                           ("AMD Ryzen 3", r"RYZEN 3"), ("AMD Ryzen 5", r"RYZEN 5"),
+                           ("AMD Ryzen 7", r"RYZEN 7"), ("AMD Ryzen 9", r"RYZEN 9")):
+        if re.search(pattern, p):
+            digits = re.search(r"\b([2-9])\d{3}\b", p)
+            return f"{label} {digits.group(1)}000 Series" if digits else label
+    intel = re.search(r"\bI([3579])[- ]?(\d{4,5})", p)
     if intel:
-        generation = int(intel.group(2)[0:2] if len(intel.group(2)) == 5 else intel.group(2)[0])
-        return f"Intel Core i{intel.group(1)} {generation}. Gen"
+        num = intel.group(2)
+        gen = num[:2] if len(num) == 5 else num[0]
+        return f"Intel Core i{intel.group(1)} {int(gen)}. Generation"
+    if "CELERON" in p:
+        return "Intel Celeron"
+    if "PENTIUM" in p:
+        return "Intel Pentium"
+    review.add("aspekt", "C:Prozessor", processor)
     return series or processor
 
 
-def translate_fragments(value: str, translations: dict[str, Any]) -> tuple[str, bool]:
-    if not value:
-        return "Nicht angegeben", False
-    if value in translations.get("exact_states", {}):
-        return translations["exact_states"][value], True
-    result = value
-    matched = False
-    for source, target in sorted(
-        translations["phrases"].items(), key=lambda item: len(item[0]), reverse=True
-    ):
-        pattern = re.compile(re.escape(source), re.IGNORECASE)
-        if pattern.search(result):
-            result = pattern.sub(target, result)
-            matched = True
-    result = re.sub(r"\s*,\s*", ", ", result)
-    return normalize_space(result), matched
+def parse_ports_raw(value: str) -> list[tuple[int, str]]:
+    out: list[tuple[int, str]] = []
+    for count, label in re.findall(r"(\d+)\s*x\s*(.+?)(?=\s*\d+\s*x\s|$)", value or ""):
+        label = re.sub(r"\s*\([^)]*\)", "", label).strip(" ,;")
+        if label:
+            out.append((int(count), label))
+    return out
 
 
-def condition_summary(value: str, translations: dict[str, Any]) -> str:
-    for prefix, translated in translations["condition_class"].items():
-        if value.startswith(prefix):
-            rest = value[len(prefix):].strip(" ,.-")
-            rest_de, _ = translate_fragments(rest, translations)
-            return f"{translated}. {rest_de}."
-    translated, _ = translate_fragments(value, translations)
-    return translated.rstrip(".") + "."
+def port_label(label: str, aspects: dict, review: Review) -> str:
+    """Etykieta portu w opisie. Nieznana = zostaje surowa i idzie do review."""
+    mapping = aspects["konnektivitaet"]["opis_etykiety"]
+    hit = mapping.get(norm(label))
+    if hit:
+        return hit
+    if re.search(r"[ąćęłńóśźż]|typu|zlacze|gniazdo|czytnik", norm(label) + label.lower()):
+        review.add("port", "opis", label)
+    return label
 
 
-def parse_ports(value: str) -> list[str]:
-    ports: list[str] = []
-    lower = value.lower()
-    for pattern, fixed in PORT_PATTERNS:
-        for match in re.finditer(pattern, lower, flags=re.IGNORECASE):
-            label = fixed or normalize_space(match.group(0)).upper().replace("GEN", "Gen")
-            label = re.sub(r"USB\s+TYPU\s+C", "USB-C", label, flags=re.IGNORECASE)
-            label = re.sub(r"^HDMI", "HDMI", label, flags=re.IGNORECASE)
-            label = re.sub(r"^USB", "USB", label, flags=re.IGNORECASE)
-            if label not in ports:
-                ports.append(label)
-    return ports
+def connectivity_aspect(ports, aspects: dict, review: Review) -> str:
+    cfg = aspects["konnektivitaet"]
+    allowed, mapping = cfg["_dozwolone"], cfg["z_portow"]
+    found: list[str] = list(cfg["zawsze_dodaj"]["wartosci"])
+    for _, label in ports:
+        key = norm(label)
+        hit = mapping.get(key)
+        if not hit:
+            for source, target in sorted(mapping.items(), key=lambda i: -len(i[0])):
+                if key.startswith(source):
+                    hit = target
+                    break
+        if not hit:
+            if not any(key.startswith(k) for k in cfg["_pomijane"] if not k.startswith("_")):
+                review.add("aspekt", "C:Konnektivität", label)
+            continue
+        if hit in allowed and hit not in found:
+            found.append(hit)
+    return "|".join(sorted(found))
 
 
-def e(str_value: Any) -> str:
-    return html.escape(str(str_value or ""), quote=True)
+def features_aspect(attrs: dict, ports, aspects: dict) -> str:
+    out = ["Bluetooth", "Wi-Fi", "Eingebautes Mikrofon"]
+    if attrs.get("Ekran dotykowy") == "Tak":
+        out.append("Touchscreen")
+    if any(norm(l).startswith(("rj-45", "rj45")) for _, l in ports):
+        out.append("10/100 LAN Karte")
+    if norm(attrs.get("Kamera", "")).startswith("tak"):
+        out.append("Webcam")
+    allowed = aspects["besonderheiten"]["_dozwolone"]
+    return "|".join(v for v in out if v in allowed)
+
+
+def series_aspect(model: str, aspects: dict) -> str:
+    key = norm(model)
+    for pattern, value in sorted(aspects["serie"]["wzorce"].items(), key=lambda i: -len(i[0])):
+        if pattern in key:
+            return value
+    return ""
+
+
+def year_aspect(model: str, aspects: dict) -> str:
+    return aspects["erscheinungsjahr"]["modele"].get(norm(model), "")
+
+
+def colour_aspect(model: str, aspects: dict) -> str:
+    key = norm(model)
+    for pattern, value in aspects["farbe"]["z_modelu"].items():
+        if pattern in key:
+            return value
+    return aspects["farbe"]["domyslnie"]
+
+
+def condition_class(value: str) -> str:
+    match = re.search(r"\[klasa\s*([a-c][+\-]?)\]", norm(value))
+    return match.group(1).upper() if match else ""
+
+
+def gpsr_block(producent: str, manufacturers: dict) -> tuple[dict[str, str], str]:
+    key = norm(producent)
+    key = manufacturers["aliasy"].get(key, key)
+    entry = manufacturers["producenci"].get(key)
+    if not entry:
+        return {}, f"gpsr: brak wpisu dla '{producent}'"
+    if not entry.get("responsible_person"):
+        return {}, f"gpsr: brak osoby odpowiedzialnej w UE dla '{producent}'"
+    m, r = entry["manufacturer"], entry["responsible_person"]
+    return {
+        "Manufacturer Name": m["name"],
+        "Manufacturer AddressLine1": m["address1"],
+        "Manufacturer AddressLine2": m.get("address2", ""),
+        "Manufacturer City": m["city"],
+        "Manufacturer Country": m["country"],
+        "Manufacturer PostalCode": m["postal"],
+        "Manufacturer StateOrProvince": m.get("state", ""),
+        "Manufacturer Phone": m.get("phone", ""),
+        "Manufacturer Email": m["email"],
+        "Manufacturer ContactURL": m.get("url", ""),
+        "Responsible Person 1": r["name"],
+        "Responsible Person 1 Type": r["type"],
+        "Responsible Person 1 AddressLine1": r["address1"],
+        "Responsible Person 1 AddressLine2": r.get("address2", ""),
+        "Responsible Person 1 City": r["city"],
+        "Responsible Person 1 Country": r["country"],
+        "Responsible Person 1 PostalCode": r["postal"],
+        "Responsible Person 1 StateOrProvince": r.get("state", ""),
+        "Responsible Person 1 Phone": r.get("phone", ""),
+        "Responsible Person 1 Email": r["email"],
+        "Responsible Person 1 ContactURL": r.get("url", ""),
+    }, ""
 
 
 def spec_row(label: str, value: str) -> str:
-    return f"<tr><th>{e(label)}</th><td>{e(value or 'Nicht angegeben')}</td></tr>"
+    return f"<tr><th>{e(label)}</th><td>{e(value)}</td></tr>" if value else ""
 
 
-def render_description(
-    template: str,
-    attrs: dict[str, str],
-    images: list[str],
-    translations: dict[str, Any],
-) -> tuple[str, list[tuple[str, str]]]:
-    review: list[tuple[str, str]] = []
-    case_condition, case_matched = translate_fragments(attrs.get("Stan obudowy", ""), translations)
-    screen_condition, screen_matched = translate_fragments(attrs.get("Stan ekranu", ""), translations)
-    if attrs.get("Stan obudowy") and not case_matched:
-        review.append(("Stan obudowy", attrs["Stan obudowy"]))
-    if attrs.get("Stan ekranu") and not screen_matched:
-        review.append(("Stan ekranu", attrs["Stan ekranu"]))
+def render_description(template, attrs, images, translations, aspects, settings, review):
+    de: dict[str, str] = {}
+    for field in REQUIRED_TRANSLATIONS:
+        raw = attrs.get(field, "")
+        if not raw:
+            return "", f"opis: brak pola {field}"
+        value = translate_value(field, raw, translations, review)
+        if value is None:
+            return "", f"opis: brak tlumaczenia {field}"
+        de[field] = value
 
-    ports = parse_ports(attrs.get("Złącza zewnętrzne", ""))
-    manufacturer = brand(attrs.get("Producent", ""))
-    disk = clean_capacity(attrs.get("Dysk", ""))
+    extra = attrs.get("Informacje dodatkowe", "")
+    extra_de = translate_value("Informacje dodatkowe", extra, translations, review) if extra else ""
+    if extra_de is None:
+        extra_de = ""
+
+    ports = parse_ports_raw(attrs.get("Złącza zewnętrzne", ""))
+    manufacturer = brand_name(attrs.get("Producent", ""))
+    model = attrs.get("Model", "")
     ram = clean_capacity(attrs.get("Ilość pamięci RAM", ""))
-    finish = translations["screen_finish"].get(
-        attrs.get("Powłoka matrycy", ""), attrs.get("Powłoka matrycy", "")
-    )
-    gpu_type = translations["gpu_type"].get(
-        attrs.get("Rodzaj karty graficznej", ""), attrs.get("Rodzaj karty graficznej", "")
-    )
-    touchscreen = translations["yes_no"].get(
-        attrs.get("Ekran dotykowy", ""), attrs.get("Ekran dotykowy", "")
-    )
-    camera = translations["yes_no"].get(attrs.get("Kamera", ""), attrs.get("Kamera", ""))
-    drive = translations["drive"].get(attrs.get("Napęd", ""), attrs.get("Napęd", ""))
-    keyboard_info, keyboard_matched = translate_fragments(
-        attrs.get("Informacje dodatkowe", ""), translations
-    )
-    if not keyboard_matched:
-        keyboard_info = attrs.get("Klawiatura (ISO lub ANSI)", "Nicht angegeben")
+    disk = clean_capacity(attrs.get("Dysk", ""))
+    finish = translations["screen_finish"].get(attrs.get("Powłoka matrycy", ""), "")
+    gpu_type = translations["gpu_type"].get(attrs.get("Rodzaj karty graficznej", ""), "")
+    operating_system = aspects["betriebssystem"].get(
+        attrs.get("Zainstalowany system", attrs.get("Licencja", "")), "")
 
-    battery, _ = translate_fragments(attrs.get("Bateria", ""), translations)
-    supplied, _ = translate_fragments(attrs.get("W zestawie", ""), translations)
     specs = [
-        ("Hersteller", manufacturer), ("Modell", attrs.get("Model", "")),
-        ("Prozessor", attrs.get("Procesor", "")), ("Kerne", attrs.get("Ilość rdzeni", "")),
-        ("Arbeitsspeicher", f"{ram} {attrs.get('Typ pamięci RAM', '')}".strip()),
-        ("Festplatte", f"{disk} {attrs.get('Typ dysku', '')}".strip()),
-        ("Display", f"{screen_size_de(attrs.get('Przekątna ekranu', ''))}, {attrs.get('Rozdzielczość ekranu', '')}, {finish}".strip(" ,")),
-        ("Grafik", f"{attrs.get('Model karty graficznej', '')}, {gpu_type}".strip(" ,")),
-        ("Touchscreen", touchscreen), ("Optisches Laufwerk", drive),
-        ("Betriebssystem", attrs.get("Zainstalowany system", attrs.get("Licencja", ""))),
+        ("Hersteller", manufacturer),
+        ("Modell", model),
+        ("Prozessor", attrs.get("Procesor", "")),
+        ("Prozessorkerne", attrs.get("Ilość rdzeni", "")),
+        ("Taktfrequenz", base_clock(attrs.get("Taktowanie", ""))),
+        ("Arbeitsspeicher", normalize_space(f"{ram} {attrs.get('Typ pamięci RAM', '')}")),
+        ("Festplatte", normalize_space(f"{disk} {attrs.get('Typ dysku', '')}")),
+        ("Display", ", ".join(x for x in [
+            screen_size_de(attrs.get("Przekątna ekranu", "")),
+            attrs.get("Rozdzielczość ekranu", ""), finish] if x)),
+        ("Grafik", ", ".join(x for x in [
+            attrs.get("Model karty graficznej", ""), gpu_type] if x)),
+        ("Touchscreen", "nicht vorhanden" if attrs.get("Ekran dotykowy") == "Nie"
+         else "vorhanden" if attrs.get("Ekran dotykowy") == "Tak" else ""),
+        ("Optisches Laufwerk", translations["drive"].get(attrs.get("Napęd", ""), "")),
+        ("Betriebssystem", operating_system),
         ("Tastatur-Layout", attrs.get("Klawiatura (ISO lub ANSI)", "")),
-        ("Webcam", camera), ("Akku", battery),
-        ("Lieferumfang", supplied),
+        ("Webcam", translations["yes_no"].get(attrs.get("Kamera", ""), "")),
+        ("Akku", de["Bateria"]),
+        ("Lieferumfang", de["W zestawie"]),
     ]
-    replacements = {
+
+    gpu_note = ("Die Grafik ist integriert. F&uuml;r aktuelle Spiele, 3D-Rendering oder "
+                "gro&szlig;e Videoschnitt-Projekte ist das Ger&auml;t nicht gedacht."
+                if norm(gpu_type).startswith("integriert") else "")
+
+    values = {
         "processor": attrs.get("Procesor", ""),
-        "ram": ram,
-        "ram_type": attrs.get("Typ pamięci RAM", ""),
-        "disk": disk,
-        "disk_type": attrs.get("Typ dysku", ""),
+        "ram": ram, "ram_type": attrs.get("Typ pamięci RAM", ""),
+        "disk": disk, "disk_type": attrs.get("Typ dysku", ""),
         "screen_size": screen_size_de(attrs.get("Przekątna ekranu", "")),
+        "screen_finish": finish,
         "resolution": attrs.get("Rozdzielczość ekranu", ""),
-        "operating_system": attrs.get("Zainstalowany system", attrs.get("Licencja", "")),
-        "manufacturer": manufacturer,
-        "model": attrs.get("Model", ""),
-        "condition_summary": condition_summary(attrs.get("Kondycja sprzętu", ""), translations),
-        "case_condition": case_condition,
-        "screen_condition": screen_condition,
-        "keyboard_info": keyboard_info,
-        "battery": battery,
-        "spec_rows": "".join(spec_row(label, value) for label, value in specs if value),
-        "port_items": "".join(f"<li>{e(port)}</li>" for port in ports) or "<li>Nicht angegeben</li>",
+        "operating_system": operating_system,
+        "manufacturer": manufacturer, "model": model,
+        "condition_summary": de["Kondycja sprzętu"],
+        "case_condition": de["Stan obudowy"],
+        "screen_condition": de["Stan ekranu"],
+        "keyboard_info": extra_de,
+        "battery": de["Bateria"],
+        "company_since": settings["company_since"],
+        "company_locations": settings["company_locations_de"],
+        "os_language_note": settings["os_language_note_de"],
+    }
+    raw = {
+        "gpu_note": gpu_note,
+        "spec_rows": "".join(spec_row(l, v) for l, v in specs),
+        "port_items": "".join(
+            f"<li>{e(str(c) + 'x ' + port_label(l, aspects, review))}</li>" for c, l in ports),
         "main_image_block": (
             f'<div class="kpx-media"><img src="{e(images[0])}" '
-            f'alt="{e(manufacturer)} {e(attrs.get("Model", ""))}"></div>'
-            if images else ""
-        ),
+            f'alt="{e(manufacturer)} {e(model)}"></div>' if images else ""),
     }
-    rendered = template
-    raw_keys = {"spec_rows", "port_items", "main_image_block"}
-    for key, value in replacements.items():
-        rendered = rendered.replace("{{" + key + "}}", value if key in raw_keys else e(value))
-    return normalize_space(rendered), review
+    out = template
+    for key, value in {**values, **raw}.items():
+        out = out.replace("{{" + key + "}}", value if key in raw else e(value))
+    out = normalize_space(out)
+
+    leak = has_polish_leak(out)
+    return ("", f"opis: niedotlumaczony ({leak})") if leak else (out, "")
 
 
-def build_title(attrs: dict[str, str]) -> str:
-    parts = [
-        brand(attrs.get("Producent", "")), attrs.get("Model", ""),
-        screen_size_de(attrs.get("Przekątna ekranu", "")),
-        "Notebook", clean_capacity(attrs.get("Ilość pamięci RAM", "")),
-        clean_capacity(attrs.get("Dysk", "")), attrs.get("Typ dysku", ""),
-    ]
-    title = normalize_space(" ".join(part for part in parts if part))
-    if len(title) <= 80:
-        return title
-    short = normalize_space(" ".join(parts[:6]))
-    return short[:80].rstrip(" -|/")
+def build_title(attrs: dict, settings: dict) -> str:
+    parts = [brand_name(attrs.get("Producent", "")), attrs.get("Model", ""),
+             attrs.get("Procesor", ""), clean_capacity(attrs.get("Ilość pamięci RAM", "")),
+             clean_capacity(attrs.get("Dysk", "")), attrs.get("Typ dysku", ""),
+             screen_size_de(attrs.get("Przekątna ekranu", "")),
+             settings.get("title_suffix", "")]
+    title = normalize_space(" ".join(p for p in parts if p))
+    while len(title) > 80 and " " in title:
+        title = title.rsplit(" ", 1)[0]
+    return title
 
 
-def images_for_offer(offer: ET.Element, limit: int) -> list[str]:
+def build_row(offer, attrs, cfg, headers, review):
+    settings, translations = cfg["settings"], cfg["translations"]
+    aspects, manufacturers = cfg["aspects"], cfg["manufacturers"]
+
+    gpsr, gpsr_error = gpsr_block(attrs.get("Producent", ""), manufacturers)
+    if gpsr_error:
+        return None, gpsr_error
+
     images: list[str] = []
     for node in offer.findall("./imgs/*"):
         url = (node.get("url") or "").strip()
         if url and url not in images:
             images.append(url)
-    return images[:limit]
+    images = images[: int(settings["max_images"])]
 
+    description, desc_error = render_description(
+        cfg["template"], attrs, images, translations, aspects, settings, review)
+    if desc_error:
+        return None, desc_error
 
-def build_row(
-    offer: ET.Element,
-    attrs: dict[str, str],
-    settings: dict[str, Any],
-    translations: dict[str, Any],
-    template: str,
-    eur_rate: float,
-) -> tuple[dict[str, str], list[tuple[str, str]]]:
-    images = images_for_offer(offer, int(settings["max_images"]))
-    description, review = render_description(template, attrs, images, translations)
+    ports = parse_ports_raw(attrs.get("Złącza zewnętrzne", ""))
     disk = clean_capacity(attrs.get("Dysk", ""))
     ram = clean_capacity(attrs.get("Ilość pamięci RAM", ""))
-    ports = parse_ports(attrs.get("Złącza zewnętrzne", ""))
-    features = []
-    if attrs.get("Kamera", "").lower().startswith("tak"):
-        features.append("Eingebaute Webcam")
-    if attrs.get("Ekran dotykowy") == "Tak":
-        features.append("Touchscreen")
-    if "Bluetooth" in attrs.get("Złącza zewnętrzne", ""):
-        features.append("Bluetooth")
-    price_eur = math.ceil(float(offer.get("price", "0").replace(",", ".")) / eur_rate)
+    model = attrs.get("Model", "")
+    grade = condition_class(attrs.get("Kondycja sprzętu", ""))
+    cond_map = aspects["condition_id"][aspects["condition_id"]["_tryb"]]
+
+    quantity = int(float(offer.get("stock", "0") or 0))
+    cap = int(settings.get("max_quantity", 0) or 0)
+    if cap:
+        quantity = min(quantity, cap)
+
+    price_eur = math.ceil(float(offer.get("price", "0").replace(",", ".")) / cfg["rate"])
 
     values: dict[str, str] = {
-        HEADERS[0]: "Add",
+        headers[0]: "Add",
         "CustomLabel": attrs.get("SKU", ""),
         "*Category": settings["ebay_category"],
-        "*Title": build_title(attrs),
-        "*ConditionID": settings["condition_id"],
+        "*Title": build_title(attrs, settings),
+        "*ConditionID": cond_map.get(grade, cond_map["_brak"]),
         "VAT%": settings["vat_percent"],
-        "*C:Marke": brand(attrs.get("Producent", "")),
+        "*C:Marke": brand_name(attrs.get("Producent", "")),
         "*C:Bildschirmgröße": screen_size_de(attrs.get("Przekątna ekranu", "")),
         "*C:Prozessor": processor_aspect(
-            attrs.get("Procesor", ""), attrs.get("Seria procesora", "")
-        ),
-        "C:Festplattentyp": (
-            "SSD (Solid State Drive)" if attrs.get("Typ dysku") == "SSD"
-            else "HDD (Hard Disk Drive)" if attrs.get("Typ dysku") == "HDD"
-            else attrs.get("Typ dysku", "")
-        ),
+            attrs.get("Procesor", ""), attrs.get("Seria procesora", ""), review),
+        "C:Festplattentyp": aspects["festplattentyp"].get(attrs.get("Typ dysku", ""), ""),
         "C:Produktart": "Notebook / Laptop",
         "C:Festplattenkapazität": disk,
-        "C:Besonderheiten": "|".join(features),
+        "C:Besonderheiten": features_aspect(attrs, ports, aspects),
         "C:SSD-Festplattenkapazität": disk if attrs.get("Typ dysku") == "SSD" else "",
         "C:Grafikprozessor": attrs.get("Model karty graficznej", ""),
-        "C:Prozessorgeschwindigkeit": attrs.get("Taktowanie", "").replace(".", ","),
+        "C:Erscheinungsjahr": year_aspect(model, aspects),
+        "C:Farbe": colour_aspect(model, aspects),
+        "C:Prozessorgeschwindigkeit": base_clock(attrs.get("Taktowanie", "")),
         "C:Maximale Auflösung": attrs.get("Rozdzielczość ekranu", ""),
         "C:Herstellernummer": "Nicht zutreffend",
-        "C:Modell": attrs.get("Model", ""),
-        "C:Betriebssystem": attrs.get("Zainstalowany system", attrs.get("Licencja", "")),
+        "C:Modell": model,
+        "C:Betriebssystem": aspects["betriebssystem"].get(
+            attrs.get("Zainstalowany system", attrs.get("Licencja", "")), ""),
         "C:Anzahl der Einheiten": "1",
         "C:Maßeinheit": "Einheit",
         "C:Inklusive Ladegerät": "Ja" if attrs.get("W zestawie") else "",
         "C:Arbeitsspeichergröße": ram,
-        "C:Grafikprozessortyp": translations["gpu_type"].get(
-            attrs.get("Rodzaj karty graficznej", ""), attrs.get("Rodzaj karty graficznej", "")
-        ),
-        "C:Konnektivität": "|".join(ports),
+        "C:Grafikprozessortyp": aspects["grafikprozessortyp"].get(
+            attrs.get("Rodzaj karty graficznej", ""), ""),
+        "C:Konnektivität": connectivity_aspect(ports, aspects, review),
         "C:Herstellergarantie": "Keine",
+        "C:Serie": series_aspect(model, aspects),
+        "C:Passend für": "|".join(aspects["passend_fuer"]["wartosci"]),
         "PicURL": "|".join(images),
         "GalleryType": settings["gallery_type"],
         "*Description": description,
         "*Format": settings["format"],
         "*Duration": settings["duration"],
         "*StartPrice": f"{price_eur:.2f}",
-        "*Quantity": str(int(float(offer.get("stock", "0")))),
+        "*Quantity": str(quantity),
         "*Location": settings["location"],
         "ShippingProfileName": settings["shipping_profile_name"],
         "ReturnProfileName": settings["return_profile_name"],
         "PaymentProfileName": settings["payment_profile_name"],
-        "Product Safety Pictograms": "EBPSP201",
-        "Manufacturer Name": brand(attrs.get("Producent", "")),
+        "Product Safety Pictograms": settings["product_safety_pictograms"],
+        **gpsr,
     }
-    return {header: values.get(header, "") for header in HEADERS}, review
+    return {h: values.get(h, "") for h in headers}, ""
 
 
-def generate(
-    feed_bytes: bytes,
-    nbp: dict[str, Any],
-    settings: dict[str, Any],
-    translations: dict[str, Any],
-    template: str,
-    output_dir: Path,
-) -> dict[str, Any]:
+def read_headers(path: Path) -> list[str]:
+    with path.open(encoding="utf-8-sig", newline="") as handle:
+        for row in csv.reader(handle, delimiter=";"):
+            if row and row[0].startswith("*Action("):
+                return row
+    raise ValueError(f"brak wiersza naglowka w {path}")
+
+
+def generate(feed_bytes, nbp, cfg, output_dir: Path) -> dict[str, Any]:
+    headers = cfg["headers"]
+    cfg["rate"] = nbp["rate"]
     root = ET.fromstring(feed_bytes)
-    selected = []
-    skipped = Counter()
+    review = Review()
+    skipped: Counter = Counter()
     rows: list[dict[str, str]] = []
-    review_values: set[tuple[str, str]] = set()
+    in_category = 0
 
     for offer in root.findall("./o"):
-        if text(offer.find("./cat")) != settings["xml_category"]:
+        if text(offer.find("./cat")) not in cfg["settings"]["xml_categories"]:
             continue
-        selected.append(offer)
-        stock = int(float(offer.get("stock", "0") or 0))
-        if stock <= 0:
+        in_category += 1
+        if int(float(offer.get("stock", "0") or 0)) <= 0:
             skipped["stock_zero"] += 1
             continue
         attrs = offer_attrs(offer)
-        missing = [name for name in REQUIRED_XML if not attrs.get(name)]
+        missing = [f for f in REQUIRED_XML if not attrs.get(f)]
         if missing:
-            skipped["missing_required_xml"] += 1
-            review_values.add(("Brak wymaganych pól", f"{attrs.get('SKU', offer.get('id', ''))}: {', '.join(missing)}"))
+            skipped["brak_pol_xml"] += 1
+            review.add("feed", attrs.get("SKU", offer.get("id", "")), ", ".join(missing))
             continue
         try:
-            row, review = build_row(
-                offer, attrs, settings, translations, template, nbp["rate"]
-            )
-        except (ValueError, TypeError) as exc:
-            skipped["conversion_error"] += 1
-            review_values.add(("Błąd konwersji", f"{attrs.get('SKU', offer.get('id', ''))}: {exc}"))
+            row, error = build_row(offer, attrs, cfg, headers, review)
+        except (ValueError, TypeError, KeyError) as exc:
+            skipped["blad_konwersji"] += 1
+            review.add("blad", attrs.get("SKU", ""), repr(exc))
+            continue
+        if error:
+            skipped[error.split(":")[0]] += 1
+            review.add("blokada", attrs.get("SKU", ""), error)
             continue
         rows.append(row)
-        review_values.update(review)
 
     output_dir.mkdir(parents=True, exist_ok=True)
-    csv_path = output_dir / "ebay-de-laptops.csv"
-    with csv_path.open("w", encoding="utf-8-sig", newline="") as handle:
+    with (output_dir / "ebay-de-laptops.csv").open(
+            "w", encoding="utf-8-sig", newline="") as handle:
         writer = csv.writer(handle, delimiter=";", quoting=csv.QUOTE_MINIMAL, lineterminator="\n")
         writer.writerow(["Info", "Version=1.0.0", "Template=fx_category_template_EBAY_DE"])
-        writer.writerow(HEADERS)
-        writer.writerows([[row[header] for header in HEADERS] for row in rows])
+        writer.writerow(headers)
+        writer.writerows([[row[h] for h in headers] for row in rows])
 
-    review_path = output_dir / "translation-review.csv"
-    with review_path.open("w", encoding="utf-8-sig", newline="") as handle:
+    with (output_dir / "review.csv").open("w", encoding="utf-8-sig", newline="") as handle:
         writer = csv.writer(handle, delimiter=";", lineterminator="\n")
-        writer.writerow(["Pole", "Wartość XML"])
-        writer.writerows(sorted(review_values))
+        writer.writerow(["Rodzaj", "Pole / SKU", "Wartość"])
+        writer.writerows(review.rows())
 
     report = {
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
-        "source_category": settings["xml_category"],
-        "products_in_category": len(selected),
+        "products_in_category": in_category,
         "products_exported": len(rows),
         "products_skipped": sum(skipped.values()),
         "skipped_reasons": dict(skipped),
-        "translation_review_values": len(review_values),
+        "review_items": len(review.rows()),
         "nbp": nbp,
-        "pricing": "ceil(price_pln / nbp_eur_mid)",
-        "condition_id": settings["condition_id"],
-        "vat_percent": settings["vat_percent"],
-        "csv_columns": len(HEADERS),
+        "condition_mode": cfg["aspects"]["condition_id"]["_tryb"],
+        "csv_columns": len(headers),
     }
     (output_dir / "generation-report.json").write_text(
-        json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
-    )
+        json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return report
 
 
-def parse_args() -> argparse.Namespace:
+def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--feed-file", type=Path)
-    parser.add_argument("--nbp-rate", type=float, help="Test-only EUR rate override")
+    parser.add_argument("--nbp-rate", type=float)
     parser.add_argument("--output-dir", type=Path, default=ROOT / "output")
-    return parser.parse_args()
+    args = parser.parse_args()
 
-
-def main() -> int:
-    args = parse_args()
     settings = load_json(ROOT / "config" / "settings.json")
-    translations = load_json(ROOT / "config" / "translations.json")
-    template = (ROOT / "templates" / "description.html").read_text(encoding="utf-8")
-    feed_bytes = args.feed_file.read_bytes() if args.feed_file else fetch_bytes(settings["feed_url"])
-    nbp = (
-        {
-            "currency": "euro", "code": "EUR", "table": "A", "number": "TEST",
-            "effective_date": "TEST", "rate": args.nbp_rate,
-        }
-        if args.nbp_rate else fetch_nbp_rate(settings["nbp_url"])
-    )
-    report = generate(
-        feed_bytes, nbp, settings, translations, template, args.output_dir
-    )
+    cfg = {
+        "settings": settings,
+        "translations": load_json(ROOT / "config" / "translations.json"),
+        "aspects": load_json(ROOT / "config" / "aspects.json"),
+        "manufacturers": load_json(ROOT / "config" / "manufacturers.json"),
+        "template": (ROOT / "templates" / "description.html").read_text(encoding="utf-8"),
+        "headers": read_headers(ROOT / "config" / "ebay-header.csv"),
+    }
+    feed = args.feed_file.read_bytes() if args.feed_file else fetch_bytes(settings["feed_url"])
+    nbp = ({"currency": "euro", "code": "EUR", "table": "A", "number": "TEST",
+            "effective_date": "TEST", "rate": args.nbp_rate}
+           if args.nbp_rate else fetch_nbp_rate(settings["nbp_url"]))
+
+    report = generate(feed, nbp, cfg, args.output_dir)
     print(json.dumps(report, ensure_ascii=False, indent=2))
     return 0 if report["products_exported"] else 2
 
