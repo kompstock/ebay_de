@@ -1,0 +1,64 @@
+<style>
+.kpx-wrap{max-width:940px;margin:0 auto;background:#fff;color:#14161a;font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.6;border:1px solid #e4e4e1;border-top:5px solid #e2231a;border-radius:12px;overflow:hidden}
+.kpx-wrap *{box-sizing:border-box}.kpx-bar{padding:18px 30px 0;font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:#5a5c62;font-weight:700}.kpx-bar b{color:#e2231a}
+.kpx-top,.kpx-sec{padding:24px 30px}.kpx-top,.kpx-sec{border-bottom:1px solid #ededea}.kpx-benefits{display:flex;flex-wrap:wrap;gap:8px 24px;margin:0 0 14px;padding:0;list-style:none}.kpx-benefits li{font-weight:600}.kpx-benefits li:before{content:"✓";color:#0f7a41;font-weight:800;margin-right:8px}
+.kpx-keys{display:flex;flex-wrap:wrap;gap:10px;padding:24px 30px;border-bottom:1px solid #ededea}.kpx-key{flex:1 1 152px;border:1px solid #e0e0dd;border-bottom:3px solid #d4d4cf;border-radius:10px;padding:13px 15px}.kpx-key i{display:block;font-style:normal;font-size:13px;color:#5a5c62;margin-bottom:4px}
+.kpx-media{padding:26px 30px;text-align:center;border-bottom:1px solid #ededea}.kpx-media img{max-width:100%;width:560px;height:auto}.kpx-h2{margin:0 0 18px;font-size:18px}.kpx-h2 span{display:inline-block;border-bottom:2px solid #e2231a;padding-bottom:5px}
+.kpx-badge{display:inline-block;background:#eef7f1;color:#0f6b3c;border:1px solid #cde6d8;border-radius:999px;padding:6px 14px;font-size:14px;font-weight:700;margin-bottom:16px}.kpx-badge:before{content:"✓";margin-right:7px}
+.kpx-table{width:100%;border-collapse:collapse;font-size:15px}.kpx-table th,.kpx-table td{padding:10px 14px;text-align:left;vertical-align:top}.kpx-table tr:nth-child(odd){background:#f2f2f0}.kpx-table th{width:29%;font-weight:400;color:#5a5c62}.kpx-ports{display:flex;flex-wrap:wrap;gap:9px;margin:0;padding:0;list-style:none}.kpx-ports li{border:1px solid #e0e0dd;border-radius:999px;padding:8px 16px;font-size:15px;font-weight:700;color:#3d3f45}
+.kpx-foot{padding:22px 30px 26px;color:#5a5c62;font-size:14px}@media(max-width:620px){.kpx-top,.kpx-sec,.kpx-keys,.kpx-media{padding:20px 18px}}
+</style>
+<div class="kpx-wrap">
+  <div class="kpx-bar"><b>KOMPRE</b> &nbsp;|&nbsp; Refurbished Business Notebooks</div>
+  <div class="kpx-top">
+    <ul class="kpx-benefits">
+      <li>Einzeln geprüft</li><li>Sofort einsatzbereit</li>
+      <li>12 Monate Gewährleistung</li><li>Rechnung mit ausgewiesener MwSt.</li>
+      <li>1 Monat Rückgaberecht</li>
+    </ul>
+    <p><b>Ideal für Büro, Homeoffice, Schule und Studium.</b> Ein geprüftes Business-Notebook für zuverlässiges Arbeiten im Alltag.</p>
+  </div>
+  <div class="kpx-keys">
+    <div class="kpx-key"><i>Prozessor</i><b>{{processor}}</b></div>
+    <div class="kpx-key"><i>Arbeitsspeicher</i><b>{{ram}} {{ram_type}}</b></div>
+    <div class="kpx-key"><i>Speicher</i><b>{{disk}} {{disk_type}}</b></div>
+    <div class="kpx-key"><i>Display</i><b>{{screen_size}} · {{resolution}}</b></div>
+    <div class="kpx-key"><i>System</i><b>{{operating_system}}</b></div>
+  </div>
+  {{main_image_block}}
+  <div class="kpx-sec">
+    <h2 class="kpx-h2"><span>Zustand</span></h2>
+    <div class="kpx-badge">Geprüft und aufbereitet</div>
+    <p>{{condition_summary}}</p>
+    <table class="kpx-table"><tbody>
+      <tr><th>Technisch</th><td>Voll funktionsfähig und geprüft.</td></tr>
+      <tr><th>Gehäuse</th><td>{{case_condition}}</td></tr>
+      <tr><th>Display</th><td>{{screen_condition}}</td></tr>
+      <tr><th>Tastatur</th><td>{{keyboard_info}}</td></tr>
+      <tr><th>Akku</th><td>{{battery}}</td></tr>
+    </tbody></table>
+  </div>
+  <div class="kpx-sec">
+    <h2 class="kpx-h2"><span>Zum Gerät</span></h2>
+    <p>Das {{manufacturer}} {{model}} ist ein gebrauchtes Business-Notebook. Es verfügt über einen {{processor}}, {{ram}} Arbeitsspeicher, {{disk}} Speicher und ein {{screen_size}}-Display mit {{resolution}}. Als Betriebssystem ist {{operating_system}} installiert.</p>
+  </div>
+  <div class="kpx-sec">
+    <h2 class="kpx-h2"><span>Technische Daten</span></h2>
+    <table class="kpx-table"><tbody>
+      {{spec_rows}}
+    </tbody></table>
+  </div>
+  <div class="kpx-sec">
+    <h2 class="kpx-h2"><span>Anschlüsse</span></h2>
+    <ul class="kpx-ports">{{port_items}}</ul>
+  </div>
+  <div class="kpx-sec">
+    <h2 class="kpx-h2"><span>Rechnung und Mehrwertsteuer</span></h2>
+    <p>Der angezeigte Preis enthält die deutsche Mehrwertsteuer von 19&nbsp;%. Jeder Lieferung liegt eine Rechnung mit ausgewiesener Mehrwertsteuer bei.</p>
+  </div>
+  <div class="kpx-sec">
+    <h2 class="kpx-h2"><span>Wer wir sind</span></h2>
+    <p>KOMPRE ist seit 2019 auf gebrauchte Business-Hardware aus Leasingrücklauf spezialisiert. In Polen prüfen, reinigen und konfigurieren wir Notebooks, Desktops und Monitore für den weiteren Einsatz.</p>
+  </div>
+  <div class="kpx-foot">Gebrauchtes Business-Notebook aus Leasingrücklauf. Leichte optische Abweichungen sind bei gebrauchter Hardware möglich.</div>
+</div>

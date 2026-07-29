@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<offers>
+  <o id="9996" price="975" avail="1" stock="985" basket="1">
+    <cat>Laptopy</cat>
+    <name>Laptop Lenovo ThinkPad T14 Gen 1</name>
+    <imgs>
+      <main url="https://example.com/main.jpg"/>
+      <i url="https://example.com/second.jpg"/>
+    </imgs>
+    <attrs>
+      <a name="Producent">LENOVO</a>
+      <a name="SKU">3888_20250724125241</a>
+      <a name="Bateria">Oryginalna, od 1h do 4h (używana)</a>
+      <a name="Dysk">256GB</a>
+      <a name="Ekran dotykowy">Nie</a>
+      <a name="Gwarancja sprzedawcy">12 miesięcy</a>
+      <a name="Ilość pamięci RAM">16GB</a>
+      <a name="Ilość rdzeni">6</a>
+      <a name="Informacje dodatkowe">Klawiatura odnowiona!</a>
+      <a name="Kamera">Tak, wbudowana</a>
+      <a name="Klawiatura (ISO lub ANSI)">QWERTY PL</a>
+      <a name="Kondycja sprzętu">[Klasa A-] laptop poleasingowy, w 100% sprawny, przetestowany i gotowy do pracy</a>
+      <a name="Licencja">Windows 11 Pro</a>
+      <a name="Model">ThinkPad T14 Gen 1</a>
+      <a name="Model karty graficznej">AMD Radeon RX Vega 6</a>
+      <a name="Napęd">Beznapędowy</a>
+      <a name="Powłoka matrycy">Matowa</a>
+      <a name="Procesor">Ryzen 5 PRO 4650U</a>
+      <a name="Przekątna ekranu">14"</a>
+      <a name="Rodzaj karty graficznej">Zintegrowana</a>
+      <a name="Rozdzielczość ekranu">1920 x 1080</a>
+      <a name="Seria procesora">Ryzen 5</a>
+      <a name="Stan ekranu">Drobne ryski, otarcia, poświatki</a>
+      <a name="Stan obudowy">Normalne ślady użytkowania</a>
+      <a name="Taktowanie">2.10 - 4.00 GHz</a>
+      <a name="Typ dysku">SSD</a>
+      <a name="Typ licencji">OEM</a>
+      <a name="Typ pamięci RAM">DDR4</a>
+      <a name="W zestawie">Zasilacz z przewodem</a>
+      <a name="Zainstalowany system">Windows 11 Pro</a>
+      <a name="Złącza zewnętrzne">1 x HDMI 1.4b 1 x USB Typu C / Thunderbolt 3 2 x USB 3.2 Gen 1 1 x RJ-45 1 x Audio 1 x MicroSD</a>
+    </attrs>
+  </o>
+</offers>
+

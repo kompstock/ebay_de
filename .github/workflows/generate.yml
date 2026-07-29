@@ -1,0 +1,54 @@
+name: Generuj CSV eBay DE
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Pobierz repozytorium
+        uses: actions/checkout@v4
+
+      - name: Skonfiguruj Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Uruchom testy
+        run: python -m unittest discover -s tests -v
+
+      - name: Wygeneruj CSV
+        run: python src/generate.py
+
+      - name: Przygotuj stronę
+        run: |
+          mkdir -p site/downloads
+          cp output/ebay-de-laptops.csv site/downloads/
+          cp output/generation-report.json site/downloads/
+          cp output/translation-review.csv site/downloads/
+
+      - name: Skonfiguruj GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Spakuj stronę
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Opublikuj stronę
+        id: deployment
+        uses: actions/deploy-pages@v4
+

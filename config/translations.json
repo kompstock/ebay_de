@@ -1,0 +1,90 @@
+{
+  "yes_no": {
+    "Tak": "Ja",
+    "Nie": "Nein",
+    "Tak, wbudowana": "Ja, integriert",
+    "Nie, brak": "Nein"
+  },
+  "gpu_type": {
+    "Zintegrowana": "Integriert",
+    "Dedykowana": "Dediziert"
+  },
+  "screen_finish": {
+    "Matowa": "Matt",
+    "Błyszcząca": "Glänzend",
+    "Antyrefleksyjna": "Entspiegelt"
+  },
+  "drive": {
+    "Beznapędowy": "Nicht vorhanden",
+    "DVD": "DVD",
+    "DVD-RW": "DVD-RW",
+    "Nagrywarka DVD": "DVD-Brenner",
+    "Blu-ray": "Blu-ray"
+  },
+  "license_type": {
+    "OEM": "OEM",
+    "MAR": "MAR"
+  },
+  "condition_class": {
+    "[Klasa A]": "Klasse A",
+    "[Klasa A-]": "Klasse A-",
+    "[Klasa B]": "Klasse B",
+    "Laptop powystawowy lub leżak magazynowy": "Ausstellungsgerät oder Lagerware"
+  },
+  "exact_states": {
+    "\"A\" Bez wad matrycy": "Klasse A, Display ohne bekannte Mängel",
+    "Bad pixel widoczny na ciemnym tle": "Ein fehlerhafter Pixel ist auf dunklem Hintergrund sichtbar",
+    "Bez wad": "Keine bekannten Mängel",
+    "Bez wad - nowa matryca FHD IPS": "Keine bekannten Mängel, neues FHD-IPS-Display",
+    "Bez wad matrycy": "Display ohne bekannte Mängel",
+    "Ekran bez wad, klasa \"A\"": "Display ohne bekannte Mängel, Klasse A",
+    "Mikro ślady użytkowania typowe dla ekranów dotykowych, klasa A": "Minimale, für Touchscreens typische Gebrauchsspuren, Klasse A",
+    "Możliwe drobne przejaśnienia": "Kleine Aufhellungen möglich",
+    "Nowa matryca FHD IPS - bez wad!": "Neues FHD-IPS-Display ohne bekannte Mängel",
+    "Małe ślady użytkowania w postaci otarć, mało widocznych śladów po naklejce": "Leichte Gebrauchsspuren in Form von Abrieb und kaum sichtbaren Aufkleberspuren",
+    "Minimalne ślady użytkowania": "Minimale Gebrauchsspuren",
+    "Normalne, delikatne ślady użytkowania": "Normale, leichte Gebrauchsspuren",
+    "Normalne, delikatne ślady użytkowania, możliwy skin": "Normale, leichte Gebrauchsspuren; ein professionell angebrachter Skin ist möglich",
+    "Normalne, małe slady użytkowania": "Normale, leichte Gebrauchsspuren",
+    "Normalne, małe ślady uzytkowania": "Normale, leichte Gebrauchsspuren",
+    "Normalne, małe ślady użytkowania": "Normale, leichte Gebrauchsspuren",
+    "Normalne, małe ślady użytkowania, możliwy skin": "Normale, leichte Gebrauchsspuren; ein professionell angebrachter Skin ist möglich",
+    "Normalne, minimalne ślady użytkowania, możliwy skin": "Normale, minimale Gebrauchsspuren; ein professionell angebrachter Skin ist möglich",
+    "Normalne,delikatne ślady użytkowania": "Normale, leichte Gebrauchsspuren",
+    "Normalne,małe ślady uzytkowania, możliwy profesjonalnie przygotowany skin": "Normale, leichte Gebrauchsspuren; ein professionell angebrachter Skin ist möglich",
+    "Normalne,małe ślady użytkowania": "Normale, leichte Gebrauchsspuren",
+    "Oferujemy malowane klapy w różnych kolorach": "Lackierte Displaydeckel sind in verschiedenen Farben erhältlich",
+    "Standardowe ślady użytkowania": "Übliche Gebrauchsspuren"
+  },
+  "phrases": {
+    "laptop poleasingowy": "Business-Notebook aus Leasingrücklauf",
+    "w 100% sprawny": "voll funktionsfähig",
+    "przetestowany": "geprüft",
+    "gotowy do pracy": "sofort einsatzbereit",
+    "normalne ślady użytkowania": "normale Gebrauchsspuren",
+    "drobne ryski": "feine Kratzer",
+    "ryski": "Kratzer",
+    "otarcia": "Abriebspuren",
+    "poświatki": "leichte Aufhellungen",
+    "jasne plamki": "helle Flecken",
+    "wgniecenia": "Dellen",
+    "wgniecenie": "Delle",
+    "pęknięcie": "Riss",
+    "brak wad": "keine bekannten Mängel",
+    "klawiatura odnowiona": "Tastatur erneuert bzw. aufgefrischt",
+    "zasilacz z przewodem": "Netzteil mit Stromkabel",
+    "oryginalna": "Originalakku",
+    "oryginalny": "Original",
+    "używana": "gebraucht",
+    "używany": "gebraucht",
+    "od 1h do 4h": "ca. 1 bis 4 Stunden",
+    "od 1 h do 4 h": "ca. 1 bis 4 Stunden",
+    "w zależności od użytkowania": "je nach Nutzung",
+    "normalne": "normale",
+    "delikatne": "leichte",
+    "małe": "leichte",
+    "minimalne": "minimale",
+    "ślady użytkowania": "Gebrauchsspuren",
+    "możliwy skin": "ein professionell angebrachter Skin ist möglich"
+  }
+}
