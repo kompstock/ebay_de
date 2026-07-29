@@ -2,6 +2,11 @@ name: Generuj CSV eBay DE
 
 on:
   workflow_dispatch:
+    inputs:
+      ignoruj_prog:
+        description: "Opublikuj nawet przy dużej liczbie odrzuconych produktów"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -33,18 +38,68 @@ jobs:
       - name: Wygeneruj CSV
         run: python src/generate.py
 
+      # Podsumowanie i artefakty POWSTAJA ZAWSZE, takze gdy prog nie przejdzie.
+      - name: Podsumowanie
+        if: always()
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json, pathlib
+          p = pathlib.Path("output/generation-report.json")
+          if not p.exists():
+              print("## Generowanie nie doszlo do skutku"); raise SystemExit
+          r = json.loads(p.read_text(encoding="utf-8"))
+          w, s = r["products_exported"], r["products_skipped"]
+          print(f"## Wynik\n")
+          print(f"| | |\n|---|---|")
+          print(f"| W kategorii | {r['products_in_category']} |")
+          print(f"| **Wyeksportowano** | **{w}** |")
+          print(f"| Pominieto | {s} |")
+          print(f"| Kurs EUR | {r['nbp']['rate']} ({r['nbp']['effective_date']}) |")
+          print(f"\n### Powody pominiecia\n")
+          for k, v in sorted(r["skipped_reasons"].items(), key=lambda i: -i[1]):
+              print(f"- `{k}` — {v}")
+          for tytul, klucz in [("Marki bez danych GPSR", "marki_bez_gpsr"),
+                               ("Brakujace tlumaczenia", "brakujace_tlumaczenia"),
+                               ("Wartosci aspektow poza slownikiem", "wartosci_aspektow"),
+                               ("Etykiety portow", "etykiety_portow")]:
+              items = r.get("do_uzupelnienia", {}).get(klucz, [])
+              if items:
+                  print(f"\n### {tytul}\n")
+                  for i in items[:15]:
+                      print(f"- **{i['produktow']}x** — {i['wartosc'][:160]}")
+          PY
+
+      - name: Zapisz artefakty
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wynik-generowania
+          path: |
+            output/ebay-de-laptops.csv
+            output/review.csv
+            output/generation-report.json
+          if-no-files-found: warn
+          retention-days: 30
+
       - name: Bramka jakości
         run: |
           python - <<'PY'
-          import json, sys
+          import json, os, sys
           r = json.load(open("output/generation-report.json", encoding="utf-8"))
-          print(json.dumps(r, ensure_ascii=False, indent=2))
+          s = json.load(open("config/settings.json", encoding="utf-8"))
+          prog = float(s.get("max_skipped_ratio", 0.30))
+          udzial = r["products_skipped"] / max(r["products_in_category"], 1)
+          print(f"wyeksportowano={r['products_exported']} pominieto={udzial:.0%} prog={prog:.0%}")
+          if os.environ.get("IGNORUJ") == "true":
+              print("prog pominiety na zyczenie"); raise SystemExit
           if r["products_exported"] == 0:
               sys.exit("BLOKADA: zero produktow w CSV")
-          udzial = r["products_skipped"] / max(r["products_in_category"], 1)
-          if udzial > 0.30:
-              sys.exit(f"BLOKADA: pominieto {udzial:.0%} produktow - sprawdz review.csv")
+          if udzial > prog:
+              sys.exit(f"BLOKADA: pominieto {udzial:.0%} produktow. "
+                       "Szczegoly w podsumowaniu i w artefakcie 'wynik-generowania'.")
           PY
+        env:
+          IGNORUJ: ${{ inputs.ignoruj_prog }}
 
       - name: Przygotuj stronę
         run: |
