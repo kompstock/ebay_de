@@ -230,6 +230,93 @@
         "type": "EUResponsiblePerson"
       },
       "_uwaga": "Brak adresu centrali spoza UE - jako producenta wpisano podmiot z UE z tej samej grupy. Dla Fujitsu i Toshiby jest to zgodne ze stanem faktycznym (Fsas i Dynabook przejely te linie produktowe)."
+    },
+    "asus": {
+      "status": "kompletny",
+      "manufacturer": {
+        "name": "ASUS Computer GmbH",
+        "address1": "Harkortstraße 21–23",
+        "address2": "",
+        "city": "Ratingen",
+        "state": "",
+        "postal": "40880",
+        "country": "DE",
+        "email": "LegalCompliance@asus.com",
+        "phone": "",
+        "url": ""
+      },
+      "responsible_person": {
+        "name": "ASUS Computer GmbH",
+        "address1": "Harkortstraße 21–23",
+        "address2": "",
+        "city": "Ratingen",
+        "state": "",
+        "postal": "40880",
+        "country": "DE",
+        "email": "LegalCompliance@asus.com",
+        "phone": "",
+        "url": "",
+        "type": "EUResponsiblePerson"
+      },
+      "_uwaga": "Brak adresu centrali spoza UE - jako producenta wpisano podmiot z UE z tej samej grupy."
+    },
+    "apple": {
+      "status": "kompletny",
+      "manufacturer": {
+        "name": "Apple Distribution International Ltd.",
+        "address1": "Hollyhill Industrial Estate",
+        "address2": "",
+        "city": "Cork",
+        "state": "",
+        "postal": "T23 YK84",
+        "country": "IE",
+        "email": "gpsr@apple.com",
+        "phone": "",
+        "url": ""
+      },
+      "responsible_person": {
+        "name": "Apple Distribution International Ltd.",
+        "address1": "Hollyhill Industrial Estate",
+        "address2": "",
+        "city": "Cork",
+        "state": "",
+        "postal": "T23 YK84",
+        "country": "IE",
+        "email": "gpsr@apple.com",
+        "phone": "",
+        "url": "",
+        "type": "EUResponsiblePerson"
+      },
+      "_uwaga": "Brak adresu centrali spoza UE - jako producenta wpisano podmiot z UE z tej samej grupy."
+    },
+    "msi": {
+      "status": "kompletny",
+      "manufacturer": {
+        "name": "MSI Computer Europe B.V.",
+        "address1": "Science Park Eindhoven 5706",
+        "address2": "",
+        "city": "Son",
+        "state": "",
+        "postal": "5692 ER",
+        "country": "NL",
+        "email": "gpsr@msi.com",
+        "phone": "",
+        "url": ""
+      },
+      "responsible_person": {
+        "name": "MSI Computer Europe B.V.",
+        "address1": "Science Park Eindhoven 5706",
+        "address2": "",
+        "city": "Son",
+        "state": "",
+        "postal": "5692 ER",
+        "country": "NL",
+        "email": "gpsr@msi.com",
+        "phone": "",
+        "url": "",
+        "type": "EUResponsiblePerson"
+      },
+      "_uwaga": "Brak adresu centrali spoza UE - jako producenta wpisano podmiot z UE z tej samej grupy."
     }
   },
   "aliasy": {
@@ -246,16 +333,23 @@
     "fsas technologies": "fujitsu",
     "acer inc": "acer",
     "acer inc.": "acer",
-    "microsoft surface": "microsoft"
+    "microsoft surface": "microsoft",
+    "asustek": "asus",
+    "asustek computer": "asus",
+    "asus computer": "asus",
+    "apple inc": "apple",
+    "apple inc.": "apple",
+    "msi computer": "msi",
+    "micro-star": "msi",
+    "micro star": "msi",
+    "microstar": "msi"
   },
   "_do_uzupelnienia": [
-    "asus",
-    "apple",
     "samsung",
-    "msi",
     "lg",
     "razer",
     "gigabyte",
-    "huawei"
+    "huawei",
+    "dynabook (osobno od toshiby)"
   ]
 }
