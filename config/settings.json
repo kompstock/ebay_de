@@ -47,5 +47,11 @@
     "Monitory": "Monitor",
     "Tablety": "Tablet",
     "_domyslnie": "Gerät"
+  },
+  "tekst_wiodacy": {
+    "_about": "Zdanie pod kafelkami. Wybor przez regule: dedykowana grafika lub 32 GB+ = wersja wydajna.",
+    "_regula": "Rodzaj karty graficznej = Dedykowana LUB RAM >= 32 GB",
+    "biuro": "<b>Ideal f&uuml;r B&uuml;ro, Homeoffice, Schule und Studium.</b> Ausreichend Leistung f&uuml;r Office, Browser mit vielen Tabs, E-Mail, Videokonferenzen, CRM und Warenwirtschaft &ndash; auch mit mehreren Programmen gleichzeitig.",
+    "wydajny": "<b>F&uuml;r anspruchsvolle Aufgaben ausgelegt.</b> Reserven f&uuml;r gro&szlig;e Tabellen, CAD, Bild- und Videobearbeitung sowie virtuelle Maschinen &ndash; und nat&uuml;rlich f&uuml;r den gesamten B&uuml;roalltag."
   }
 }

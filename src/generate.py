@@ -413,6 +413,14 @@ def keyboard_parts(value: str, aspects: dict, review: Review) -> tuple[str, bool
     return ", ".join(dict.fromkeys(czesci)), podswietlenie
 
 
+def tekst_wiodacy(attrs: dict, settings: dict) -> str:
+    """Zdanie pod kafelkami. Mocniejszy sprzet dostaje inna obietnice niz biurowy."""
+    ram = int(re.sub(r"\D", "", attrs.get("Ilość pamięci RAM", "0")) or 0)
+    dedykowana = attrs.get("Rodzaj karty graficznej", "") == "Dedykowana"
+    klucz = "wydajny" if (dedykowana or ram >= 32) else "biuro"
+    return settings["tekst_wiodacy"][klucz]
+
+
 def typ_produktu(kategoria_xml: str, settings: dict) -> str:
     """Rzeczownik do opisu. Nowy typ towaru = jeden wpis w settings, zero zmian w kodzie."""
     mapa = settings["typ_produktu"]
@@ -596,6 +604,7 @@ def render_description(template, attrs, images, translations, aspects, settings,
         "company_since": settings["company_since"],
     }
     raw = {
+        "lead": tekst_wiodacy(attrs, settings),
         "gpu_note": gpu_note,
         "spec_rows": "".join(spec_row(l, v) for l, v in specs),
         "port_items": "".join(

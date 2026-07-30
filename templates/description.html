@@ -26,7 +26,8 @@
 .kpx-badge{display:inline-block;background:#eef7f1;color:#0f6b3c;border:1px solid #cde6d8;
   border-radius:999px;padding:6px 14px;font-size:14px;font-weight:700;margin-bottom:16px}
 .kpx-badge:before{content:"\2713";margin-right:7px}
-.kpx-zt{width:100%;border-collapse:collapse;font-size:15px}
+.kpx-zt,.kpx-table{margin-left:-14px;width:calc(100% + 28px)}
+.kpx-zt{border-collapse:collapse;font-size:15px}
 .kpx-zt th,.kpx-zt td{padding:11px 14px;text-align:left;vertical-align:top}
 .kpx-zt tr:nth-child(odd){background:#f2f2f0}
 .kpx-zt th{width:22%;font-weight:400;color:#5a5c62;white-space:nowrap}
@@ -46,7 +47,7 @@
 .kpx-ul li{position:relative;padding-left:20px;margin-bottom:8px}
 .kpx-ul li:last-child{margin-bottom:0}
 .kpx-ul li:before{content:"";position:absolute;left:0;top:11px;width:5px;height:5px;border-radius:50%;background:#b4b4af}
-.kpx-table{width:100%;border-collapse:collapse;font-size:15px}
+.kpx-table{border-collapse:collapse;font-size:15px}
 .kpx-table th,.kpx-table td{padding:10px 14px;text-align:left;vertical-align:top}
 .kpx-table tr:nth-child(odd){background:#f2f2f0}
 .kpx-table th{width:29%;font-weight:400;color:#5a5c62;white-space:nowrap}
@@ -73,6 +74,14 @@
   .kpx-lead{padding:0 18px 22px}
   .kpx-sec{padding:24px 18px}
   .kpx-steps{column-count:1}
+  .kpx-benefits{gap:7px 18px}
+  .kpx-benefits li{font-size:15px}
+  .kpx-zt,.kpx-table{margin-left:-10px;width:calc(100% + 20px);font-size:14px}
+  .kpx-zt th,.kpx-table th{white-space:normal;width:40%}
+  .kpx-zt th,.kpx-zt td,.kpx-table th,.kpx-table td{padding:9px 10px}
+  .kpx-key{flex:1 1 132px;padding:11px 13px}
+  .kpx-ports li{font-size:14px;padding:7px 13px}
+  .kpx-h2{font-size:17px}
   .kpx-cols > div{padding-right:0;margin-bottom:22px}
   .kpx-cols > div:last-child{margin-bottom:0}
 }
@@ -85,10 +94,12 @@
   <div class="kpx-top">
     <ul class="kpx-benefits">
       <li>Gepr&uuml;fte Hardware</li>
+      <li>Erfahrung seit 2009</li>
       <li>Rechnung mit ausgewiesener MwSt.</li>
       <li>Gew&auml;hrleistung</li>
       <li>Legales Betriebssystem</li>
       <li>R&uuml;ckgaberecht</li>
+      <li>Pers&ouml;nlicher Support</li>
       <li>Sichere Verpackung</li>
     </ul>
   </div>
@@ -103,13 +114,13 @@
     <div class="kpx-key"><i>System</i><b>{{operating_system}}</b></div>
   </div>
 
-  <p class="kpx-lead"><b>Ideal f&uuml;r B&uuml;ro, Homeoffice, Schule und Studium.</b> Ausreichend Leistung f&uuml;r Office, Browser mit vielen Tabs, E-Mail, Videokonferenzen, CRM und Warenwirtschaft &ndash; auch mit mehreren Programmen gleichzeitig.</p>
+  <p class="kpx-lead">{{lead}}</p>
 
   <div class="kpx-sec">
     <h2 class="kpx-h2"><span>Zustand</span></h2>
     <div class="kpx-badge">Gepr&uuml;ft und aufbereitet</div>
     <p>{{condition_summary}}</p>
-    <table class="kpx-zt" style="margin-left:-14px;width:calc(100% + 28px)">
+    <table class="kpx-zt">
       <tbody>
         <tr><th>Technisch</th><td>Vollst&auml;ndig funktionsf&auml;hig. Alle Funktionen einzeln gepr&uuml;ft.</td></tr>
         <tr><th>Geh&auml;use</th><td>{{case_condition}}</td></tr>
@@ -142,7 +153,7 @@
 
   <div class="kpx-sec">
     <h2 class="kpx-h2"><span>Technische Daten</span></h2>
-    <table class="kpx-table" style="margin-left:-14px;width:calc(100% + 28px)">
+    <table class="kpx-table">
       <tbody>
 {{spec_rows}}
       </tbody>
