@@ -364,14 +364,15 @@
       "podswietlana": "beleuchtet",
       "niepodswietlana": "ohne Beleuchtung",
       "numeryczna": "mit Nummernblock",
-      "spolszczona naklejkami": "mit polnischen Aufklebern"
+      "spolszczona naklejkami": ""
     },
     "podswietlenie_tak": [
       "podswietlana"
     ],
     "podswietlenie_nie": [
       "niepodswietlana"
-    ]
+    ],
+    "_uwaga_naklejki": "Feed opisuje naklejki polskie. W ofercie niemieckiej ten czlon jest pomijany - kupujacy dostaje naklejki niemieckie, informuje o tym FAQ."
   },
   "sufiks_tytulu": {
     "_about": "Sufiks tytulu MUSI wynikac z pola 'Zainstalowany system'. Brak wpisu = brak sufiksu.",

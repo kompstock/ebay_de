@@ -171,6 +171,23 @@ def base_clock(value: str) -> str:
     return f"{match.group(1).replace('.', ',')} GHz" if match else ""
 
 
+def procesor_opis(raw: str) -> str:
+    """'i5 - 8400H, 8MB Cache, 8 gen.' -> 'Intel Core i5-8400H (8. Generation, 8 MB Cache)'.
+
+    Surowy zapis z feedu jest polski i skrocony - w niemieckiej ofercie wyglada obco.
+    """
+    kandydaci = cpu_candidates(raw)
+    nazwa = kandydaci[0] if kandydaci else normalize_space(raw)
+    dodatki = []
+    gen = re.search(r"(\d{1,2})\s*gen", raw or "", re.I)
+    if gen:
+        dodatki.append(f"{int(gen.group(1))}. Generation")
+    cache = re.search(r"(\d+)\s*MB\s*Cache", raw or "", re.I)
+    if cache:
+        dodatki.append(f"{cache.group(1)} MB Cache")
+    return f"{nazwa} ({', '.join(dodatki)})" if dodatki else nazwa
+
+
 def cpu_candidates(processor: str) -> list[str]:
     """Zwraca kandydatow od najbardziej do najmniej precyzyjnego.
 
@@ -404,12 +421,12 @@ def keyboard_parts(value: str, aspects: dict, review: Review) -> tuple[str, bool
                 podswietlenie = False
             elif klucz in cfg["podswietlenie_tak"]:
                 podswietlenie = True
-            niemiecki = cfg["czesci"].get(klucz)
-            if niemiecki:
-                czesci.append(niemiecki)
-            else:
+            if klucz not in cfg["czesci"]:
                 review.add("klawiatura", "Klawiatura (ISO lub ANSI)", fragment)
                 return "", podswietlenie
+            niemiecki = cfg["czesci"][klucz]
+            if niemiecki:                      # pusty wpis = czlon swiadomie pomijany
+                czesci.append(niemiecki)
     return ", ".join(dict.fromkeys(czesci)), podswietlenie
 
 
@@ -553,7 +570,7 @@ def render_description(template, attrs, images, translations, aspects, settings,
     specs = [
         ("Hersteller", manufacturer),
         ("Modell", model),
-        ("Prozessor", attrs.get("Procesor", "")),
+        ("Prozessor", procesor_opis(attrs.get("Procesor", ""))),
         ("Prozessorkerne", attrs.get("Ilość rdzeni", "")),
         ("Taktfrequenz", base_clock(attrs.get("Taktowanie", ""))),
         ("Arbeitsspeicher", normalize_space(f"{ram} {attrs.get('Typ pamięci RAM', '')}")),
@@ -588,7 +605,7 @@ def render_description(template, attrs, images, translations, aspects, settings,
 
     values = {
         "typ": typ_produktu(kategoria_xml, settings),
-        "processor": attrs.get("Procesor", ""),
+        "processor": procesor_opis(attrs.get("Procesor", "")),
         "ram": ram, "ram_type": attrs.get("Typ pamięci RAM", ""),
         "disk": disk, "disk_type": attrs.get("Typ dysku", ""),
         "screen_size": screen_size_de(attrs.get("Przekątna ekranu", "")),
@@ -603,7 +620,12 @@ def render_description(template, attrs, images, translations, aspects, settings,
         "battery": de["Bateria"],
         "company_since": settings["company_since"],
     }
+    sekcja_business = ""
+    if typ_produktu(kategoria_xml, settings) == "Notebook":
+        sekcja_business = settings["sekcja_business_notebook"]
+
     raw = {
+        "sekcja_business": sekcja_business,
         "lead": tekst_wiodacy(attrs, settings),
         "gpu_note": gpu_note,
         "spec_rows": "".join(spec_row(l, v) for l, v in specs),
