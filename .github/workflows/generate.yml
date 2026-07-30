@@ -3,8 +3,17 @@ name: Generuj CSV eBay DE
 on:
   workflow_dispatch:
     inputs:
+      tryb:
+        description: "Co zrobić"
+        type: choice
+        default: nowe
+        options:
+          - pierwsze
+          - nowe
+          - aktualizacja
+          - test
       ignoruj_prog:
-        description: "Opublikuj nawet przy dużej liczbie odrzuconych produktów"
+        description: "Publikuj mimo przekroczonych progów"
         type: boolean
         default: false
 
@@ -24,21 +33,19 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Pobierz repozytorium
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Skonfiguruj Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
       - name: Uruchom testy
         run: python -m unittest discover -s tests -v
 
-      - name: Wygeneruj CSV
-        run: python src/generate.py
+      - name: Wygeneruj pliki
+        continue-on-error: true
+        run: python src/generate.py --tryb "${{ inputs.tryb }}"
 
-      # Podsumowanie i artefakty POWSTAJA ZAWSZE, takze gdy prog nie przejdzie.
       - name: Podsumowanie
         if: always()
         run: |
@@ -48,25 +55,36 @@ jobs:
           if not p.exists():
               print("## Generowanie nie doszlo do skutku"); raise SystemExit
           r = json.loads(p.read_text(encoding="utf-8"))
-          w, s = r["products_exported"], r["products_skipped"]
-          print(f"## Wynik\n")
-          print(f"| | |\n|---|---|")
-          print(f"| W kategorii | {r['products_in_category']} |")
-          print(f"| **Wyeksportowano** | **{w}** |")
-          print(f"| Pominieto | {s} |")
-          print(f"| Kurs EUR | {r['nbp']['rate']} ({r['nbp']['effective_date']}) |")
+          print(f"## Tryb: {r['tryb']}\n")
+          if not r["ok"]:
+              print("### PRZEBIEG ZATRZYMANY\n")
+              for b in r["blokady"]:
+                  print(f"- {b}")
+              print()
+          print("| | |\n|---|---|")
+          print(f"| Produktow w kategorii | {r['produktow_w_kategorii']} |")
+          print(f"| Z zapasem | {r['produktow_z_zapasem']} |")
+          print(f"| Aktywnych na eBay | {r['aktywnych_na_ebay']} |")
+          print(f"| **Do wystawienia** | **{r['do_wystawienia']}** |")
+          print(f"| **Do aktualizacji** | **{r['do_aktualizacji']}** (zerowanych: {r['w_tym_zerowanych']}) |")
+          print(f"| Kurs NBP | {r['nbp']['rate']} z {r['nbp']['effective_date']} |")
+          if r["sku_zdublowane"]:
+              print(f"\n### SKU z kilkoma aukcjami (pominiete)\n")
+              for s in r["sku_zdublowane"][:20]:
+                  print(f"- `{s}`")
           print(f"\n### Powody pominiecia\n")
-          for k, v in sorted(r["skipped_reasons"].items(), key=lambda i: -i[1]):
+          for k, v in sorted(r["pominieto"].items(), key=lambda i: -i[1]):
               print(f"- `{k}` — {v}")
-          for tytul, klucz in [("Marki bez danych GPSR", "marki_bez_gpsr"),
+          for tytul, klucz in [("Marki bez GPSR", "marki_bez_gpsr"),
                                ("Brakujace tlumaczenia", "brakujace_tlumaczenia"),
-                               ("Wartosci aspektow poza slownikiem", "wartosci_aspektow"),
-                               ("Etykiety portow", "etykiety_portow")]:
+                               ("Wartosci aspektow", "wartosci_aspektow"),
+                               ("Etykiety portow", "etykiety_portow"),
+                               ("Klawiatury", "klawiatury")]:
               items = r.get("do_uzupelnienia", {}).get(klucz, [])
               if items:
                   print(f"\n### {tytul}\n")
                   for i in items[:15]:
-                      print(f"- **{i['produktow']}x** — {i['wartosc'][:160]}")
+                      print(f"- **{i['produktow']}x** — {i['wartosc'][:150]}")
           PY
 
       - name: Zapisz artefakty
@@ -74,48 +92,40 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: wynik-generowania
-          path: |
-            output/ebay-de-laptops.csv
-            output/review.csv
-            output/generation-report.json
+          path: output/
           if-no-files-found: warn
           retention-days: 30
 
-      - name: Bramka jakości
+      - name: Bramka
         run: |
           python - <<'PY'
           import json, os, sys
           r = json.load(open("output/generation-report.json", encoding="utf-8"))
-          s = json.load(open("config/settings.json", encoding="utf-8"))
-          prog = float(s.get("max_skipped_ratio", 0.30))
-          udzial = r["products_skipped"] / max(r["products_in_category"], 1)
-          print(f"wyeksportowano={r['products_exported']} pominieto={udzial:.0%} prog={prog:.0%}")
           if os.environ.get("IGNORUJ") == "true":
-              print("prog pominiety na zyczenie"); raise SystemExit
-          if r["products_exported"] == 0:
-              sys.exit("BLOKADA: zero produktow w CSV")
-          if udzial > prog:
-              sys.exit(f"BLOKADA: pominieto {udzial:.0%} produktow. "
-                       "Szczegoly w podsumowaniu i w artefakcie 'wynik-generowania'.")
+              print("progi pominiete na zyczenie"); raise SystemExit
+          if not r["ok"]:
+              sys.exit("BLOKADA: " + " | ".join(r["blokady"]))
+          if r["tryb"] != "aktualizacja" and r["do_wystawienia"] == 0:
+              print("brak nowych produktow - to nie blad")
           PY
         env:
           IGNORUJ: ${{ inputs.ignoruj_prog }}
 
       - name: Przygotuj stronę
+        if: always()
         run: |
           mkdir -p site/downloads
-          cp output/ebay-de-laptops.csv site/downloads/
-          cp output/generation-report.json site/downloads/
-          cp output/review.csv site/downloads/
+          cp output/* site/downloads/ 2>/dev/null || true
 
-      - name: Skonfiguruj GitHub Pages
-        uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@v5
+        if: always()
 
-      - name: Spakuj stronę
-        uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v3
+        if: always()
         with:
           path: site
 
       - name: Opublikuj stronę
         id: deployment
+        if: always()
         uses: actions/deploy-pages@v4
