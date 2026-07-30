@@ -34,8 +34,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 
 REQUIRED_XML = (
-    "Producent", "SKU", "Model", "Procesor", "Przekątna ekranu",
-    "Ilość pamięci RAM", "Dysk",
+    "Producent", "SKU", "Model", "Przekątna ekranu", "Ilość pamięci RAM", "Dysk",
 )
 
 REQUIRED_TRANSLATIONS = (
@@ -46,7 +45,7 @@ POLISH_CHARS = set("ąćęłńóśźżĄĆĘŁŃÓŚŹŻ")
 POLISH_WORDS = re.compile(
     r"(?<![\wäöüß])(i|oraz|lub|albo|we|ze|na|do|dla|od|po|przy|jest|są|"
     r"może|możliwy|możliwe|brak|bez|nowy|nowa|używany|używana|sprawny|"
-    r"laptop|klawiatura|ekran|obudowa|zasilacz|sprzęt|typu|złącze|gniazdo|czytnik)(?![\wäöüß])",
+    r"klawiatura|obudowa|zasilacz|sprzęt|typu|złącze|gniazdo|czytnik|ilość)(?![\wäöüß])",
     re.IGNORECASE,
 )
 
@@ -175,6 +174,23 @@ def base_clock(value: str) -> str:
     return f"{match.group(1).replace('.', ',')} GHz" if match else ""
 
 
+def zrodlo_procesora(attrs: dict) -> str:
+    """Feed podaje procesor w trzech miejscach. Bierzemy pierwsze, ktore cos zawiera.
+
+    1. pole 'Procesor'
+    2. 'Informacje dodatkowe' - czesto siedzi tam 'Model procesora: i5-8300H, 8 gen.'
+    3. 'Seria procesora' - zgrubnie, ale dla Celerona czy Ryzena eBay to akceptuje
+    """
+    if attrs.get("Procesor"):
+        return attrs["Procesor"]
+    dodatkowe = attrs.get("Informacje dodatkowe", "")
+    for wzorzec in (r"Model procesora\s*:\s*(.+?)(?:$|\|)", r"Procesor\s*:\s*(.+?)(?:;|\||$)"):
+        m = re.search(wzorzec, dodatkowe, re.I)
+        if m and m.group(1).strip():
+            return m.group(1).strip()
+    return attrs.get("Seria procesora", "")
+
+
 def procesor_opis(raw: str) -> str:
     """'i5 - 8400H, 8MB Cache, 8 gen.' -> 'Intel Core i5-8400H (8. Generation, 8 MB Cache)'.
 
@@ -211,6 +227,9 @@ def cpu_candidates(processor: str) -> list[str]:
         out.append(f"AMD Ryzen {ryzen.group(1)}{pro} {ryzen.group(3)}")
         out.append(f"AMD Ryzen {ryzen.group(1)}{pro} {ryzen.group(3)[0]}000 Series")
         out.append(f"AMD Ryzen {ryzen.group(1)}{pro}")
+        if pro:                                   # eBay nie ma wszystkich wariantow PRO
+            out.append(f"AMD Ryzen {ryzen.group(1)} {ryzen.group(3)[0]}000 Series")
+            out.append(f"AMD Ryzen {ryzen.group(1)}")
         return out
 
     core = re.search(r"\bI([3579])\s*-?\s*(\d{4,5}[A-Z]{0,2}\d?)", p)
@@ -241,8 +260,16 @@ def cpu_candidates(processor: str) -> list[str]:
         out += [f"Intel Pentium Silver {silver.group(1)}", "Intel Pentium Silver", "Intel Pentium"]
         return out
 
+    # sama nazwa rodziny - feed podaje ja w polu "Seria procesora"
+    if "CELERON" in p:
+        out.append("Intel Celeron")
     if "PENTIUM" in p:
         out.append("Intel Pentium")
+    if "ATOM" in p:
+        out.append("Intel Atom")
+    rodzina = re.search(r"RYZEN\s*([3579])", p)
+    if rodzina:
+        out.append(f"AMD Ryzen {rodzina.group(1)}")
     return out
 
 
@@ -324,24 +351,16 @@ def port_label(label: str, aspects: dict, review: Review) -> str:
 
 
 def connectivity_aspect(ports, aspects: dict, review: Review) -> str:
+    """Jedno zrodlo prawdy: etykieta z regul, potem mapa na wartosc aspektu eBay."""
     cfg = aspects["konnektivitaet"]
-    allowed, mapping = cfg["_dozwolone"], cfg["z_portow"]
-    found: list[str] = list(cfg["zawsze_dodaj"]["wartosci"])
-    for _, label in ports:
-        key = norm(label)
-        hit = mapping.get(key)
-        if not hit:
-            for source, target in sorted(mapping.items(), key=lambda i: -len(i[0])):
-                if key.startswith(source):
-                    hit = target
-                    break
-        if not hit:
-            if not any(key.startswith(k) for k in cfg["_pomijane"] if not k.startswith("_")):
-                review.add("aspekt", "C:Konnektivität", label)
-            continue
-        if hit in allowed and hit not in found:
-            found.append(hit)
-    return "|".join(sorted(found))
+    mapa, dozwolone = cfg["etykieta_na_aspekt"], cfg["_dozwolone"]
+    znalezione: list[str] = []
+    for _, surowa in ports:
+        etykieta = port_label(surowa, aspects, review)
+        wartosc = mapa.get(etykieta)
+        if wartosc and wartosc in dozwolone and wartosc not in znalezione:
+            znalezione.append(wartosc)
+    return "|".join(sorted(znalezione))
 
 
 def features_aspect(attrs: dict, ports, aspects: dict, podswietlenie: bool | None = None) -> str:
@@ -361,9 +380,10 @@ def features_aspect(attrs: dict, ports, aspects: dict, podswietlenie: bool | Non
 def gpu_clean(value: str) -> list[str]:  # noqa: C901
     """Feed: 'Grafika Intel HD 630 + Radeon Pro 460 4GB' -> kandydaci dla eBaya."""
     v = normalize_space(value or "")
-    v = re.split(r"\s*[+/]\s*", v)[0]                       # tylko uklad podstawowy
+    segmenty = re.split(r"\s*[+/]\s*", v)
+    v = segmenty[0]                                          # uklad podstawowy
     v = re.sub(r"(?i)^grafika\s+", "", v)
-    v = re.sub(r"(?i)\s*(dla procesorow|for)\s+.*$", "", v)
+    v = re.sub(r"(?i)\s*(dla procesor\w*|for)\s+.*$", "", v)
     v = re.sub(r"(?i)\s*\d+\s*GB.*$", "", v).strip()
     if re.match(r"(?i)^UHD\s+Intel", v):
         v = re.sub(r"(?i)^UHD\s+Intel\s*", "Intel UHD ", v)
@@ -581,8 +601,9 @@ def render_description(template, attrs, images, translations, aspects, settings,
     specs = [
         ("Hersteller", manufacturer),
         ("Modell", model),
-        ("Prozessor", procesor_opis(attrs.get("Procesor", ""))),
-        ("Prozessorkerne", attrs.get("Ilość rdzeni", "")),
+        ("Prozessor", procesor_opis(zrodlo_procesora(attrs))),
+        ("Prozessorkerne", (attrs.get("Ilość rdzeni", "")
+                            if attrs.get("Ilość rdzeni", "").isdigit() else "")),
         ("Taktfrequenz", base_clock(attrs.get("Taktowanie", ""))),
         ("Arbeitsspeicher", normalize_space(f"{ram} {attrs.get('Typ pamięci RAM', '')}")),
         ("Festplatte", normalize_space(f"{disk} {attrs.get('Typ dysku', '')}")),
@@ -590,7 +611,7 @@ def render_description(template, attrs, images, translations, aspects, settings,
             screen_size_de(attrs.get("Przekątna ekranu", "")),
             attrs.get("Rozdzielczość ekranu", ""), finish] if x)),
         ("Grafik", ", ".join(x for x in [
-            attrs.get("Model karty graficznej", ""), gpu_type] if x)),
+            (gpu_clean(attrs.get("Model karty graficznej", "")) or [""])[0], gpu_type] if x)),
         ("Touchscreen", "nicht vorhanden" if attrs.get("Ekran dotykowy") == "Nie"
          else "vorhanden" if attrs.get("Ekran dotykowy") == "Tak" else ""),
         ("Optisches Laufwerk", translations["drive"].get(attrs.get("Napęd", ""), "")),
@@ -616,7 +637,7 @@ def render_description(template, attrs, images, translations, aspects, settings,
 
     values = {
         "typ": typ_produktu(kategoria_xml, settings),
-        "processor": procesor_opis(attrs.get("Procesor", "")),
+        "processor": procesor_opis(zrodlo_procesora(attrs)),
         "ram": ram, "ram_type": attrs.get("Typ pamięci RAM", ""),
         "disk": disk, "disk_type": attrs.get("Typ dysku", ""),
         "screen_size": screen_size_de(attrs.get("Przekątna ekranu", "")),
@@ -658,7 +679,7 @@ def render_description(template, attrs, images, translations, aspects, settings,
 
 
 def build_title(attrs: dict, settings: dict, aspects: dict) -> str:
-    kandydaci = cpu_candidates(attrs.get("Procesor", ""))
+    kandydaci = cpu_candidates(zrodlo_procesora(attrs))
     cpu = kandydaci[0] if kandydaci else ""
     parts = [brand_name(attrs.get("Producent", "")), attrs.get("Model", ""),
              cpu.replace("Intel Core ", "").replace("AMD ", ""), clean_capacity(attrs.get("Ilość pamięci RAM", "")),
@@ -704,12 +725,13 @@ def build_row(offer, attrs, cfg, headers, review):
     slownik = cfg["vocab"]["kategorie"][kategoria]
     vocab = slownik
     cpu_aspect = ""
-    for option in cpu_candidates(attrs.get("Procesor", "")):
-        if option in vocab["aspekty"]["Prozessor"]:
-            cpu_aspect = option
+    dozwolone_cpu = {norm(x): x for x in vocab["aspekty"]["Prozessor"]}
+    for option in cpu_candidates(zrodlo_procesora(attrs)):
+        if norm(option) in dozwolone_cpu:
+            cpu_aspect = dozwolone_cpu[norm(option)]
             break
     if not cpu_aspect:
-        review.add("aspekt", "C:Prozessor", attrs.get("Procesor", ""))
+        review.add("aspekt", "C:Prozessor", zrodlo_procesora(attrs) or "(brak danych)")
 
     gpu_raw = attrs.get("Model karty graficznej", "")
     gpu_aspect = aspects["grafikprozessor_alias"].get(norm(gpu_raw), "")
@@ -845,6 +867,8 @@ def zbierz_produkty(root, cfg, review, skipped):
             continue
         attrs = offer_attrs(offer)
         brakuje = [f for f in REQUIRED_XML if not attrs.get(f)]
+        if not zrodlo_procesora(attrs):
+            brakuje.append("Procesor / Seria procesora")
         if brakuje:
             skipped["brak_pol_xml"] += 1
             review.add("feed", attrs.get("SKU", offer.get("id", "")), ", ".join(brakuje))
