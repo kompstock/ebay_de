@@ -354,7 +354,7 @@
   "klawiatura_czesci": {
     "_about": "Rozbior wartosci pola 'Klawiatura (ISO lub ANSI)'. Nierozpoznany czlon = produkt do review.",
     "czesci": {
-      "qwerty pl": "QWERTY PL",
+      "qwerty pl": "QWERTY/QWERTZ, mit deutschen Tastaturaufklebern",
       "qwertz de": "QWERTZ DE",
       "qwerty us": "QWERTY US",
       "azerty fr": "AZERTY FR",

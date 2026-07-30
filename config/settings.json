@@ -10,7 +10,7 @@
   "shipping_profile_name": "9B27: Free / 2-10d / 14d return / D2C3DAE5 / 20-21 EUR/2-10d ... - (ID: 263690853019)",
   "return_profile_name": "30 days - International 30 days (254124780019) - (ID: 254124780019)",
   "payment_profile_name": "lap / 167E / PL / 8E61164E / PL - (ID: 254124776019)",
-  "company_since": "2019",
+  "company_since": "2009",
   "company_country": "Poland",
   "xml_categories": [
     "Laptopy",
@@ -21,8 +21,6 @@
   ],
   "max_quantity": 0,
   "product_safety_pictograms": "EBPSP201",
-  "company_locations_de": "In Polen",
-  "os_language_note_de": "Die Systemsprache lässt sich in Windows jederzeit auf Deutsch umstellen.",
   "max_skipped_ratio": 0.3,
   "doplata_wysylka_eur": 20,
   "prog_zmiany_ceny_eur": 3,
@@ -36,5 +34,18 @@
   },
   "min_produktow_w_feedzie": 150,
   "max_udzial_zerowanych": 0.35,
-  "listing_site": "DE"
+  "listing_site": "DE",
+  "typ_produktu": {
+    "_about": "Rzeczownik uzywany w opisie, wyprowadzany z kategorii XML. Nowy typ towaru = jeden wpis.",
+    "Laptopy": "Notebook",
+    "Laptopy 12 cali": "Notebook",
+    "Laptopy 13 cali": "Notebook",
+    "Laptopy 14 cali": "Notebook",
+    "Laptopy 15 cali": "Notebook",
+    "Laptopy 17 cali": "Notebook",
+    "Komputery": "Desktop-PC",
+    "Monitory": "Monitor",
+    "Tablety": "Tablet",
+    "_domyslnie": "Gerät"
+  }
 }
