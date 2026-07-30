@@ -50,6 +50,35 @@ POLISH_WORDS = re.compile(
 )
 
 
+WYMAGANE_KLUCZE = {
+    "settings": ["tekst_wiodacy", "typ_produktu", "doplata_wysylka_eur", "kategorie",
+                 "sekcja_business_notebook", "min_produktow_w_feedzie", "company_since"],
+    "aspects": ["konnektivitaet.etykieta_na_aspekt", "porty_reguly", "klawiatura_czesci",
+                "sufiks_tytulu", "betriebssystem", "condition_id"],
+    "translations": ["values"],
+    "manufacturers": ["producenci", "aliasy"],
+}
+
+
+def sprawdz_konfiguracje(cfg: dict) -> list[str]:
+    """Wychwytuje rozjazd wersji: nowy kod ze starym plikiem konfiguracyjnym.
+
+    Bez tego brakujacy klucz konczy sie zerem produktow i komunikatem,
+    z ktorego nic nie wynika.
+    """
+    braki = []
+    for plik, klucze in WYMAGANE_KLUCZE.items():
+        dane = cfg.get(plik, {})
+        for klucz in klucze:
+            biezacy = dane
+            for czesc in klucz.split("."):
+                if not isinstance(biezacy, dict) or czesc not in biezacy:
+                    braki.append(f"config/{plik}.json: brak '{klucz}'")
+                    break
+                biezacy = biezacy[czesc]
+    return braki
+
+
 def load_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
@@ -911,6 +940,12 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
     skipped: Counter = Counter()
     blokady: list[str] = []
 
+    braki_konfiguracji = sprawdz_konfiguracje(cfg)
+    if braki_konfiguracji:
+        blokady.append("pliki konfiguracyjne sa starsze niz kod - " +
+                       "; ".join(braki_konfiguracji) +
+                       ". Wgraj komplet plikow z ostatniej paczki.")
+
     produkty = zbierz_produkty(root, cfg, review, skipped)
     if len(produkty) < int(settings["min_produktow_w_feedzie"]):
         blokady.append(f"feed ma tylko {len(produkty)} produktow z zapasem, "
@@ -940,8 +975,8 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
             try:
                 wiersz, blad = build_row(offer, attrs, cfg, headers, review)
             except (ValueError, TypeError, KeyError) as exc:
-                skipped["blad_konwersji"] += 1
-                review.add("blad", attrs.get("SKU", ""), repr(exc))
+                skipped[f"blad_konwersji: {type(exc).__name__} {exc}"] += 1
+                review.add("blad", attrs.get("SKU", ""), f"{type(exc).__name__}: {exc}")
                 continue
             if blad:
                 skipped[blad.split(":")[0]] += 1

@@ -39,8 +39,11 @@ class Wystawianie(unittest.TestCase):
         cls.wiersze, cls.raport, cls.out = uruchom()
 
     def test_cos_wyszlo(self):
-        self.assertGreater(self.raport["do_wystawienia"], 0)
-        self.assertTrue(self.raport["ok"])
+        powod = (f"\n  blokady: {self.raport.get('blokady')}"
+                 f"\n  pominieto: {self.raport.get('pominieto')}"
+                 f"\n  review: {(self.out / 'review.csv').read_text(encoding='utf-8-sig')[:600]}")
+        self.assertTrue(self.raport["ok"], powod)
+        self.assertGreater(self.raport["do_wystawienia"], 0, powod)
 
     def test_tytul_nie_klamie_o_systemie(self):
         """Sufiks tytulu musi wynikac z pola systemu, nie byc stala."""
@@ -123,14 +126,16 @@ class Tryby(unittest.TestCase):
     def test_aktualizacja_daje_revise(self):
         _, raport, out = uruchom("aktualizacja")
         self.assertTrue((out / "ebay-revise.csv").exists())
-        rows = list(csv.reader((out / "ebay-revise.csv").open(encoding="utf-8-sig")))
+        with (out / "ebay-revise.csv").open(encoding="utf-8-sig") as uchwyt:
+            rows = list(csv.reader(uchwyt))
         self.assertEqual(rows[1][0], "Action")
         self.assertTrue(all(r[0] == "Revise" for r in rows[2:] if r))
         self.assertTrue(all(r[2] for r in rows[2:] if r), "kazdy wiersz musi miec Item number")
 
     def test_test_daje_verifyadd(self):
         out = uruchom("test")[2]
-        rows = list(csv.reader((out / "ebay-add.csv").open(encoding="utf-8-sig"), delimiter=";"))
+        with (out / "ebay-add.csv").open(encoding="utf-8-sig") as uchwyt:
+            rows = list(csv.reader(uchwyt, delimiter=";"))
         self.assertTrue(all(r[0] == "VerifyAdd" for r in rows[2:] if r))
 
     def test_bramka_malego_feedu(self):
