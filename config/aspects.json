@@ -160,13 +160,34 @@
     "Dedykowana": "Dedizierte Grafiken"
   },
   "betriebssystem": {
-    "_about": "C:Betriebssystem. Jezyk interfejsu opisujemy osobno w opisie, nie w aspekcie.",
+    "_about": "Wartosc z feedu -> wartosc aspektu eBay. Rozna dla kategorii 177 i 111422.",
     "Windows 11 Pro": "Windows 11 Pro",
     "Windows 11 Home": "Windows 11 Home",
+    "Windows 11 Pro Education": "Windows 11 Pro",
     "Windows 10 Pro": "Windows 10 Pro",
+    "Windows 10 Professional": "Windows 10 Pro",
     "Windows 10 Home": "Windows 10 Home",
-    "Brak": "Kein Betriebssystem",
-    "Bez systemu": "Kein Betriebssystem"
+    "Windows 10 lub 11 Pro": "Windows 10 Pro",
+    "Chrome OS": "Chrome OS",
+    "Linux": "Linux",
+    "Ubuntu": "Ubuntu",
+    "Brak": "Nicht enthalten",
+    "Bez systemu": "Nicht enthalten",
+    "Brak systemu": "Nicht enthalten",
+    "MacOS Mojave": "macOS 10.14, Mojave",
+    "Mac OS Catalina": "Mac OS 10.15, Catalina",
+    "Mac OS Big Sur": "Mac OS 11.0, Big Sur",
+    "MacOS 12, Monterey": "macOS 12.0, Monterey",
+    "Mac OS Monterey": "macOS 12.0, Monterey",
+    "MacOS 13, Ventura": "macOS 13.0, Ventura",
+    "Mac OS Ventura": "macOS 13.0, Ventura",
+    "MacOS 14, Sonoma": "macOS 14.0, Sonoma",
+    "Mac OS Sonoma": "macOS 14.0, Sonoma",
+    "_bez_odpowiednika": {
+      "_komentarz": "eBay nie ma jeszcze tych wersji. Pole zostaje puste, oferta wychodzi.",
+      "macOS 15 Sequoia": "",
+      "macOS 26 Tahoe": ""
+    }
   },
   "erscheinungsjahr": {
     "_about": "C:Erscheinungsjahr - feed tego nie ma. Rocznik per model, uzupelniany recznie. Brak = pole puste.",
@@ -212,5 +233,161 @@
     "intel hd graphics 620": "Intel HD Graphics 620",
     "amd radeon rx vega 3": "AMD Radeon Vega 3",
     "amd radeon rx vega 10": "AMD Radeon RX Vega 10"
+  },
+  "porty_reguly": {
+    "_about": "Regex -> etykieta niemiecka. Pierwsze trafienie wygrywa. Brak trafienia = port pomijany + wpis do review.",
+    "reguly": [
+      [
+        "(?i)thunderbolt\\s*4",
+        "Thunderbolt 4"
+      ],
+      [
+        "(?i)thunderbolt",
+        "Thunderbolt 3"
+      ],
+      [
+        "(?i)usb\\s*4",
+        "USB4 Typ-C"
+      ],
+      [
+        "(?i)usb.*(typu?[-\\s]*c|typ\\s*c)|^usb-c$",
+        "USB-C"
+      ],
+      [
+        "(?i)usb\\s*3\\.2\\s*gen\\.?\\s*2",
+        "USB 3.2 Gen 2"
+      ],
+      [
+        "(?i)usb\\s*3\\.2",
+        "USB 3.2 Gen 1"
+      ],
+      [
+        "(?i)usb\\s*3\\.1",
+        "USB 3.1"
+      ],
+      [
+        "(?i)usb\\s*3\\.0",
+        "USB 3.0"
+      ],
+      [
+        "(?i)usb\\s*2\\.0",
+        "USB 2.0"
+      ],
+      [
+        "(?i)^usb$",
+        "USB"
+      ],
+      [
+        "(?i)mini\\s*display\\s*port",
+        "Mini-DisplayPort"
+      ],
+      [
+        "(?i)display\\s*port",
+        "DisplayPort"
+      ],
+      [
+        "(?i)hdmi\\s*2\\.0",
+        "HDMI 2.0"
+      ],
+      [
+        "(?i)hdmi\\s*1\\.4b",
+        "HDMI 1.4b"
+      ],
+      [
+        "(?i)hdmi\\s*1\\.4",
+        "HDMI 1.4"
+      ],
+      [
+        "(?i)hdmi",
+        "HDMI"
+      ],
+      [
+        "(?i)vga|d-sub",
+        "VGA"
+      ],
+      [
+        "(?i)rj-?45|ethernet|^lan$",
+        "RJ-45 (LAN)"
+      ],
+      [
+        "(?i)smart\\s*card|^sc$",
+        "Smartcard-Leser"
+      ],
+      [
+        "(?i)microsd|micro\\s*sd",
+        "microSD-Kartenleser"
+      ],
+      [
+        "(?i)czytnik kart pamieci sd|czytnik kart sd|^sd$",
+        "SD-Kartenleser"
+      ],
+      [
+        "(?i)czytnik kart",
+        "Kartenleser"
+      ],
+      [
+        "(?i)sluchawkow|mikrofon|headphone|audio",
+        "Audio-Kombibuchse"
+      ],
+      [
+        "(?i)dc-?in|zasil",
+        "Netzanschluss"
+      ],
+      [
+        "(?i)dok",
+        "Docking-Anschluss"
+      ],
+      [
+        "(?i)sim",
+        "SIM-Kartensteckplatz"
+      ],
+      [
+        "(?i)express\\s*card",
+        "ExpressCard-Steckplatz"
+      ],
+      [
+        "(?i)kensington|blokad",
+        "Kensington-Schloss"
+      ]
+    ]
+  },
+  "klawiatura_czesci": {
+    "_about": "Rozbior wartosci pola 'Klawiatura (ISO lub ANSI)'. Nierozpoznany czlon = produkt do review.",
+    "czesci": {
+      "qwerty pl": "QWERTY PL",
+      "qwertz de": "QWERTZ DE",
+      "qwerty us": "QWERTY US",
+      "azerty fr": "AZERTY FR",
+      "qwerty uk": "QWERTY UK",
+      "qwertz ch": "QWERTZ CH",
+      "qwerty nordic": "QWERTY Nordic",
+      "podswietlana": "beleuchtet",
+      "niepodswietlana": "ohne Beleuchtung",
+      "numeryczna": "mit Nummernblock",
+      "spolszczona naklejkami": "mit polnischen Aufklebern"
+    },
+    "podswietlenie_tak": [
+      "podswietlana"
+    ],
+    "podswietlenie_nie": [
+      "niepodswietlana"
+    ]
+  },
+  "sufiks_tytulu": {
+    "_about": "Sufiks tytulu MUSI wynikac z pola 'Zainstalowany system'. Brak wpisu = brak sufiksu.",
+    "Windows 11 Pro": "Win11 Pro",
+    "Windows 11 Home": "Win11 Home",
+    "Windows 11 Pro Education": "Win11 Pro",
+    "Windows 10 Pro": "Win10 Pro",
+    "Windows 10 Professional": "Win10 Pro",
+    "Windows 10 Home": "Win10 Home",
+    "Windows 10 lub 11 Pro": "Win10/11 Pro",
+    "Chrome OS": "ChromeOS",
+    "MacOS Mojave": "macOS",
+    "Mac OS Ventura": "macOS",
+    "MacOS 13, Ventura": "macOS",
+    "macOS 15 Sequoia": "macOS",
+    "macOS 26 Tahoe": "macOS",
+    "MacOS 14, Sonoma": "macOS"
   }
 }

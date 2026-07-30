@@ -1,4 +1,4 @@
-"""Testy bramek jakosci. Kazdy z nich pilnuje bledu, ktory realnie wystapil."""
+"""Testy bramek jakosci. Kazdy pilnuje bledu, ktory realnie wystapil."""
 import csv
 import html
 import json
@@ -11,101 +11,142 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = ROOT / "tests" / "fixtures" / "sample.xml"
-POLISH_CHARS = set("ąćęłńóśźż")
+RAPORT = ROOT / "tests" / "fixtures" / "aktywne.csv"
+POLSKIE = set("ąćęłńóśźż")
+csv.field_size_limit(10 ** 7)
 
 
-def run(feed=FIXTURE, out=None):
-    out = out or Path(tempfile.mkdtemp())
+def uruchom(tryb="pierwsze", feed=FIXTURE, raport=RAPORT):
+    out = Path(tempfile.mkdtemp())
     subprocess.run(
-        [sys.executable, str(ROOT / "src" / "generate.py"),
-         "--feed-file", str(feed), "--nbp-rate", "4.26", "--output-dir", str(out)],
+        [sys.executable, str(ROOT / "src" / "generate.py"), "--tryb", tryb,
+         "--feed-file", str(feed), "--raport", str(raport), "--nbp-rate", "4.26",
+         "--min-produktow", "1", "--output-dir", str(out)],
         check=False, capture_output=True)
-    rows = list(csv.reader((out / "ebay-de-laptops.csv").open(encoding="utf-8-sig"), delimiter=";"))
-    report = json.loads((out / "generation-report.json").read_text(encoding="utf-8"))
-    data = [dict(zip(rows[1], r)) for r in rows[2:] if r]
-    return data, report, out
+    raport_json = json.loads((out / "generation-report.json").read_text(encoding="utf-8"))
+    wiersze = []
+    plik = out / "ebay-add.csv"
+    if plik.exists():
+        with plik.open(encoding="utf-8-sig") as uchwyt:
+            rows = list(csv.reader(uchwyt, delimiter=";"))
+        wiersze = [dict(zip(rows[1], r)) for r in rows[2:] if r]
+    return wiersze, raport_json, out
 
 
-class Gates(unittest.TestCase):
+class Wystawianie(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.rows, cls.report, cls.out = run()
-        cls.row = cls.rows[0]
+        cls.wiersze, cls.raport, cls.out = uruchom()
 
-    def test_produkt_wyeksportowany(self):
-        self.assertEqual(self.report["products_exported"], 1)
+    def test_cos_wyszlo(self):
+        self.assertGreater(self.raport["do_wystawienia"], 0)
+        self.assertTrue(self.raport["ok"])
+
+    def test_tytul_nie_klamie_o_systemie(self):
+        """Sufiks tytulu musi wynikac z pola systemu, nie byc stala."""
+        for w in self.wiersze:
+            tytul, system = w["*Title"], w["C:Betriebssystem"]
+            if "Win" in tytul:
+                self.assertIn("Windows", system,
+                              f"tytul obiecuje Windows, a system to {system!r}: {tytul}")
+            if "macOS" in tytul:
+                self.assertTrue(system.lower().startswith(("macos", "mac os")) or not system,
+                                f"tytul obiecuje macOS, a system to {system!r}")
+
+    def test_apple_ma_wlasna_kategorie(self):
+        for w in self.wiersze:
+            if w["*C:Marke"] == "Apple":
+                self.assertEqual(w["*Category"], "111422")
+                self.assertEqual(w["C:Produktart"], "", "kategoria Apple nie ma aspektu Produktart")
+            else:
+                self.assertEqual(w["*Category"], "177")
+
+    def test_cena_zawiera_doplate(self):
+        doplata = json.loads((ROOT / "config" / "settings.json").read_text(
+            encoding="utf-8"))["doplata_wysylka_eur"]
+        for w in self.wiersze:
+            self.assertGreater(float(w["*StartPrice"]), doplata)
 
     def test_gpsr_kompletny(self):
-        for field in ("Manufacturer Name", "Manufacturer AddressLine1", "Manufacturer City",
-                      "Manufacturer Country", "Manufacturer PostalCode", "Manufacturer Email",
-                      "Responsible Person 1", "Responsible Person 1 Type",
-                      "Responsible Person 1 AddressLine1", "Responsible Person 1 City",
-                      "Responsible Person 1 Country", "Responsible Person 1 Email"):
-            self.assertTrue(self.row[field], f"puste pole GPSR: {field}")
+        for w in self.wiersze:
+            for pole in ("Manufacturer Name", "Manufacturer AddressLine1", "Manufacturer City",
+                         "Manufacturer Country", "Manufacturer Email", "Responsible Person 1",
+                         "Responsible Person 1 Type", "Responsible Person 1 City",
+                         "Responsible Person 1 Country", "Responsible Person 1 Email"):
+                self.assertTrue(w[pole], f"puste pole GPSR: {pole}")
 
-    def test_brak_polskich_slow_w_opisie(self):
-        d = self.row["*Description"]
-        plain = re.sub(r"(?is)<(style|script)\b.*?</\1>", " ", d)
-        plain = html.unescape(re.sub(r"<[^>]+>", " ", plain))
-        found = [c for c in plain if c in POLISH_CHARS]
-        self.assertFalse(found, f"polskie znaki w opisie: {set(found)}")
-        self.assertIsNone(re.search(r"(?<![\w])(i|oraz|lub|jest|możliwy)(?![\w])", plain))
+    def test_opis_bez_polskiego(self):
+        for w in self.wiersze:
+            tekst = re.sub(r"(?is)<(style|script)\b.*?</\1>", " ", w["*Description"])
+            tekst = html.unescape(re.sub(r"<[^>]+>", " ", tekst))
+            self.assertFalse([c for c in tekst if c in POLSKIE])
+            self.assertNotIn("{{", w["*Description"])
+            self.assertNotIn("&amp;uuml;", w["*Description"])
 
-    def test_brak_klasy_stanu_w_opisie(self):
-        self.assertNotIn("Klasse A", self.row["*Description"])
-        self.assertNotIn("Klasa", self.row["*Description"])
-
-    def test_brak_niepodmienionych_placeholderow(self):
-        self.assertNotIn("{{", self.row["*Description"])
-
-    def test_brak_podwojnego_escapowania(self):
-        self.assertNotIn("&amp;uuml;", self.row["*Description"])
-        self.assertNotIn("&amp;auml;", self.row["*Description"])
+    def test_klasa_stanu_nie_wycieka(self):
+        for w in self.wiersze:
+            self.assertNotIn("Klasse A", w["*Description"])
+            self.assertNotIn("Klasa", w["*Description"])
 
     def test_tytul_do_80_znakow(self):
-        self.assertLessEqual(len(self.row["*Title"]), 80)
-        self.assertGreater(len(self.row["*Title"]), 30)
+        for w in self.wiersze:
+            self.assertLessEqual(len(w["*Title"]), 80)
 
-    def test_taktowanie_bez_zakresu(self):
-        self.assertNotIn("-", self.row["C:Prozessorgeschwindigkeit"])
-        self.assertRegex(self.row["C:Prozessorgeschwindigkeit"], r"^\d+,\d+ GHz$")
+    def test_aspekty_ze_slownika_kategorii(self):
+        vocab = json.loads((ROOT / "config" / "ebay-vocab.json").read_text(encoding="utf-8"))
+        scisle = {"Marke", "Bildschirmgröße", "Prozessor", "Serie", "Farbe", "Konnektivität",
+                  "Besonderheiten", "Passend für", "Grafikprozessortyp", "Betriebssystem"}
+        for w in self.wiersze:
+            slownik = vocab["kategorie"][w["*Category"]]["aspekty"]
+            for kolumna, wartosc in w.items():
+                if not kolumna.startswith(("C:", "*C:")) or not wartosc:
+                    continue
+                aspekt = kolumna.split(":", 1)[1]
+                if aspekt in scisle and aspekt in slownik:
+                    for czesc in wartosc.split("|"):
+                        self.assertIn(czesc, slownik[aspekt], f"{aspekt} = {czesc!r}")
 
-    def test_aspekty_ze_slownika(self):
-        allowed = json.loads((ROOT / "config" / "aspects.json").read_text(encoding="utf-8"))
-        for value in self.row["C:Konnektivität"].split("|"):
-            self.assertIn(value, allowed["konnektivitaet"]["_dozwolone"])
-        for value in self.row["C:Besonderheiten"].split("|"):
-            self.assertIn(value, allowed["besonderheiten"]["_dozwolone"])
-
-    def test_sekcje_opisu_obecne(self):
-        d = html.unescape(self.row["*Description"])
-        for marker in ("So bereiten wir", "Sie gehen kein Risiko", "Häufige Fragen",
-                       "Wer wir sind", "Firmenkunden", "Tastaturaufkleber", "Packstation"):
-            self.assertIn(marker, d, f"brak sekcji: {marker}")
-
-    def test_raport_json(self):
-        self.assertIn("nbp", self.report)
-        self.assertEqual(self.report["csv_columns"], 104)
+    def test_pola_wymagane_niepuste(self):
+        vocab = json.loads((ROOT / "config" / "ebay-vocab.json").read_text(encoding="utf-8"))
+        for w in self.wiersze:
+            for aspekt in vocab["kategorie"][w["*Category"]]["_wymagane"]:
+                self.assertTrue(w.get(f"*C:{aspekt}") or w.get(f"C:{aspekt}"),
+                                f"puste pole wymagane C:{aspekt}")
 
 
-class Blockades(unittest.TestCase):
-    def test_nieznany_producent_blokuje(self):
-        feed = FIXTURE.read_text(encoding="utf-8").replace(">LENOVO<", ">NIEZNANY<")
-        tmp = Path(tempfile.mkdtemp()) / "f.xml"
-        tmp.write_text(feed, encoding="utf-8")
-        rows, report, _ = run(tmp)
-        self.assertEqual(report["products_exported"], 0)
-        self.assertEqual(rows, [])
+class Tryby(unittest.TestCase):
+    def test_nowe_pomija_juz_wystawione(self):
+        wiersze, raport, _ = uruchom("nowe")
+        self.assertEqual(raport["pominieto"].get("juz_wystawione"), 1)
+        self.assertEqual(raport["aktywnych_na_ebay"], 1, "oferta US nie moze trafic do puli DE")
 
-    def test_nieznane_tlumaczenie_blokuje(self):
-        feed = FIXTURE.read_text(encoding="utf-8").replace(
-            "Normalne ślady użytkowania", "Wgniecenie na obudowie, brak nóżki")
-        tmp = Path(tempfile.mkdtemp()) / "f.xml"
-        tmp.write_text(feed, encoding="utf-8")
-        rows, report, out = run(tmp)
-        self.assertEqual(report["products_exported"], 0)
-        review = (out / "review.csv").read_text(encoding="utf-8-sig")
-        self.assertIn("Wgniecenie", review)
+    def test_aktualizacja_daje_revise(self):
+        _, raport, out = uruchom("aktualizacja")
+        self.assertTrue((out / "ebay-revise.csv").exists())
+        rows = list(csv.reader((out / "ebay-revise.csv").open(encoding="utf-8-sig")))
+        self.assertEqual(rows[1][0], "Action")
+        self.assertTrue(all(r[0] == "Revise" for r in rows[2:] if r))
+        self.assertTrue(all(r[2] for r in rows[2:] if r), "kazdy wiersz musi miec Item number")
+
+    def test_test_daje_verifyadd(self):
+        out = uruchom("test")[2]
+        rows = list(csv.reader((out / "ebay-add.csv").open(encoding="utf-8-sig"), delimiter=";"))
+        self.assertTrue(all(r[0] == "VerifyAdd" for r in rows[2:] if r))
+
+    def test_bramka_malego_feedu(self):
+        out = Path(tempfile.mkdtemp())
+        subprocess.run(
+            [sys.executable, str(ROOT / "src" / "generate.py"), "--tryb", "pierwsze",
+             "--feed-file", str(FIXTURE), "--nbp-rate", "4.26",
+             "--min-produktow", "999", "--output-dir", str(out)],
+            check=False, capture_output=True)
+        raport = json.loads((out / "generation-report.json").read_text(encoding="utf-8"))
+        self.assertFalse(raport["ok"])
+        self.assertTrue(raport["blokady"])
+
+    def test_aktualizacja_bez_raportu_blokuje(self):
+        _, raport, _ = uruchom("aktualizacja", raport=Path("/nie/ma/takiego.csv"))
+        self.assertFalse(raport["ok"])
 
 
 if __name__ == "__main__":

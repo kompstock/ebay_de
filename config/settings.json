@@ -1,7 +1,6 @@
 {
   "feed_url": "https://kompre.esolu-hub.pl/storage/feeds/kompre.xml",
   "nbp_url": "https://api.nbp.pl/api/exchangerates/rates/A/EUR/?format=json",
-  "ebay_category": "177",
   "vat_percent": "19",
   "location": "Rogaszyce",
   "format": "FixedPrice",
@@ -21,9 +20,21 @@
     "Laptopy 12 cali"
   ],
   "max_quantity": 0,
-  "title_suffix": "Win11 Pro",
   "product_safety_pictograms": "EBPSP201",
   "company_locations_de": "In Polen",
   "os_language_note_de": "Die Systemsprache lässt sich in Windows jederzeit auf Deutsch umstellen.",
-  "max_skipped_ratio": 0.3
+  "max_skipped_ratio": 0.3,
+  "doplata_wysylka_eur": 20,
+  "prog_zmiany_ceny_eur": 3,
+  "kategorie": {
+    "apple": "111422",
+    "domyslna": "177"
+  },
+  "kategorie_nazwy": {
+    "111422": "Apple Laptops (111422)",
+    "177": "PC Notebooks & Netbooks (177)"
+  },
+  "min_produktow_w_feedzie": 150,
+  "max_udzial_zerowanych": 0.35,
+  "listing_site": "DE"
 }

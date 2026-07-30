@@ -1,45 +1,150 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <offers>
-  <o id="9996" price="975" avail="1" stock="985" basket="1">
+<o id="7681" url="https://kompre.pl/pl/p/Laptop-Lenovo-ThinkPad-T490-i5-8265U%2C-8GB-256GB-SSD-14-1920-x-1080-Windows-11-Pro-A/7681" price="1100" avail="1" stock="51" basket="1">
     <cat>Laptopy</cat>
-    <name>Laptop Lenovo ThinkPad T14 Gen 1</name>
+    <name>Laptop Lenovo ThinkPad T490 i5-8265U,  | 8GB 256GB SSD | 14" 1920 x 1080 | Windows 11 Pro [A]</name>
+    <desc>"Laptop Lenovo ThinkPad T490 i5-8265U,  | 8GB 256GB SSD | 14" 1920 x 1080 | Windows 11 Pro [A]" Otrzymujesz sprzęt, który został dokładnie przetestowany i sprawdzony pod kątem jakości oraz pełnej sprawności. Oferujemy urządzenia klasy biznesowej - zaprojektowane do niezawodnej pracy przez wiele lat. Sprawdzony sprzęt - Każdy egzemplarz przechodzi szereg testów diagnostycznych, czyszczenie i przygotowanie do pracy. Dzięki temu masz pewność, że sprzęt działa tak, jak powinien. Wydajność klasy biznesowej - Oferujemy modele zaprojektowane z myślą o intensywnej, wieloletniej pracy. To nie są urządzenia konsumenckie – to sprzęt stworzony do zadań specjalnych</desc>
     <imgs>
-      <main url="https://example.com/main.jpg"/>
-      <i url="https://example.com/second.jpg"/>
+      <main url="https://sklep998844.shoparena.pl/userdata/public/gfx/85300.png" />
+      <i url="https://sklep998844.shoparena.pl/userdata/public/gfx/85301.jpg" />
+      <i url="https://sklep998844.shoparena.pl/userdata/public/gfx/85302.jpg" />
+      <i url="https://sklep998844.shoparena.pl/userdata/public/gfx/85303.jpg" />
+      <i url="https://sklep998844.shoparena.pl/userdata/public/gfx/85304.jpg" />
+      <i url="https://sklep998844.shoparena.pl/userdata/public/gfx/85305.jpg" />
+      <i url="https://sklep998844.shoparena.pl/userdata/public/gfx/85306.jpg" />
+      <i url="https://sklep998844.shoparena.pl/userdata/public/gfx/85307.jpg" />
+      <i url="https://sklep998844.shoparena.pl/userdata/public/gfx/85308.jpg" />
+      <i url="https://sklep998844.shoparena.pl/userdata/public/gfx/85309.jpg" />
     </imgs>
     <attrs>
       <a name="Producent">LENOVO</a>
-      <a name="SKU">3888_20250724125241</a>
+      <a name="SKU">4220</a>
       <a name="Bateria">Oryginalna, od 1h do 4h (używana)</a>
       <a name="Dysk">256GB</a>
       <a name="Ekran dotykowy">Nie</a>
       <a name="Gwarancja sprzedawcy">12 miesięcy</a>
-      <a name="Ilość pamięci RAM">16GB</a>
-      <a name="Ilość rdzeni">6</a>
-      <a name="Informacje dodatkowe">Klawiatura odnowiona!</a>
+      <a name="Ilość pamięci RAM">8GB</a>
+      <a name="Ilość rdzeni">4</a>
+      <a name="Informacje dodatkowe">Klawiatura odnowiona</a>
       <a name="Kamera">Tak, wbudowana</a>
       <a name="Klawiatura (ISO lub ANSI)">QWERTY PL</a>
-      <a name="Kondycja sprzętu">[Klasa A-] laptop poleasingowy, w 100% sprawny, przetestowany i gotowy do pracy</a>
-      <a name="Licencja">Windows 11 Pro</a>
-      <a name="Model">ThinkPad T14 Gen 1</a>
-      <a name="Model karty graficznej">AMD Radeon RX Vega 6</a>
+      <a name="Kondycja sprzętu">[Klasa A] laptop poleasingowy, w 100% sprawny, przetestowany i gotowy do pracy</a>
+      <a name="Licencja">Windows 10 Professional</a>
+      <a name="Model">ThinkPad T490</a>
+      <a name="Model karty graficznej">Intel UHD Graphics 620</a>
       <a name="Napęd">Beznapędowy</a>
       <a name="Powłoka matrycy">Matowa</a>
-      <a name="Procesor">Ryzen 5 PRO 4650U</a>
+      <a name="Procesor">i5-8265U, 6MB Cache, 8 gen.</a>
       <a name="Przekątna ekranu">14"</a>
       <a name="Rodzaj karty graficznej">Zintegrowana</a>
       <a name="Rozdzielczość ekranu">1920 x 1080</a>
-      <a name="Seria procesora">Ryzen 5</a>
-      <a name="Stan ekranu">Drobne ryski, otarcia, poświatki</a>
+      <a name="Seria procesora">Intel Core i5</a>
+      <a name="Stan ekranu">Bez wad</a>
       <a name="Stan obudowy">Normalne ślady użytkowania</a>
-      <a name="Taktowanie">2.10 - 4.00 GHz</a>
+      <a name="Taktowanie">1.60 - 3.90 GHz</a>
       <a name="Typ dysku">SSD</a>
       <a name="Typ licencji">OEM</a>
       <a name="Typ pamięci RAM">DDR4</a>
       <a name="W zestawie">Zasilacz z przewodem</a>
       <a name="Zainstalowany system">Windows 11 Pro</a>
-      <a name="Złącza zewnętrzne">1 x HDMI 1.4b 1 x USB Typu C / Thunderbolt 3 2 x USB 3.2 Gen 1 1 x RJ-45 1 x Audio 1 x MicroSD</a>
+      <a name="Złącza zewnętrzne">USB 3.2 Gen. 1 - 2 szt. USB Typu-C - 1 szt. USB Typu-C (z Thunderbolt™ 3) - 1 szt. HDMI - 1 szt. Czytnik kart pamięci microSD - 1 szt. RJ-45 (LAN) - 1 szt. Wyjście słuchawkowe/wejście mikrofonowe - 1 szt. Czytnik Smart Card - 1 szt. Złącze stacji dokujące</a>
     </attrs>
   </o>
+  
+<o id="7696" url="https://kompre.pl/pl/p/Laptop-Apple-MacBook-Pro-A1707-i7-7820H-16GB-512GB-SSD-15%2C6-2880-x-1800-Mac-OS-Ventura-B/7696" price="1550" avail="1" stock="1" basket="1">
+    <cat>Laptopy</cat>
+    <name>Laptop Apple MacBook Pro A1707 i7 - 7820H | 16GB 512GB SSD | 15,6" 2880 x 1800 | Mac OS Ventura [B]</name>
+    <desc>"Laptop Apple MacBook Pro A1707 i7 - 7820H | 16GB 512GB SSD | 15,6" 2880 x 1800 | Mac OS Ventura [B]" Otrzymujesz sprzęt, który został dokładnie przetestowany i sprawdzony pod kątem jakości oraz pełnej sprawności. Oferujemy urządzenia klasy biznesowej - zaprojektowane do niezawodnej pracy przez wiele lat. Sprawdzony sprzęt - Każdy egzemplarz przechodzi szereg testów diagnostycznych, czyszczenie i przygotowanie do pracy. Dzięki temu masz pewność, że sprzęt działa tak, jak powinien. Wydajność klasy biznesowej - Oferujemy modele zaprojektowane z myślą o intensywnej, wieloletniej pracy. To nie są urządzenia konsumenckie – to sprzęt stworzony do zadań specjalnych</desc>
+    <imgs>
+      <main url="https://sklep998844.shoparena.pl/userdata/public/gfx/85451.png" />
+      <i url="https://sklep998844.shoparena.pl/userdata/public/gfx/85452.jpg" />
+      <i url="https://sklep998844.shoparena.pl/userdata/public/gfx/85453.jpg" />
+      <i url="https://sklep998844.shoparena.pl/userdata/public/gfx/85454.jpg" />
+      <i url="https://sklep998844.shoparena.pl/userdata/public/gfx/85455.jpg" />
+      <i url="https://sklep998844.shoparena.pl/userdata/public/gfx/85456.jpg" />
+      <i url="https://sklep998844.shoparena.pl/userdata/public/gfx/85457.jpg" />
+      <i url="https://sklep998844.shoparena.pl/userdata/public/gfx/85458.jpg" />
+    </imgs>
+    <attrs>
+      <a name="Producent">Apple</a>
+      <a name="SKU">4242</a>
+      <a name="Bateria">Oryginalna, od 1h do 4h (używana)</a>
+      <a name="Dysk">512GB</a>
+      <a name="Ekran dotykowy">Nie</a>
+      <a name="Gwarancja sprzedawcy">12 miesięcy</a>
+      <a name="Ilość pamięci RAM">16GB</a>
+      <a name="Ilość rdzeni">4</a>
+      <a name="Klawiatura (ISO lub ANSI)">QWERTY PL, Podświetlana</a>
+      <a name="Kondycja sprzętu">[Klasa B] laptop poleasingowy, w 100% sprawny, przetestowany</a>
+      <a name="Licencja">Mac OS</a>
+      <a name="Model">MacBook Pro A1707</a>
+      <a name="Model karty graficznej">Intel HD + AMD Radeon Pro 560</a>
+      <a name="Napęd">Beznapędowy</a>
+      <a name="Powłoka matrycy">Błyszcząca</a>
+      <a name="Procesor">i7 - 7820HQ, 8MB Cache, 7 gen.</a>
+      <a name="Przekątna ekranu">15,6"</a>
+      <a name="Rodzaj karty graficznej">Dedykowana</a>
+      <a name="Rozdzielczość ekranu">2880 x 1800</a>
+      <a name="Seria procesora">Intel Core i7</a>
+      <a name="Stan ekranu">Ryski i otarcia, mniej widoczne przy wlączonym wyświetlaczu , przebarwienia , łuny na matrycy</a>
+      <a name="Stan obudowy">Normalne ślady użytkowania, ryski na klapie</a>
+      <a name="Taktowanie">2.90 - 3.90 GHz</a>
+      <a name="Typ dysku">SSD</a>
+      <a name="Typ pamięci RAM">DDR3</a>
+      <a name="W zestawie">Zasilacz zamiennik</a>
+      <a name="Zainstalowany system">Mac OS Ventura</a>
+      <a name="Złącza zewnętrzne">4x Thunderbolt (USB-c) , Audio</a>
+    </attrs>
+  </o>
+  
+<o id="7452" url="https://kompre.pl/pl/p/Laptop-Dell-Precision-7530-i5-8400H-32GB-512GB-SSD-15%2C6-1920-x-1080-Windows-11-Pro-A/7452" price="2329" avail="1" stock="6" basket="1">
+    <cat>Laptopy</cat>
+    <name>Laptop Dell Precision 7530 i5 - 8400H | 32GB 512GB SSD | 15,6" 1920 x 1080 | Windows 11 Pro [A]</name>
+    <desc>"Laptop Dell Precision 7530 i5 - 8400H | 32GB 512GB SSD | 15,6" 1920 x 1080 | Windows 11 Pro [A]" Otrzymujesz sprzęt, który został dokładnie przetestowany i sprawdzony pod kątem jakości oraz pełnej sprawności. Oferujemy urządzenia klasy biznesowej - zaprojektowane do niezawodnej pracy przez wiele lat. Sprawdzony sprzęt - Każdy egzemplarz przechodzi szereg testów diagnostycznych, czyszczenie i przygotowanie do pracy. Dzięki temu masz pewność, że sprzęt działa tak, jak powinien. Wydajność klasy biznesowej - Oferujemy modele zaprojektowane z myślą o intensywnej, wieloletniej pracy. To nie są urządzenia konsumenckie – to sprzęt stworzony do zadań specjalnych</desc>
+    <imgs>
+      <main url="https://sklep998844.shoparena.pl/userdata/public/gfx/83157.jpg" />
+      <i url="https://sklep998844.shoparena.pl/userdata/public/gfx/83158.jpg" />
+      <i url="https://sklep998844.shoparena.pl/userdata/public/gfx/83159.jpg" />
+      <i url="https://sklep998844.shoparena.pl/userdata/public/gfx/83160.jpg" />
+      <i url="https://sklep998844.shoparena.pl/userdata/public/gfx/83161.jpg" />
+      <i url="https://sklep998844.shoparena.pl/userdata/public/gfx/83162.jpg" />
+      <i url="https://sklep998844.shoparena.pl/userdata/public/gfx/83163.jpg" />
+      <i url="https://sklep998844.shoparena.pl/userdata/public/gfx/83164.jpg" />
+      <i url="https://sklep998844.shoparena.pl/userdata/public/gfx/83165.jpg" />
+      <i url="https://sklep998844.shoparena.pl/userdata/public/gfx/83166.jpg" />
+    </imgs>
+    <attrs>
+      <a name="Producent">DELL</a>
+      <a name="SKU">3809</a>
+      <a name="Bateria">Oryginalna, od 1h do 4h (używana)</a>
+      <a name="Dysk">512GB</a>
+      <a name="Ekran dotykowy">Nie</a>
+      <a name="Gwarancja sprzedawcy">12 miesięcy</a>
+      <a name="Ilość pamięci RAM">32GB</a>
+      <a name="Ilość rdzeni">4</a>
+      <a name="Kamera">Tak, wbudowana</a>
+      <a name="Klawiatura (ISO lub ANSI)">QWERTY PL (spolszczona naklejkami), Podświetlana, Numeryczna</a>
+      <a name="Kondycja sprzętu">[Klasa A] laptop poleasingowy, w 100% sprawny, przetestowany i gotowy do pracy</a>
+      <a name="Licencja">Windows 11 Pro</a>
+      <a name="Model">Precision 7530</a>
+      <a name="Model karty graficznej">Intel UHD 630 + Nvidia Quadro P2000</a>
+      <a name="Napęd">Beznapędowy</a>
+      <a name="Powłoka matrycy">Matowa</a>
+      <a name="Procesor">i5 - 8400H, 8MB Cache, 8 gen.</a>
+      <a name="Przekątna ekranu">15,6"</a>
+      <a name="Rodzaj karty graficznej">Dedykowana</a>
+      <a name="Rozdzielczość ekranu">1920 x 1080</a>
+      <a name="Seria procesora">Intel Core i5</a>
+      <a name="Stan ekranu">Bez wad</a>
+      <a name="Stan obudowy">Normalne, małe ślady użytkowania</a>
+      <a name="Taktowanie">2.50 - 4.20 GHz</a>
+      <a name="Typ dysku">SSD</a>
+      <a name="Typ licencji">OEM</a>
+      <a name="Typ pamięci RAM">DDR4</a>
+      <a name="W zestawie">Zasilacz z przewodem</a>
+      <a name="Zainstalowany system">Windows 11 Pro</a>
+      <a name="Złącza zewnętrzne">USB 3.2 Gen. 1 - 2 szt. USB Typu-C (z Thunderbolt™ 3) - 2 szt. HDMI - 1 szt. Czytnik kart pamięci SD - 1 szt. Mini Display Port - 1 szt. RJ-45 (LAN) - 1 szt. Wyjście słuchawkowe/wejście mikrofonowe - 1 szt. Czytnik Smart Card - 1 szt. DC-in (wejście zasil</a>
+    </attrs>
+  </o>
+  
 </offers>
-
