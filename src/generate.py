@@ -248,14 +248,28 @@ def processor_aspect(processor: str, series: str, review: Review) -> str:
     return series or processor
 
 
+def _rozbij_fragment(fragment: str) -> list[tuple[int, str]]:
+    """Fragment listy zlacz -> pary (ilosc, etykieta)."""
+    fragment = fragment.strip(" ,;.")
+    if not fragment:
+        return []
+    if len(re.findall(r"\d+\s*x\s", fragment, re.I)) > 1:      # "1 x HDMI 2 x USB"
+        return [(int(c), l.strip(" ,;."))
+                for c, l in re.findall(r"(\d+)\s*x\s*(.+?)(?=\s*\d+\s*x\s|$)", fragment)]
+    m = re.match(r"^(\d+)\s*x\s*(.+)$", fragment, re.I)          # "2x USB 3.0"
+    if m:
+        return [(int(m.group(1)), m.group(2).strip(" ,;."))]
+    return [(1, fragment)]                                        # sama nazwa
+
+
 def parse_ports_raw(value: str) -> list[tuple[int, str]]:
-    """Feed uzywa trzech formatow zapisu zlacz. Obslugujemy wszystkie."""
+    """Feed zapisuje zlacza na trzy sposoby, czesto mieszajac je w jednym polu."""
     v = normalize_space(value or "")
     if not v:
         return []
     out: list[tuple[int, str]] = []
 
-    if re.search(r"szt\.?", v, re.I):                       # "HDMI - 1 szt."
+    if re.search(r"szt\.?", v, re.I):                             # "HDMI - 1 szt."
         for chunk in re.split(r"szt\.?", v, flags=re.I):
             m = re.match(r"^\s*(.*?)\s*-\s*(\d+)\s*$", chunk)
             if m and m.group(1).strip():
@@ -263,18 +277,8 @@ def parse_ports_raw(value: str) -> list[tuple[int, str]]:
         if out:
             return out
 
-    if re.search(r"\d+\s*x\s", v, re.I):                    # "2 x USB-C"
-        for count, label in re.findall(r"(\d+)\s*x\s*(.+?)(?=\s*\d+\s*x\s|$)", v):
-            label = label.strip(" ,;.")
-            if label:
-                out.append((int(count), label))
-        if out:
-            return out
-
-    for label in re.split(r"[,;]", v):                       # "USB 3.0, HDMI, LAN"
-        label = label.strip(" ,;.")
-        if label:
-            out.append((1, label))
+    for fragment in re.split(r"[,;]", v):                         # reszta: po przecinkach
+        out += _rozbij_fragment(fragment)
     return out
 
 
@@ -409,6 +413,12 @@ def keyboard_parts(value: str, aspects: dict, review: Review) -> tuple[str, bool
     return ", ".join(dict.fromkeys(czesci)), podswietlenie
 
 
+def typ_produktu(kategoria_xml: str, settings: dict) -> str:
+    """Rzeczownik do opisu. Nowy typ towaru = jeden wpis w settings, zero zmian w kodzie."""
+    mapa = settings["typ_produktu"]
+    return mapa.get(kategoria_xml, mapa["_domyslnie"])
+
+
 def kategoria_produktu(producent: str, settings: dict) -> str:
     """Apple ma wlasna kategorie eBay z innym slownikiem systemow."""
     if norm(producent) == "apple":
@@ -505,7 +515,8 @@ def spec_row(label: str, value: str) -> str:
     return f"<tr><th>{e(label)}</th><td>{e(value)}</td></tr>" if value else ""
 
 
-def render_description(template, attrs, images, translations, aspects, settings, review):
+def render_description(template, attrs, images, translations, aspects, settings, review,
+                       kategoria_xml: str = ""):
     de: dict[str, str] = {}
     for field in REQUIRED_TRANSLATIONS:
         raw = attrs.get(field, "")
@@ -559,7 +570,16 @@ def render_description(template, attrs, images, translations, aspects, settings,
                 "gro&szlig;e Videoschnitt-Projekte ist das Ger&auml;t nicht gedacht."
                 if norm(gpu_type).startswith("integriert") else "")
 
+    system_raw = attrs.get("Zainstalowany system", "")
+    faq_system = ""
+    if system_raw.lower().startswith("windows"):
+        faq_system = (
+            "<details><summary>Ist Windows dauerhaft aktiviert?</summary>"
+            "<div class=\"kpx-a\">Ja. Die digitale Lizenz ist im Ger&auml;t hinterlegt und bleibt "
+            "auch nach einem Zur&uuml;cksetzen von Windows aktiv.</div></details>")
+
     values = {
+        "typ": typ_produktu(kategoria_xml, settings),
         "processor": attrs.get("Procesor", ""),
         "ram": ram, "ram_type": attrs.get("Typ pamięci RAM", ""),
         "disk": disk, "disk_type": attrs.get("Typ dysku", ""),
@@ -574,14 +594,13 @@ def render_description(template, attrs, images, translations, aspects, settings,
         
         "battery": de["Bateria"],
         "company_since": settings["company_since"],
-        "company_locations": settings["company_locations_de"],
-        "os_language_note": settings["os_language_note_de"],
     }
     raw = {
         "gpu_note": gpu_note,
         "spec_rows": "".join(spec_row(l, v) for l, v in specs),
         "port_items": "".join(
             f"<li>{e(str(c) + 'x ' + n)}</li>" for n, c in scal_porty(ports, aspects, review)),
+        "faq_system": faq_system,
         "hinweis_row": (f"<tr><th>Hinweis</th><td>{e(extra_de)}</td></tr>" if extra_de else ""),
         "main_image_block": (
             f'<div class="kpx-media"><img src="{e(images[0])}" '
@@ -627,7 +646,8 @@ def build_row(offer, attrs, cfg, headers, review):
     images = images[: int(settings["max_images"])]
 
     description, desc_error = render_description(
-        cfg["template"], attrs, images, translations, aspects, settings, review)
+        cfg["template"], attrs, images, translations, aspects, settings, review,
+        text(offer.find("./cat")))
     if desc_error:
         return None, desc_error
 
