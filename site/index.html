@@ -12,6 +12,11 @@
  .zle{background:#fdf1f0;border-color:#f3ccc8;color:#a01b12}
  .czeka{background:#f5f5f3;border-color:#e0e0dd;color:#5a5c62}
  #pasek b{display:block;font-size:18px;margin-bottom:4px}
+ #instrukcja{border:1px solid #e0e0dd;border-radius:12px;padding:18px 20px;margin-bottom:24px;
+             background:#fafaf9;font-size:15px}
+ #instrukcja b{display:block;margin-bottom:8px;font-size:16px}
+ #instrukcja ol{margin:0;padding-left:20px} #instrukcja li{margin-bottom:5px}
+ #instrukcja .ostrz{margin:10px 0 0;padding-left:12px;border-left:3px solid #e2231a;color:#5a5c62}
  table{border-collapse:collapse;width:100%;font-size:15px;margin-bottom:24px}
  th,td{padding:9px 12px;text-align:left} tr:nth-child(odd){background:#fafaf9}
  th{color:#5a5c62;font-weight:400;width:45%}
@@ -28,6 +33,8 @@
 <p class="pod">Generator plików CSV do File Exchange.</p>
 
 <div id="pasek" class="czeka"><b>Wczytywanie…</b>sprawdzam ostatni przebieg</div>
+
+<div id="instrukcja" style="display:none"></div>
 
 <table id="liczby"></table>
 
@@ -59,6 +66,37 @@ fetch("downloads/generation-report.json?" + Date.now())
      pasek.className = "zle";
      pasek.innerHTML = "<b>" + nazwy.zle + "</b>" + (r.blokady || []).join("<br>") + "<br><small>" + data + "</small>";
    }
+   const ins = document.getElementById("instrukcja");
+   let tresc = "";
+   if (!r.ok) {
+     tresc = "<b>Nic nie wgrywaj na eBay</b>Przebieg zosta\u0142 zatrzymany. Napraw przyczyn\u0119 " +
+             "wypisan\u0105 powy\u017cej i uruchom ponownie.";
+   } else if (r.tryb === "test") {
+     tresc = "<b>Co teraz zrobi\u0107</b><ol>" +
+       "<li>Pobierz <b>ebay-add.csv</b> poni\u017cej.</li>" +
+       "<li>Wgraj go na eBay przez File Exchange.</li>" +
+       "<li>eBay tylko sprawdzi plik i <b>nie utworzy \u017cadnej aukcji</b>.</li>" +
+       "<li>Je\u015bli nie ma b\u0142\u0119d\u00f3w \u2013 uruchom tryb <code>pierwsze</code>.</li></ol>";
+   } else if ((r.tryb === "pierwsze" || r.tryb === "nowe") && r.do_wystawienia === 0) {
+     tresc = "<b>Nie ma czego wgrywa\u0107</b>Wszystko z feedu jest ju\u017c wystawione.";
+   } else if (r.tryb === "pierwsze" || r.tryb === "nowe") {
+     tresc = "<b>Co teraz zrobi\u0107</b><ol>" +
+       "<li>Pobierz <b>ebay-add.csv</b> (" + r.do_wystawienia + " ofert).</li>" +
+       "<li>Wgraj go na eBay przez File Exchange.</li>" +
+       "<li>Po imporcie pobierz z eBaya raport <b>All active listings</b>.</li>" +
+       "<li>Wgraj go do repozytorium jako <b>input/aktywne.csv</b>.</li></ol>" +
+       "<p class='ostrz'>Bez kroku 3 i 4 nast\u0119pny przebieg uzna te oferty za nowe i zrobi duplikaty.</p>";
+   } else if (r.tryb === "aktualizacja" && r.do_aktualizacji === 0) {
+     tresc = "<b>Nie ma czego wgrywa\u0107</b>\u017badna cena ani ilo\u015b\u0107 si\u0119 nie zmieni\u0142a.";
+   } else {
+     tresc = "<b>Co teraz zrobi\u0107</b><ol>" +
+       "<li>Pobierz <b>ebay-revise.csv</b> (" + r.do_aktualizacji + " pozycji, w tym " +
+       r.w_tym_zerowanych + " do wyzerowania).</li>" +
+       "<li>Wgraj go na eBay przez File Exchange.</li>" +
+       "<li>Plik zmienia wy\u0142\u0105cznie ceny i ilo\u015bci istniej\u0105cych aukcji.</li></ol>";
+   }
+   ins.innerHTML = tresc; ins.style.display = "block";
+
    const w = [
      ["Tryb", r.tryb],
      ["Produktów w kategorii", r.produktow_w_kategorii],
