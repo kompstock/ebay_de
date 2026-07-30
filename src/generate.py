@@ -143,11 +143,15 @@ def has_polish_leak(text_value: str) -> str | None:
     plain = re.sub(r"(?is)<(style|script)\b.*?</\1>", " ", text_value)
     plain = re.sub(r"(?s)<!--.*?-->", " ", plain)
     plain = html.unescape(re.sub(r"<[^>]+>", " ", plain))
-    for char in plain:
+    for i, char in enumerate(plain):
         if char in POLISH_CHARS:
-            return f"znak diakrytyczny {char!r}"
+            kontekst = normalize_space(plain[max(0, i - 45):i + 45])
+            return f"znak {char!r} w: ...{kontekst}..."
     match = POLISH_WORDS.search(plain)
-    return f"polskie slowo {match.group(0)!r}" if match else None
+    if match:
+        kontekst = normalize_space(plain[max(0, match.start() - 45):match.end() + 45])
+        return f"slowo {match.group(0)!r} w: ...{kontekst}..."
+    return None
 
 
 def brand_name(value: str) -> str:
@@ -276,6 +280,9 @@ def _rozbij_fragment(fragment: str) -> list[tuple[int, str]]:
     m = re.match(r"^(\d+)\s*x\s*(.+)$", fragment, re.I)          # "2x USB 3.0"
     if m:
         return [(int(m.group(1)), m.group(2).strip(" ,;."))]
+    m = re.match(r"^(.+?)\s*x\s*(\d+)$", fragment, re.I)          # "LAN x 1"
+    if m:
+        return [(int(m.group(2)), m.group(1).strip(" ,;."))]
     return [(1, fragment)]                                        # sama nazwa
 
 
@@ -284,6 +291,8 @@ def parse_ports_raw(value: str) -> list[tuple[int, str]]:
     v = normalize_space(value or "")
     if not v:
         return []
+    v = v.replace("\u00d7", "x")                    # feed miesza 'x' i '×'
+    v = re.sub(r"(\d),(\d)", r"\1.\2", v)          # '3,5 mm' nie moze sie rozpasc na przecinku
     out: list[tuple[int, str]] = []
 
     if re.search(r"szt\.?", v, re.I):                             # "HDMI - 1 szt."
@@ -305,9 +314,11 @@ def port_label(label: str, aspects: dict, review: Review) -> str:
     hit = aspects["konnektivitaet"]["opis_etykiety"].get(norm(czysty))
     if hit:
         return hit
-    for wzorzec, niemiecki in aspects["porty_reguly"]["reguly"]:
-        if re.search(wzorzec, norm(czysty)) or re.search(wzorzec, czysty):
-            return niemiecki
+    # najpierw pelna etykieta - inaczej "USB Type-C (Thunderbolt 3)" gubi Thunderbolt
+    for kandydat in (label, czysty):
+        for wzorzec, niemiecki in aspects["porty_reguly"]["reguly"]:
+            if re.search(wzorzec, norm(kandydat)) or re.search(wzorzec, kandydat):
+                return niemiecki
     review.add("port", "opis", label)
     return ""
 

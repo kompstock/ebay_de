@@ -49,21 +49,7 @@
       "_komentarz": "Bluetooth i Wi-Fi NIE sa wartosciami tego aspektu - naleza do Besonderheiten.",
       "wartosci": []
     },
-    "opis_etykiety": {
-      "_about": "Etykiety portow w OPISIE (inne niz zamkniety slownik aspektu).",
-      "usb typu c": "USB-C",
-      "usb typu a": "USB-A",
-      "usb typu b": "USB-B",
-      "usb typu c / thunderbolt 3": "USB-C / Thunderbolt 3",
-      "usb typu c / thunderbolt 4": "USB-C / Thunderbolt 4",
-      "rj-45": "RJ-45 (LAN)",
-      "audio": "Audio-Kombibuchse",
-      "microsd": "microSD-Kartenleser",
-      "czytnik kart": "Kartenleser",
-      "gniazdo zasilania": "Netzanschluss",
-      "czytnik smart card": "Smartcard-Leser",
-      "zlacze dokujace": "Docking-Anschluss"
-    }
+    "opis_etykiety": {}
   },
   "besonderheiten": {
     "_about": "C:Besonderheiten - wartosci z ok.csv.",
@@ -246,43 +232,47 @@
         "Thunderbolt 3"
       ],
       [
+        "(?i)surface\\s*connect",
+        "Surface Connect"
+      ],
+      [
         "(?i)usb\\s*4",
         "USB4 Typ-C"
       ],
       [
-        "(?i)usb.*(typu?[-\\s]*c|typ\\s*c)|^usb-c$",
+        "(?i)usb[-\\s]*(typ[eu]?[-\\s]*c|c)\\b",
         "USB-C"
       ],
       [
-        "(?i)usb\\s*3\\.2\\s*gen\\.?\\s*2",
+        "(?i)usb[-\\s]*a?\\s*3\\.2\\s*gen\\.?\\s*2",
         "USB 3.2 Gen 2"
       ],
       [
-        "(?i)usb\\s*3\\.2",
+        "(?i)usb[-\\s]*a?\\s*3\\.2",
         "USB 3.2 Gen 1"
       ],
       [
-        "(?i)usb\\s*3\\.1",
+        "(?i)usb[-\\s]*a?\\s*3\\.1",
         "USB 3.1"
       ],
       [
-        "(?i)usb\\s*3\\.0",
+        "(?i)usb[-\\s]*a?\\s*3\\.0",
         "USB 3.0"
       ],
       [
-        "(?i)usb\\s*2\\.0",
+        "(?i)usb[-\\s]*a?\\s*2\\.0",
         "USB 2.0"
       ],
       [
-        "(?i)^usb$",
+        "(?i)^usb([-\\s]*a)?$",
         "USB"
       ],
       [
-        "(?i)mini\\s*display\\s*port",
+        "(?i)mini[-\\s]*display[-\\s]*port",
         "Mini-DisplayPort"
       ],
       [
-        "(?i)display\\s*port",
+        "(?i)display[-\\s]*port",
         "DisplayPort"
       ],
       [
@@ -302,19 +292,27 @@
         "HDMI"
       ],
       [
-        "(?i)vga|d-sub",
+        "(?i)vga|d-?sub",
         "VGA"
       ],
       [
-        "(?i)rj-?45|ethernet|^lan$",
+        "(?i)mini\\s*ethernet",
+        "Mini-Ethernet"
+      ],
+      [
+        "(?i)rj-?45|ethernet|^lan\\b",
         "RJ-45 (LAN)"
+      ],
+      [
+        "(?i)rs-?232|^com\\b",
+        "Serielle Schnittstelle (RS-232)"
       ],
       [
         "(?i)smart\\s*card|^sc$",
         "Smartcard-Leser"
       ],
       [
-        "(?i)microsd|micro\\s*sd",
+        "(?i)micro\\s*sd",
         "microSD-Kartenleser"
       ],
       [
@@ -322,15 +320,15 @@
         "SD-Kartenleser"
       ],
       [
-        "(?i)czytnik kart",
+        "(?i)czytnik kart|kartenleser",
         "Kartenleser"
       ],
       [
-        "(?i)sluchawkow|mikrofon|headphone|audio",
+        "(?i)mini\\s*jack|jack|combo|sluchawkow|mikrofon|headphone|audio|^3\\.5\\s*mm",
         "Audio-Kombibuchse"
       ],
       [
-        "(?i)dc-?in|zasil",
+        "(?i)dc-?in|zasil|netzanschluss",
         "Netzanschluss"
       ],
       [
