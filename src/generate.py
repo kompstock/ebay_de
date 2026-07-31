@@ -669,10 +669,6 @@ def render_description(template, attrs, images, translations, aspects, settings,
         ("Lieferumfang", de["W zestawie"]),
     ]
 
-    gpu_note = ("Die Grafik ist integriert. F&uuml;r aktuelle Spiele, 3D-Rendering oder "
-                "gro&szlig;e Videoschnitt-Projekte ist das Ger&auml;t nicht gedacht."
-                if norm(gpu_type).startswith("integriert") else "")
-
     system_raw = attrs.get("Zainstalowany system", "")
     faq_system = ""
     if system_raw.lower().startswith("windows"):
@@ -705,7 +701,6 @@ def render_description(template, attrs, images, translations, aspects, settings,
     raw = {
         "sekcja_business": sekcja_business,
         "lead": tekst_wiodacy(attrs, settings),
-        "gpu_note": gpu_note,
         "spec_rows": "".join(spec_row(l, v) for l, v in specs),
         "port_items": "".join(
             f"<li>{e(str(c) + 'x ' + n)}</li>" for n, c in scal_porty(ports, aspects, review)),

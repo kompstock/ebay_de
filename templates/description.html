@@ -6,12 +6,12 @@
 .kpx-bar{padding:18px 30px 0;font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:#5a5c62;font-weight:700}
 .kpx-bar b{color:#e2231a}
 .kpx-top{padding:16px 30px 22px;border-bottom:1px solid #ededea}
-.kpx-benefits{display:flex;flex-wrap:wrap;gap:8px 24px;margin:0;padding:0;list-style:none}
+.kpx-benefits{display:grid;grid-template-columns:repeat(2,1fr);gap:10px 24px;margin:0;padding:0;list-style:none}
 .kpx-benefits li{font-size:16px;font-weight:600}
 .kpx-benefits li:before{content:"\2713";color:#0f7a41;font-weight:800;margin-right:8px}
 .kpx-media{padding:26px 30px;text-align:center;border-bottom:1px solid #ededea}
 .kpx-media img{max-width:100%;width:560px;height:auto}
-.kpx-keys{display:flex;flex-wrap:wrap;gap:10px;padding:24px 30px}
+.kpx-keys{display:flex;flex-wrap:wrap;gap:10px;padding:24px 30px;border-bottom:1px solid #ededea}
 .kpx-key{flex:1 1 152px;border:1px solid #e0e0dd;border-bottom:3px solid #d4d4cf;border-radius:10px;padding:13px 15px}
 .kpx-key i{display:block;font-style:normal;font-size:13px;color:#5a5c62;margin-bottom:4px}
 .kpx-key b{font-size:16px;font-weight:700;color:#14161a}
@@ -74,7 +74,7 @@
   .kpx-lead{padding:0 18px 22px}
   .kpx-sec{padding:24px 18px}
   .kpx-steps{column-count:1}
-  .kpx-benefits{gap:7px 18px}
+  .kpx-benefits{grid-template-columns:1fr;gap:8px}
   .kpx-benefits li{font-size:15px}
   .kpx-zt,.kpx-table{margin-left:-10px;width:calc(100% + 20px);font-size:14px}
   .kpx-zt th,.kpx-table th{white-space:normal;width:40%}
@@ -110,7 +110,6 @@
     <div class="kpx-key"><i>System</i><b>{{operating_system}}</b></div>
   </div>
 
-  <p class="kpx-lead">{{lead}}</p>
 
   <div class="kpx-sec">
     <h2 class="kpx-h2"><span>Zustand</span></h2>
@@ -130,9 +129,9 @@
 
   <div class="kpx-sec">
     <h2 class="kpx-h2"><span>Zum Ger&auml;t</span></h2>
+    <p>{{lead}}</p>
     <p>Das {{manufacturer}} {{model}} ist ein gebrauchtes Business-{{typ}} aus Leasingr&uuml;cklauf. Diese Ger&auml;teklasse ist f&uuml;r den t&auml;glichen Einsatz im B&uuml;ro gebaut: stabiles Geh&auml;use, angenehme Tastatur und zuverl&auml;ssige Technik &uuml;ber viele Jahre.</p>
     <p>Ausgestattet ist dieses Exemplar mit {{processor}}, {{ram}} Arbeitsspeicher und {{disk}} {{disk_type}}. Das Display misst {{screen_size}} bei {{resolution}}. Als Betriebssystem ist {{operating_system}} installiert und aktiviert.</p>
-    <p>{{gpu_note}}</p>
   </div>
 
   <div class="kpx-sec">
@@ -172,28 +171,11 @@
       <summary>1 Monat R&uuml;ckgaberecht</summary>
       <div class="kpx-a">Sie k&ouml;nnen den Artikel innerhalb eines Monats ohne Angabe von Gr&uuml;nden zur&uuml;ckgeben, &uuml;ber den R&uuml;ckgabeprozess von eBay. Nach Eingang der R&uuml;cksendung erstatten wir den vollen Kaufpreis.</div>
     </details>
+    <details>
+      <summary>Rechnung mit ausgewiesener Mehrwertsteuer</summary>
+      <div class="kpx-a">Der angezeigte Preis enth&auml;lt die deutsche Mehrwertsteuer von 19&nbsp;%. Jeder Lieferung liegt eine Rechnung mit ausgewiesener Mehrwertsteuer bei. Unternehmen mit g&uuml;ltiger USt-IdNr. k&ouml;nnen die Ware als innergemeinschaftliche Lieferung ohne Mehrwertsteuer erhalten.</div>
+    </details>
   </div>
-
-  <div class="kpx-sec">
-    <h2 class="kpx-h2"><span>Rechnung und Mehrwertsteuer</span></h2>
-    <div class="kpx-cols">
-      <div>
-        <h3>Privatkunden</h3>
-        <ul class="kpx-ul">
-          <li>Der angezeigte Preis enth&auml;lt die deutsche Mehrwertsteuer von 19&nbsp;%.</li>
-          <li>Jeder Lieferung liegt eine Rechnung mit ausgewiesener Mehrwertsteuer bei.</li>
-        </ul>
-      </div>
-      <div>
-        <h3>Firmenkunden aus der EU</h3>
-        <ul class="kpx-ul">
-          <li>Unternehmen mit g&uuml;ltiger USt-IdNr. k&ouml;nnen die Ware als innergemeinschaftliche Lieferung ohne Mehrwertsteuer erhalten.</li>
-        </ul>
-      </div>
-    </div>
-  </div>
-
-{{sekcja_business}}
 
   <div class="kpx-sec kpx-faq">
     <h2 class="kpx-h2"><span>H&auml;ufige Fragen</span></h2>
