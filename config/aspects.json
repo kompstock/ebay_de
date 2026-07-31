@@ -105,7 +105,8 @@
       "Beleuchtete Tastatur",
       "Fingerabdruckleser"
     ],
-    "_webcam": "Integrierte Webkamera"
+    "_webcam": "Integrierte Webkamera",
+    "_uwaga_lan": "'10/100 LAN Karte' usuniete - to deklaracja predkosci, ktorej feed nie potwierdza. Obecnosc portu LAN wynika z sekcji Anschlüsse i aspektu Konnektivität."
   },
   "farbe": {
     "_about": "C:Farbe - z feedu brak pola koloru, wiec wartosc domyslna per producent/seria.",

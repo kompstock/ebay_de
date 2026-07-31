@@ -397,8 +397,6 @@ def features_aspect(attrs: dict, ports, aspects: dict, podswietlenie: bool | Non
     out = ["Bluetooth", "Wi-Fi", "Eingebautes Mikrofon"]
     if attrs.get("Ekran dotykowy") == "Tak":
         out.append("Touchscreen")
-    if any(norm(l).startswith(("rj-45", "rj45")) for _, l in ports):
-        out.append("10/100 LAN Karte")
     if norm(attrs.get("Kamera", "")).startswith("tak"):
         out.append(aspects["besonderheiten"]["_webcam"])
     if podswietlenie:
@@ -441,6 +439,18 @@ def gpu_clean(value: str) -> list[str]:  # noqa: C901
     elif "RADEON" in u and "VEGA" not in u:
         out.append("AMD Radeon Graphics")
     return [x for x in dict.fromkeys(out) if x]
+
+
+def nazwa_modelu(attrs: dict) -> str:
+    """Marka + model, ale bez powtorzenia gdy feed juz ja w modelu zawiera.
+
+    Feed miesza zapisy: raz 'ThinkPad T14', raz 'Apple MacBook Pro A1707'.
+    """
+    marka = brand_name(attrs.get("Producent", ""))
+    model = normalize_space(attrs.get("Model", ""))
+    if norm(model).startswith(norm(marka)):
+        return model
+    return normalize_space(f"{marka} {model}")
 
 
 def series_aspect(model: str, aspects: dict) -> str:
@@ -809,7 +819,7 @@ def build_row(offer, attrs, cfg, headers, review):
         "C:Prozessorgeschwindigkeit": vocab_match("Prozessorgeschwindigkeit", base_clock(attrs.get("Taktowanie", "")), vocab, review, ""),
         "C:Maximale Auflösung": vocab_match("Maximale Auflösung", attrs.get("Rozdzielczość ekranu", ""), vocab, review, "", strict=False),
         "C:Herstellernummer": "Nicht zutreffend",
-        "C:Modell": vocab_match("Modell", normalize_space(f'{brand_name(attrs.get("Producent", ""))} {model}'), vocab, review, "", strict=False),
+        "C:Modell": vocab_match("Modell", nazwa_modelu(attrs), vocab, review, "", strict=False),
         "C:Betriebssystem": vocab_match(
             "Betriebssystem",
             aspects["betriebssystem"].get(attrs.get("Zainstalowany system", ""), ""),
