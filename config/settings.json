@@ -48,12 +48,22 @@
     "Tablety": "Tablet",
     "_domyslnie": "Gerät"
   },
-  "tekst_wiodacy": {
-    "_about": "Zdanie pod kafelkami. Wybor przez regule: dedykowana grafika lub 32 GB+ = wersja wydajna.",
-    "_regula": "Rodzaj karty graficznej = Dedykowana LUB RAM >= 32 GB",
-    "biuro": "<b>Ideal f&uuml;r B&uuml;ro, Homeoffice, Schule und Studium.</b> Ausreichend Leistung f&uuml;r Office, Browser mit vielen Tabs, E-Mail, Videokonferenzen, CRM und Warenwirtschaft &ndash; auch mit mehreren Programmen gleichzeitig.",
-    "wydajny": "<b>F&uuml;r anspruchsvolle Aufgaben ausgelegt.</b> Gen&uuml;gend Leistungsreserven f&uuml;r umfangreiche Tabellenkalkulationen, CAD, Bild- und Videobearbeitung sowie virtuelle Maschinen &ndash; und nat&uuml;rlich auch f&uuml;r den gesamten B&uuml;roalltag."
-  },
   "sekcja_business_notebook": "<div class=\"kpx-sec\"><h2 class=\"kpx-h2\"><span>Warum ein Business-Notebook?</span></h2><p>Ger&auml;te aus der Business-Serie werden f&uuml;r Unternehmen gebaut, nicht f&uuml;r den Elektromarkt. Das merkt man jeden Tag.</p><ul class=\"kpx-ul\"><li>Robustes Geh&auml;use aus Magnesium oder Karbon statt d&uuml;nnem Kunststoff.</li><li>F&uuml;r den t&auml;glichen Dauereinsatz entwickelt und entsprechend getestet.</li><li>Hochwertige Tastatur mit sp&uuml;rbarem Druckpunkt.</li><li>Langlebige Komponenten und lange Ersatzteilverf&uuml;gbarkeit.</li><li>Wartungsfreundlich konstruiert &ndash; Servicearbeiten sind ohne Spezialwerkzeug m&ouml;glich.</li></ul></div>",
-  "_uwaga_sekcja_business": "Celowo bez obietnicy rozbudowy RAM - w wielu modelach pamiec jest wlutowana, a FAQ odsyla do kontaktu przed zakupem."
+  "_uwaga_sekcja_business": "Celowo bez obietnicy rozbudowy RAM - w wielu modelach pamiec jest wlutowana, a FAQ odsyla do kontaktu przed zakupem.",
+  "zdania_wiodace": {
+    "_about": "Zdanie pod kafelkami. Wybierane na stale po SKU - ten sam produkt zawsze dostaje to samo, ale rozne produkty rozne zdania.",
+    "_jak_dodac": "Dopisz kolejna pozycje do listy. Zmiana kolejnosci przetasuje przypisania.",
+    "lista": [
+      "Ein leistungsstarker Laptop, der auch mit vielen geöffneten Browser-Tabs, hochauflösenden YouTube-Videos und mehreren gleichzeitig laufenden Programmen problemlos zurechtkommt.",
+      "Ermöglicht flüssiges Arbeiten mit Word und Excel, Videokonferenzen und zahlreichen geöffneten Browser-Tabs – ohne lange Wartezeiten oder störendes Ruckeln.",
+      "Eine gute Wahl für alle, die mehr als nur einen einfachen Laptop suchen. Ideal für Multitasking, Online-Unterricht, Videos und die tägliche Internetnutzung.",
+      "Bietet ausreichend Leistung für Dokumente, Präsentationen, PDF-Dateien, YouTube-Videos und Videoanrufe – auch wenn mehrere Anwendungen gleichzeitig geöffnet sind.",
+      "Leistungsstark genug für viele geöffnete Browser-Tabs, einfache Video- und Bildbearbeitung sowie das Erstellen von Projekten mit Canva.",
+      "Programme starten schnell, und der Wechsel zwischen Browser, E-Mails, Dokumenten und anderen Anwendungen erfolgt flüssig und ohne lange Verzögerungen.",
+      "Ein robuster Laptop für den täglichen Einsatz. Ideal für lange Arbeitstage, Schule, Studium, Filme und entspanntes Surfen im Internet.",
+      "Ermöglicht komfortables Arbeiten mit mehreren Programmen gleichzeitig, die Wiedergabe hochauflösender Videos und ruckelfreie Videoanrufe.",
+      "Die robuste Verarbeitung auf Business-Niveau und die leistungsstarken Komponenten machen diesen Laptop zu einer zuverlässigen Wahl für zu Hause, das Büro oder unterwegs.",
+      "Für alle, die Wert auf Geschwindigkeit, zuverlässige Leistung und ein robustes Gehäuse legen. Ideal für Arbeit, Lernen und Unterhaltung."
+    ]
+  }
 }

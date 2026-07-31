@@ -20,6 +20,7 @@ import argparse
 import csv
 import html
 import json
+import hashlib
 import math
 import re
 import sys
@@ -51,7 +52,7 @@ POLISH_WORDS = re.compile(
 
 
 WYMAGANE_KLUCZE = {
-    "settings": ["tekst_wiodacy", "typ_produktu", "doplata_wysylka_eur", "kategorie",
+    "settings": ["zdania_wiodace", "typ_produktu", "doplata_wysylka_eur", "kategorie",
                  "sekcja_business_notebook", "min_produktow_w_feedzie", "company_since"],
     "aspects": ["konnektivitaet.etykieta_na_aspekt", "porty_reguly", "klawiatura_czesci",
                 "sufiks_tytulu", "betriebssystem", "condition_id"],
@@ -491,11 +492,17 @@ def keyboard_parts(value: str, aspects: dict, review: Review) -> tuple[str, bool
 
 
 def tekst_wiodacy(attrs: dict, settings: dict) -> str:
-    """Zdanie pod kafelkami. Mocniejszy sprzet dostaje inna obietnice niz biurowy."""
-    ram = int(re.sub(r"\D", "", attrs.get("Ilość pamięci RAM", "0")) or 0)
-    dedykowana = attrs.get("Rodzaj karty graficznej", "") == "Dedykowana"
-    klucz = "wydajny" if (dedykowana or ram >= 32) else "biuro"
-    return settings["tekst_wiodacy"][klucz]
+    """Zdanie pod kafelkami, wybierane z puli na podstawie SKU.
+
+    Wybor jest STALY, a nie losowy - ten sam produkt zawsze dostaje to samo zdanie.
+    Inaczej kazde przegenerowanie opisu zmienialoby tresc wszystkich ofert.
+    """
+    lista = settings["zdania_wiodace"]["lista"]
+    if not lista:
+        return ""
+    klucz = attrs.get("SKU") or attrs.get("Model", "")
+    indeks = int(hashlib.md5(klucz.encode("utf-8")).hexdigest(), 16) % len(lista)
+    return lista[indeks]
 
 
 def typ_produktu(kategoria_xml: str, settings: dict) -> str:
