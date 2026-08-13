@@ -1,57 +1,42 @@
-# KOMPRE → eBay.de
+# Folder na raport z eBaya
 
-Generator plików CSV do eBay File Exchange z feedu XML.
+Tryby **nowe** i **aktualizacja** potrzebują aktualnej listy Twoich aukcji.
+Bez niej narzędzie nie wie, co już jest wystawione.
 
-## Jak używać
+## Jak pobrać
 
-Wszystko dzieje się w zakładce **Actions → Generuj CSV eBay DE → Run workflow**.
-Wybierasz tryb, po przebiegu pobierasz plik ze strony Pages albo z artefaktu.
+W eBayu: **Seller Hub → Berichte (Raporty) → Downloads → All active listings**.
+Raport przychodzi jako plik CSV.
 
-| tryb | co potrzebne | co dostajesz |
-|---|---|---|
-| `pierwsze` | nic | `ebay-add.csv` ze wszystkimi produktami |
-| `nowe` | `input/aktywne.csv` | `ebay-add.csv` tylko z nowymi SKU |
-| `aktualizacja` | `input/aktywne.csv` | `ebay-revise.csv` z cenami i ilościami |
-| `test` | jak wyżej | to samo z akcją `VerifyAdd` — eBay sprawdza, nic nie wystawia |
+## Jak wgrać
 
-`input/aktywne.csv` to raport **All active listings** pobrany z eBaya.
-Przeciągasz go do folderu `input/` przez przeglądarkę i commitujesz.
+1. Wejdź do folderu **`input/ebay/`** na GitHubie.
+2. **Add file → Upload files**, przeciągnij pobrany plik.
+3. Commit.
 
-**Po każdym wgraniu `Add` pobierz raport ponownie.** Numery aukcji nadaje eBay
-i bez świeżego raportu narzędzie nie wie, że te oferty już istnieją.
+Nazwy nie trzeba zmieniać — plik może zostać pod swoją własną, tą z eBaya.
+Jeśli w folderze leży kilka plików, brany jest najnowszy, a jego nazwa trafia
+do `output/generation-report.json` w polu `zrodlo_raportu`. Zawsze widzisz,
+z czego poszedł przebieg.
 
-## Zasady, których pilnuje kod
+Stare pliki możesz kasować przy okazji, ale nie musisz.
 
-- Brak kompletnych danych GPSR → produkt nie trafia do CSV.
-- Wartość opisowa bez tłumaczenia w słowniku → produkt nie trafia do CSV.
-- Polski znak lub polskie słowo w gotowym opisie → produkt nie trafia do CSV.
-- Wartość aspektu spoza słownika eBaya → pole zostaje puste, wartość ląduje w `review.csv`.
-- Sufiks tytułu wynika z pola `Zainstalowany system`. Nigdy nie jest stały.
-- Klasa stanu (`[Klasa A-]`) nie pojawia się w opisie — służy wyłącznie do `ConditionID`.
-- Apple trafia do kategorii 111422, reszta do 177.
-- Cena = `PLN / kurs NBP` w górę, plus ukryta dopłata za wysyłkę z `settings.json`.
+## Co jeśli wgrasz nie ten plik
 
-## Bramki bezpieczeństwa
+Przebieg zatrzyma się z komunikatem, które kolumny nie pasują. Eksport
+sprzedanych albo zakończonych ofert nie przejdzie — bez tej kontroli
+narzędzie po cichu uznałoby, że nie masz żadnych aktywnych aukcji, i przy
+trybie **nowe** wystawiłoby wszystko po raz drugi.
 
-- Mniej niż `min_produktow_w_feedzie` produktów z zapasem → przerwanie.
-- Zerowanie objęłoby więcej niż `max_udzial_zerowanych` aktywnych aukcji → przerwanie.
-- SKU z kilkoma aktywnymi aukcjami → pomijany, trafia do raportu.
-- Tryb wymagający raportu bez raportu → przerwanie.
+## Kiedy odświeżać
 
-## Pliki konfiguracyjne
+**Po każdym wgraniu pliku `Add` na eBay.** Numery aukcji nadaje eBay i pojawiają
+się dopiero w kolejnym raporcie. Jeśli tego nie zrobisz, następny przebieg
+w trybie `nowe` uzna te oferty za nieistniejące i wystawi je drugi raz.
 
-| plik | co zawiera |
-|---|---|
-| `config/settings.json` | kategorie, dopłata, progi, profile eBay |
-| `config/translations.json` | tłumaczenia całych wartości opisowych |
-| `config/aspects.json` | mapowania aspektów, porty, klawiatury, systemy |
-| `config/manufacturers.json` | dane GPSR producentów |
-| `config/ebay-vocab.json` | dozwolone wartości, generowane z szablonu eBaya |
-| `templates/description.html` | szablon opisu oferty |
+Przed zwykłą aktualizacją cen wystarczy raport z tego samego dnia.
 
-## Narzędzia
+## Stara ścieżka
 
-```bash
-python3 tools/build_vocab.py       # przebuduj słownik po aktualizacji szablonu eBay
-python3 tools/collect_values.py    # lista wartości z feedu do przetłumaczenia
-```
+`input/aktywne.csv` nadal działa i ma pierwszeństwo dopiero po `input/ebay/`.
+Jeśli oba istnieją, wygrywa plik z `input/ebay/`.
