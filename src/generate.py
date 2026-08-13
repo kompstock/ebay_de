@@ -44,6 +44,13 @@ REQUIRED_TRANSLATIONS = (
     "Kondycja sprzętu", "Stan obudowy", "Stan ekranu", "Bateria", "W zestawie",
 )
 
+# Kolumny, po ktorych poznajemy eksport aktywnych ofert z eBaya. Zly plik
+# wrzucony do katalogu ma sie skonczyc blokada, nie cichym brakiem zmian.
+KOLUMNY_RAPORTU = (
+    "Item number", "Custom label (SKU)", "Available quantity",
+    "Start price", "Currency", "Listing site",
+)
+
 POLISH_CHARS = set("ąćęłńóśźżĄĆĘŁŃÓŚŹŻ")
 POLISH_WORDS = re.compile(
     r"(?<![\wäöüß])(i|oraz|lub|albo|we|ze|na|do|dla|od|po|przy|jest|są|"
@@ -854,6 +861,39 @@ def build_row(offer, attrs, cfg, headers, review):
     return {h: values.get(h, "") for h in headers}, ""
 
 
+def wskaz_raport(settings: dict, arg_raport: Path | None) -> tuple[Path | None, str]:
+    """Raport aktywnych ofert: wskazany plik albo najnowszy CSV z katalogu.
+
+    Plik z eBaya mozna wrzucic pod jego wlasna nazwa - nie trzeba go
+    przemianowywac na aktywne.csv. Sortujemy po (mtime, nazwa), bo w GitHub
+    Actions checkout ustawia wszystkim ten sam mtime i wtedy decyduje nazwa.
+    """
+    if arg_raport:
+        return arg_raport, f"{arg_raport} (--raport)"
+
+    katalog = ROOT / settings.get("raport_katalog", "input/ebay")
+    if katalog.is_dir():
+        pliki = sorted(katalog.glob(settings.get("raport_wzorzec", "*.csv")),
+                       key=lambda p: (p.stat().st_mtime, p.name), reverse=True)
+        if pliki:
+            gdzie = f"{katalog.name}/{pliki[0].name}"
+            if len(pliki) > 1:
+                gdzie += f" (najnowszy z {len(pliki)} plikow w katalogu)"
+            return pliki[0], gdzie
+
+    stary = ROOT / "input" / "aktywne.csv"
+    if stary.is_file():
+        return stary, "input/aktywne.csv"
+    # Zwracamy katalog, zeby komunikat blokady pokazal, gdzie wrzucic plik.
+    return katalog, f"brak pliku - wrzuc eksport z eBaya do {katalog.name}/"
+
+
+def brakujace_kolumny_raportu(path: Path) -> list[str]:
+    with path.open(encoding="utf-8-sig", newline="") as handle:
+        naglowek = next(csv.reader(handle), [])
+    return [k for k in KOLUMNY_RAPORTU if k not in naglowek]
+
+
 def wczytaj_raport(path: Path, site: str) -> tuple[dict[str, dict], list[str]]:
     """Raport aktywnych ofert z eBaya = nasza pamiec o tym, co juz wystawione.
 
@@ -970,10 +1010,18 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
     aktywne: dict[str, dict] = {}
     duplikaty: list[str] = []
     if tryb in ("nowe", "aktualizacja"):
-        if not raport or not raport.exists():
-            blokady.append(f"tryb '{tryb}' wymaga raportu aktywnych ofert w {raport}")
+        if not raport or not raport.is_file():
+            blokady.append(f"tryb '{tryb}' wymaga eksportu aktywnych ofert z eBaya - "
+                           f"wrzuc plik CSV do {raport}")
+        elif brakujace_kolumny_raportu(raport):
+            blokady.append(f"plik {raport.name} nie wyglada na eksport aktywnych ofert "
+                           f"z eBaya - brak kolumn: "
+                           f"{', '.join(brakujace_kolumny_raportu(raport))}")
         else:
             aktywne, duplikaty = wczytaj_raport(raport, settings["listing_site"])
+            if not aktywne:
+                blokady.append(f"plik {raport.name} nie ma ani jednej oferty dla serwisu "
+                               f"'{settings['listing_site']}' - zly eksport albo zly serwis")
             for sku in duplikaty:
                 review.add("konflikt", sku, "ten sam SKU ma kilka aktywnych aukcji - pomijam")
 
@@ -1089,7 +1137,7 @@ def main() -> int:
     parser.add_argument("--min-produktow", type=int)
     parser.add_argument("--tryb", default="pierwsze",
                         choices=["pierwsze", "nowe", "aktualizacja", "test"])
-    parser.add_argument("--raport", type=Path, default=ROOT / "input" / "aktywne.csv")
+    parser.add_argument("--raport", type=Path)
     parser.add_argument("--feed-file", type=Path)
     parser.add_argument("--allegro-file", type=Path)
     parser.add_argument("--nbp-rate", type=float)
@@ -1109,16 +1157,21 @@ def main() -> int:
         "vocab": load_json(ROOT / "config" / "ebay-vocab.json"),
     }
     feed = args.feed_file.read_bytes() if args.feed_file else fetch_bytes(settings["feed_url"])
-    extra: dict = {}
-    if settings.get("allegro", {}).get("enabled"):
+    raport, zrodlo_raportu = wskaz_raport(settings, args.raport)
+    extra: dict = {"zrodlo_raportu": zrodlo_raportu}
+    # --feed-file znaczy "dane podaje ja" - tak jak --nbp-rate. Bez --allegro-file
+    # nie schodzimy po nic do sieci, zeby testy szly offline i szybko.
+    offline = bool(args.feed_file) and not args.allegro_file
+    if settings.get("allegro", {}).get("enabled") and not offline:
         surowy, zrodlo = allegro.wybierz_zrodlo(settings["allegro"], ROOT, args.allegro_file)
-        feed, extra = allegro.scal(feed, surowy, cfg)
+        feed, raport_allegro = allegro.scal(feed, surowy, cfg)
+        extra.update(raport_allegro)
         extra["zrodlo_allegro"] = zrodlo
     nbp = ({"currency": "euro", "code": "EUR", "table": "A", "number": "TEST",
             "effective_date": "TEST", "rate": args.nbp_rate}
            if args.nbp_rate else fetch_nbp_rate(settings["nbp_url"]))
 
-    report = generate(feed, nbp, cfg, args.output_dir, args.tryb, args.raport, extra)
+    report = generate(feed, nbp, cfg, args.output_dir, args.tryb, raport, extra)
     print(json.dumps(report, ensure_ascii=False, indent=2))
     return 0 if report["ok"] else 2
 
