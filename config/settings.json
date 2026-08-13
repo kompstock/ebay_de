@@ -40,6 +40,9 @@
   "min_produktow_w_feedzie": 150,
   "max_udzial_zerowanych": 0.35,
   "listing_site": "DE",
+  "raport_katalog": "input/ebay",
+  "raport_wzorzec": "*.csv",
+  "_uwaga_raport": "Eksport aktywnych ofert z eBaya wrzuc do raport_katalog pod dowolna nazwa. Brany jest najnowszy plik. Stara sciezka input/aktywne.csv nadal dziala.",
   "typ_produktu": {
     "_about": "Rzeczownik uzywany w opisie, wyprowadzany z kategorii XML. Nowy typ towaru = jeden wpis.",
     "Laptopy": "Notebook",
