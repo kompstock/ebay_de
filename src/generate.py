@@ -27,6 +27,8 @@ import sys
 import unicodedata
 import urllib.request
 import xml.etree.ElementTree as ET
+
+import allegro
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
@@ -943,7 +945,8 @@ def zapisz_revise(sciezka: Path, wiersze: list[dict]) -> None:
             writer.writerow([w.get(k, "") for k in KOLUMNY_REVISE])
 
 
-def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | None):
+def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | None,
+             extra: dict | None = None):
     headers = cfg["headers"]
     cfg["rate"] = nbp["rate"]
     settings = cfg["settings"]
@@ -1075,6 +1078,7 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
             "klawiatury": review.top("klawiatura"),
         },
     }
+    raport_json.update(extra or {})
     (output_dir / "generation-report.json").write_text(
         json.dumps(raport_json, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return raport_json
@@ -1087,6 +1091,7 @@ def main() -> int:
                         choices=["pierwsze", "nowe", "aktualizacja", "test"])
     parser.add_argument("--raport", type=Path, default=ROOT / "input" / "aktywne.csv")
     parser.add_argument("--feed-file", type=Path)
+    parser.add_argument("--allegro-file", type=Path)
     parser.add_argument("--nbp-rate", type=float)
     parser.add_argument("--output-dir", type=Path, default=ROOT / "output")
     args = parser.parse_args()
@@ -1104,11 +1109,16 @@ def main() -> int:
         "vocab": load_json(ROOT / "config" / "ebay-vocab.json"),
     }
     feed = args.feed_file.read_bytes() if args.feed_file else fetch_bytes(settings["feed_url"])
+    extra: dict = {}
+    if settings.get("allegro", {}).get("enabled"):
+        surowy, zrodlo = allegro.wybierz_zrodlo(settings["allegro"], ROOT, args.allegro_file)
+        feed, extra = allegro.scal(feed, surowy, cfg)
+        extra["zrodlo_allegro"] = zrodlo
     nbp = ({"currency": "euro", "code": "EUR", "table": "A", "number": "TEST",
             "effective_date": "TEST", "rate": args.nbp_rate}
            if args.nbp_rate else fetch_nbp_rate(settings["nbp_url"]))
 
-    report = generate(feed, nbp, cfg, args.output_dir, args.tryb, args.raport)
+    report = generate(feed, nbp, cfg, args.output_dir, args.tryb, args.raport, extra)
     print(json.dumps(report, ensure_ascii=False, indent=2))
     return 0 if report["ok"] else 2
 
