@@ -14,10 +14,15 @@
   "company_country": "Poland",
   "xml_categories": [
     "Laptopy",
+    "Laptopy 12 cali",
+    "Laptopy 13 cali",
     "Laptopy 14 cali",
     "Laptopy 15 cali",
-    "Laptopy 13 cali",
-    "Laptopy 12 cali"
+    "Laptopy 17 cali",
+    "Laptopy Dell",
+    "Laptopy Lenovo",
+    "Chromebooki",
+    "Laptopy poleasingowe"
   ],
   "max_quantity": 0,
   "product_safety_pictograms": "EBPSP201",
@@ -43,6 +48,10 @@
     "Laptopy 14 cali": "Notebook",
     "Laptopy 15 cali": "Notebook",
     "Laptopy 17 cali": "Notebook",
+    "Laptopy Dell": "Notebook",
+    "Laptopy Lenovo": "Notebook",
+    "Chromebooki": "Notebook",
+    "Laptopy poleasingowe": "Notebook",
     "Komputery": "Desktop-PC",
     "Monitory": "Monitor",
     "Tablety": "Tablet",
@@ -65,5 +74,83 @@
       "Die robuste Verarbeitung auf Business-Niveau und die leistungsstarken Komponenten machen diesen Laptop zu einer zuverlässigen Wahl für zu Hause, das Büro oder unterwegs.",
       "Für alle, die Wert auf Geschwindigkeit, zuverlässige Leistung und ein robustes Gehäuse legen. Ideal für Arbeit, Lernen und Unterhaltung."
     ]
+  },
+  "allegro": {
+    "_about": "Drugie zrodlo ofert - laptopy z Allegro. Logika w src/allegro.py.",
+    "enabled": true,
+    "xml_url": "https://raw.githubusercontent.com/marekkomp/nowe_repo10.2025_allegrocsv_na_XML/main/output/empi.xml",
+    "plik_lokalny": "input/empi.xml",
+    "kategorie_zrodlowe": [
+      "Laptopy poleasingowe"
+    ],
+    "kategoria_docelowa": "Laptopy poleasingowe",
+    "_uwaga_min_sztuk": "Oferta wielosztukowa z Allegro = zapas konfiguracji, nie jedna sztuka. Ponizej progu wystawiamy 0 szt, czyli pipeline zeruje aukcje.",
+    "min_sztuk": 5,
+    "_uwaga_kondycja": "Allegro nie podaje kondycji. Te piec wartosci to twierdzenia o towarze - trzymaj je zachowawcze i wybieraj tylko z translations.json.",
+    "domyslna_kondycja": {
+      "Kondycja sprzętu": "[Klasa A-] laptop poleasingowy, w 100% sprawny, przetestowany i gotowy do pracy",
+      "Stan obudowy": "Normalne ślady użytkowania",
+      "Stan ekranu": "Możliwe drobne ryski, otarcia, poświatki",
+      "Bateria": "Oryginalna, od 1h do 4h (używana)",
+      "W zestawie": "Zasilacz z przewodem"
+    },
+    "mapa_atrybutow": {
+      "Producent": "Producent",
+      "Model": "Model",
+      "Przekątna ekranu": "Przekątna ekranu",
+      "Ilość pamięci RAM": "Pamięć RAM (zainstalowana)",
+      "Typ pamięci RAM": "Typ pamięci RAM",
+      "Dysk": "Pojemność dysku [GB]",
+      "Typ dysku": "Typ dysku twardego",
+      "Procesor": [
+        "Model procesora.1",
+        "Model procesora"
+      ],
+      "Seria procesora": "Seria procesora",
+      "Taktowanie": "Taktowanie bazowe procesora [GHz]",
+      "Ilość rdzeni": "Liczba rdzeni procesora",
+      "Rodzaj karty graficznej": "Rodzaj karty graficznej",
+      "Model karty graficznej": "Chipset karty graficznej",
+      "Rozdzielczość ekranu": "Rozdzielczość",
+      "Powłoka matrycy": "Powłoka matrycy",
+      "Ekran dotykowy": "Ekran dotykowy",
+      "Zainstalowany system": "System operacyjny",
+      "Klawiatura (ISO lub ANSI)": "Układ klawiatury",
+      "Złącza zewnętrzne": "Złącza",
+      "Napęd": "Typ napędu"
+    },
+    "mapa_wartosci": {
+      "Powłoka matrycy": {
+        "matowa": "Matowa",
+        "błyszcząca": "Błyszcząca",
+        "błyszcząca antyrefleksyjna": "Antyrefleksyjna",
+        "antyrefleksyjna": "Antyrefleksyjna"
+      },
+      "Rodzaj karty graficznej": {
+        "Grafika zintegrowana": "Zintegrowana",
+        "Grafika dedykowana": "Dedykowana"
+      },
+      "Ekran dotykowy": {
+        "z ekranem dotykowym": "Tak"
+      },
+      "Typ dysku": {
+        "SSD + HDD": "SSD+HDD"
+      },
+      "Napęd": {
+        "brak": "Beznapędowy"
+      },
+      "Zainstalowany system": {
+        "Windows 11 Professional": "Windows 11 Pro",
+        "Windows 11": "Windows 11 Home",
+        "Windows 10": "Windows 10 Home"
+      },
+      "Klawiatura (ISO lub ANSI)": {
+        "US international (qwerty)": "QWERTY US",
+        "PL (qwerty)": "QWERTY PL",
+        "QWERTY - naklejki": "QWERTY PL",
+        "NORDIC (qwerty)": "QWERTY Nordic",
+        "DE (qwertz)": "QWERTZ DE"
+      }
+    }
   }
 }
