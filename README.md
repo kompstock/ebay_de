@@ -30,16 +30,39 @@ Wszystko, co zależy od typu towaru, siedzi w `settings.json` w bloku
 `profile_produktu`: szablon opisu, nazwy pól w feedzie, pola wymagane, kategoria
 eBay, cechy zakładane z góry. W kodzie nie ma ani jednego `if kategoria == "Komputery"`.
 
-| | laptop | komputer |
-|---|---|---|
-| źródło | XML sklepowy **+ Allegro** | **tylko XML sklepowy** |
-| kategoria eBay | 177, Apple 111422 | 179 |
-| szablon | `description-notebook.html` | `description-desktop.html` |
-| pola wymagane | z przekątną ekranu | bez ekranu i baterii |
-| Wi-Fi / Bluetooth / mikrofon | zakładane | **nie zakładane** |
-| `Inklusive Ladegerät` | niepuste „W zestawie" = Ja | z treści pola |
+| | laptop | komputer poleasingowy | komputer nowy |
+|---|---|---|---|
+| źródło | XML sklepowy **+ Allegro** | tylko XML sklepowy | tylko XML sklepowy |
+| kategoria eBay | 177, Apple 111422 | 179 | 179 |
+| szablon | `description-notebook.html` | `description-desktop.html` | `description-desktop-nowy.html` |
+| `ConditionID` | z `[Klasa X]` | z `[Klasa X]` | **1000 (Neu)** |
+| pola wymagane | z przekątną ekranu | bez ekranu i baterii | dodatkowo bez `Model` |
+| Wi-Fi / Bluetooth / mikrofon | zakładane | **nie zakładane** | **nie zakładane** |
+| `Inklusive Ladegerät` | niepuste „W zestawie" = Ja | z treści pola | z treści pola |
 
 Nowy typ towaru = wpis w `typ_produktu` + blok w `profile_produktu` + szablon.
+
+### Warianty w obrębie jednej kategorii
+
+Nowe komputery siedzą w tej samej kategorii XML `Komputery` co poleasingowe —
+kategoria ich nie odróżni. Robi to `typ_produktu_warianty`: po ujednoliceniu nazw
+pól sprawdzane jest `Kondycja sprzętu` i wartość „Nowy" przełącza na profil
+`Desktop-PC nowy`. Wariant dziedziczy aliasy pól po profilu bazowym.
+
+Profil nowego towaru dodatkowo:
+
+- podstawia producenta (`producent_zastepczy`) — feed podaje `Niezdefiniowany`,
+  a kto składa i wprowadza do obrotu, ten jest producentem w rozumieniu GPSR,
+- podmienia `*C:Marke` na wartość ze słownika eBaya (`Custom, Whitebox`),
+  bo marek zestawów składanych ten słownik nie zna,
+- ustawia stały `Model`, bo w feedzie to pole bywa puste albo zawiera nazwę obudowy,
+- mapuje `Gwarancja` na `C:Herstellergarantie` (`24 miesiące` → `2 Jahre`),
+- ma własną pulę zdań wiodących — biurowe („Ideal für Online-Unterricht")
+  brzmiałyby fałszywie na komputerze do gier.
+
+Typ bez własnego profilu dla nowego towaru jest **blokowany** przez bramkę
+`towar_nowy`, żeby nowy sprzęt nie wyszedł jako `Gebraucht` z opisem
+o sprzęcie poleasingowym.
 
 Komputery z Allegro są zablokowane celowo: `empi.xml` nie ma pola `Obudowa`, więc
 nie dałoby się ani ustalić `C:Formfaktor`, ani odsiać All-in-One. Próba dopisania
@@ -76,9 +99,11 @@ Jeśli eBay odrzuci wiersze kategorii 179 przez pustą kolumnę `*C:Bildschirmgr
 | `config/aspects.json` | mapowania aspektów, porty, klawiatury, systemy |
 | `config/manufacturers.json` | dane GPSR producentów |
 | `config/ebay-vocab.json` | dozwolone wartości; 177 i 111422 z szablonu eBaya, 179 dopisane |
-| `templates/_style.html` | CSS wspólny dla obu szablonów opisu |
+| `config/manufacturers.json` | dane GPSR, w tym producent zestawów składanych |
+| `templates/_style.html` | CSS wspólny dla wszystkich szablonów opisu |
 | `templates/description-notebook.html` | opis laptopa |
-| `templates/description-desktop.html` | opis komputera |
+| `templates/description-desktop.html` | opis komputera poleasingowego |
+| `templates/description-desktop-nowy.html` | opis nowego zestawu |
 
 Gdy tłumaczenie ze wspólnego słownika jest nieprawdą dla drugiego typu
 („Zasilacz z przewodem" to dla laptopa „Notebook, Netzteil mit Kabel"),
