@@ -88,7 +88,7 @@ def main() -> int:
 
     kategorie["179"] = baza
     SCIEZKA.write_text(
-        json.dumps(dane, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        json.dumps(dane, ensure_ascii=False, indent=1) + "\n", encoding="utf-8"
     )
     print(f"OK: dopisano/zaktualizowano kategorie '179' w {SCIEZKA} "
           f"(baza: kopia '177', {len(aspekty)} aspektow).")

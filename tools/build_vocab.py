@@ -4,6 +4,12 @@
 Szablon moze obejmowac kilka kategorii naraz - wtedy w pliku sa sekcje
 "Info;>>> For categoryId: 177". Slownik budujemy osobno dla kazdej.
 
+Kategorie, ktorych w szablonie NIE MA, zostaja nietkniete. Wczesniej ten skrypt
+nadpisywal caly plik, wiec kazde odswiezenie slownika po cichu kasowalo
+kategorie 179 (komputery) - jej szablonu nie ma w ebay-template.csv, bo
+dopisuje ja tools/dodaj_kategorie_179.py. Efekt byl taki, ze komputery
+przestawaly wychodzic bez zadnego komunikatu.
+
     python3 tools/build_vocab.py   ->   config/ebay-vocab.json
 """
 import json
@@ -34,7 +40,15 @@ for line in raw.split("\n"):
     if m:
         kategorie[biezaca]["_wymagane"] = [v.strip() for v in m.group(1).split(";") if v.strip()]
 
-OUT.write_text(json.dumps({"_zrodlo": SRC.name, "kategorie": kategorie},
+zachowane = {}
+if OUT.is_file():
+    poprzednie = json.loads(OUT.read_text(encoding="utf-8")).get("kategorie", {})
+    zachowane = {k: v for k, v in poprzednie.items() if k not in kategorie}
+
+OUT.write_text(json.dumps({"_zrodlo": SRC.name, "kategorie": {**zachowane, **kategorie}},
                           ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
 for kat, dane in kategorie.items():
     print(f"  kategoria {kat}: {len(dane['aspekty'])} aspektow, wymagane {dane['_wymagane']}")
+for kat, dane in zachowane.items():
+    print(f"  kategoria {kat}: zachowana bez zmian (nie ma jej w {SRC.name}), "
+          f"{len(dane.get('aspekty', {}))} aspektow")
