@@ -98,8 +98,17 @@ def sprawdz_profile(cfg: dict) -> list[str]:
     """
     settings = cfg["settings"]
     braki: list[str] = []
+    # Typy osiagalne z kategorii XML plus warianty (np. nowy komputer, ktory
+    # siedzi w tej samej kategorii co poleasingowy).
+    typy: dict[str, str] = {}
     for kategoria in settings.get("xml_categories", []):
-        typ = typ_produktu(kategoria, settings)
+        typy.setdefault(typ_produktu(kategoria, settings), kategoria)
+    for bazowy, wariant in settings.get("typ_produktu_warianty", {}).items():
+        if bazowy not in typy:
+            continue
+        for docelowy in wariant.get("gdy", {}):
+            typy.setdefault(docelowy, f"{typy[bazowy]} / wariant '{docelowy}'")
+    for typ, kategoria in typy.items():
         profil = settings.get("profile_produktu", {}).get(typ)
         if not profil:
             braki.append(f"config/settings.json: kategoria XML '{kategoria}' ma typ "
@@ -462,7 +471,10 @@ def gpu_clean(value: str) -> list[str]:  # noqa: C901
     v = normalize_space(value or "")
     segmenty = re.split(r"\s*[+/]\s*", v)
     v = segmenty[0]                                          # uklad podstawowy
-    v = re.sub(r"(?i)^grafika\s+", "", v)
+    # Sprzedawca dokleja na poczatku polskie okreslenia ("Grafika GTX 1650",
+    # "NOWA GeForce RTX 3050"). Bez obciecia trafiaja do niemieckiego opisu
+    # i produkt leci na bramce polskich slow.
+    v = re.sub(r"(?i)^((grafika|nowa|nowy|nowe)\s+)+", "", v)
     v = re.sub(r"(?i)\s*(dla procesor\w*|for)\s+.*$", "", v)
     v = re.sub(r"(?i)\s*\d+\s*GB.*$", "", v).strip()
     if re.match(r"(?i)^UHD\s+Intel", v):
@@ -470,6 +482,10 @@ def gpu_clean(value: str) -> list[str]:  # noqa: C901
     out = [v]
     if v.upper().startswith("RADEON"):
         out.insert(0, "AMD " + v)
+    # eBay pisze karty NVIDII zawsze z prefiksem producenta (72 wpisy zaczynaja sie
+    # od "NVIDIA", zaden od samego "GeForce"), a feed podaje je bez niego.
+    if v.upper().startswith(("GEFORCE", "QUADRO", "TITAN")):
+        out.insert(0, "NVIDIA " + v)
     # eBay nazywa uklady Vega bez "RX" (wyjatek: Vega 10)
     bez_rx = re.sub(r"(?i)\bRX\s+(Vega\s+(?!10\b)\d+)", r"\1", out[0])
     if bez_rx != out[0]:
@@ -540,28 +556,63 @@ def keyboard_parts(value: str, aspects: dict, review: Review) -> tuple[str, bool
             if niemiecki:                      # pusty wpis = czlon swiadomie pomijany
                 czesci.append(niemiecki)
     return ", ".join(dict.fromkeys(czesci)), podswietlenie
-def tekst_wiodacy(attrs: dict, settings: dict) -> str:
+def tekst_wiodacy(attrs: dict, settings: dict, klucz: str = "zdania_wiodace") -> str:
     """Zdanie pod kafelkami, wybierane z puli na podstawie SKU.
     Wybor jest STALY, a nie losowy - ten sam produkt zawsze dostaje to samo zdanie.
     Inaczej kazde przegenerowanie opisu zmienialoby tresc wszystkich ofert.
+
+    Profil moze wskazac wlasna pule ('zdania_wiodace' w profilu). Biurowe zdania
+    o Wordzie i lekcjach online brzmia falszywie na komputerze do gier.
     """
-    lista = settings["zdania_wiodace"]["lista"]
+    lista = settings.get(klucz, {}).get("lista", [])
     if not lista:
         return ""
     klucz = attrs.get("SKU") or attrs.get("Model", "")
     indeks = int(hashlib.md5(klucz.encode("utf-8")).hexdigest(), 16) % len(lista)
     return lista[indeks]
-def typ_produktu(kategoria_xml: str, settings: dict) -> str:
-    """Rzeczownik do opisu. Nowy typ towaru = jeden wpis w settings, zero zmian w kodzie."""
+def typ_produktu(kategoria_xml: str, settings: dict, attrs: dict | None = None) -> str:
+    """Rzeczownik do opisu i klucz profilu. Nowy typ = wpis w settings, zero zmian w kodzie.
+
+    Kategoria XML nie zawsze wystarczy: nowy komputer do gier siedzi w tej samej
+    kategorii "Komputery" co poleasingowy, a rozni go tylko wartosc pola kondycji.
+    Dlatego po kategorii moze przyjsc wariant - patrz 'typ_produktu_warianty'.
+    Wywolanie bez attrs zwraca typ bazowy (tak liczymy statystyki po kategoriach).
+    """
     mapa = settings["typ_produktu"]
-    return mapa.get(kategoria_xml, mapa["_domyslnie"])
-def profil_produktu(kategoria_xml: str, settings: dict) -> dict:
-    """Profil typu towaru - jedyne miejsce, ktore decyduje 'laptop czy pecet'.
+    typ = mapa.get(kategoria_xml, mapa["_domyslnie"])
+    if attrs is None:
+        return typ
+    wariant = settings.get("typ_produktu_warianty", {}).get(typ)
+    if not wariant:
+        return typ
+    wartosc = norm(attrs.get(wariant["pole"], ""))
+    for docelowy, wartosci in wariant["gdy"].items():
+        if wartosc in {norm(w) for w in wartosci}:
+            return docelowy
+    return typ
+def profil_produktu(kategoria_xml: str, settings: dict, attrs: dict | None = None) -> dict:
+    """Profil typu towaru - jedyne miejsce, ktore decyduje 'laptop, pecet czy nowy'.
 
     Kompletnosc profili sprawdza sprawdz_profile() zanim ruszy generowanie,
     wiec tutaj brak wpisu byloby bledem konfiguracji, nie stanem do obsluzenia.
     """
-    return settings["profile_produktu"][typ_produktu(kategoria_xml, settings)]
+    return settings["profile_produktu"][typ_produktu(kategoria_xml, settings, attrs)]
+def podstaw_dane_profilu(attrs: dict[str, str], profil: dict) -> dict[str, str]:
+    """Uzupelnia pola, ktorych feed nie podaje dla danego typu towaru.
+
+    Zestawy skladane maja w feedzie Producent="Niezdefiniowany" i bezuzyteczne
+    'Model' (raz pusty, raz nazwa obudowy). Podstawiamy je RAZ, tutaj, zeby tytul,
+    GPSR i aspekty widzialy juz spojne dane.
+    """
+    out = dict(attrs)
+    zastepczy = profil.get("producent_zastepczy", {})
+    if zastepczy.get("nazwa"):
+        puste = {norm(w) for w in zastepczy.get("gdy", [])} | {""}
+        if norm(out.get("Producent", "")) in puste:
+            out["Producent"] = zastepczy["nazwa"]
+    if profil.get("model_staly"):
+        out["Model"] = profil["model_staly"]
+    return out
 def kategoria_produktu(producent: str, profil: dict, settings: dict) -> str:
     """Kategoria eBay z profilu. Apple ma wlasna tylko tam, gdzie profil ja wskazuje
     (laptopy) - Apple desktop odpada wczesniej przez 'pomijaj_producentow'."""
@@ -574,6 +625,31 @@ def sufiks_tytulu(system: str, aspects: dict) -> str:
 def condition_class(value: str) -> str:
     match = re.search(r"\[klasa\s*([a-c][+\-]?)\]", norm(value))
     return match.group(1).upper() if match else ""
+def blokada_nowego_towaru(attrs: dict, settings: dict, profil: dict | None = None) -> str:
+    """Nowy towar nie moze przejsc sciezka dla poleasingowego.
+
+    Profil oznaczony 'towar_nowy: true' ma wlasny szablon i wlasne ConditionID,
+    wiec jego ta bramka nie dotyczy. Zostaje jako siatka bezpieczenstwa dla
+    typow, ktore takiego profilu jeszcze nie maja (np. nowy laptop).
+
+    Bez tej bramki nowy komputer do gier wyszedlby z ConditionID 3000
+    ("Gebraucht", bo 'Nowy' nie pasuje do wzorca [Klasa X]) i z opisem
+    mowiacym o Leasingrucklauf oraz kasowaniu danych po poprzednim wlascicielu.
+    Oba twierdzenia sa nieprawdziwe, wiec lepiej nie wystawic wcale.
+    """
+    if (profil or {}).get("towar_nowy"):
+        return ""
+    cfg = settings.get("towar_nowy", {})
+    if not cfg.get("blokuj"):
+        return ""
+    nowe = {norm(w) for w in cfg.get("wartosci", [])}
+    for pole in ("Kondycja sprzętu", "Stan obudowy"):
+        if norm(attrs.get(pole, "")) in nowe:
+            return ("nowy towar: pipeline jest pod sprzet poleasingowy "
+                    f"(pole '{pole}' = '{attrs.get(pole)}') - ConditionID wyszedlby "
+                    "jako 'Gebraucht', a opis mowilby o Leasingrucklauf. "
+                    "Potrzebny osobny profil produktu.")
+    return ""
 def gpsr_block(producent: str, manufacturers: dict) -> tuple[dict[str, str], str]:
     key = norm(producent)
     key = manufacturers["aliasy"].get(key, key)
@@ -644,6 +720,11 @@ def scal_porty(ports, aspects: dict, review: Review) -> list[tuple[str, int]]:
     return list(razem.items())
 def spec_row(label: str, value: str) -> str:
     return f"<tr><th>{e(label)}</th><td>{e(value)}</td></tr>" if value else ""
+def garantie_de(attrs: dict, profil: dict) -> str:
+    """Gwarancja z feedu jako gotowa fraza do opisu ('2 Jahre Garantie').
+    Bez mapowania w profilu zostaje samo slowo - lepsze niz obietnica z sufitu."""
+    ile = profil.get("gwarancja", {}).get(attrs.get("Gwarancja", ""), "")
+    return f"{ile} Garantie" if ile else "Garantie"
 def formfaktor_de(attrs: dict, profil: dict) -> str:
     """Bauform peceta wg profilu. Laptop ma tu pusty blok i dostaje pusty string."""
     cfg = profil.get("formfaktor", {})
@@ -652,8 +733,8 @@ def formfaktor_de(attrs: dict, profil: dict) -> str:
     return cfg.get("mapa", {}).get(attrs.get(cfg["z_atrybutu"], ""), cfg.get("_domyslnie", ""))
 def render_description(szablony, attrs, images, translations, aspects, settings, review,
                        kategoria_xml: str = ""):
-    typ = typ_produktu(kategoria_xml, settings)
-    profil = profil_produktu(kategoria_xml, settings)
+    typ = typ_produktu(kategoria_xml, settings, attrs)
+    profil = profil_produktu(kategoria_xml, settings, attrs)
     template = szablony[typ]
     wymagane_pola = profil["wymagane_tlumaczenia"]
     nadpisania = profil.get("nadpisz_tlumaczenia", {})
@@ -732,12 +813,16 @@ def render_description(szablony, attrs, images, translations, aspects, settings,
         "battery": de["Bateria"],
         "included": de["W zestawie"],
         "formfaktor": formfaktor_de(attrs, profil),
+        "gpu": ", ".join(x for x in [
+            (gpu_clean(attrs.get("Model karty graficznej", "")) or [""])[0], gpu_type] if x),
+        "garantie": garantie_de(attrs, profil),
         "company_since": settings["company_since"],
     }
     sekcja_business = settings.get(profil.get("sekcja_opisu", ""), "")
     raw = {
         "sekcja_business": sekcja_business,
-        "lead": tekst_wiodacy(attrs, settings),
+        "lead": tekst_wiodacy(attrs, settings,
+                              profil.get("zdania_wiodace", "zdania_wiodace")),
         "spec_rows": "".join(spec_row(l, v) for l, v in specs),
         "port_items": "".join(
             f"<li>{e(str(c) + 'x ' + n)}</li>" for n, c in scal_porty(ports, aspects, review)),
@@ -769,7 +854,10 @@ def build_row(offer, attrs, cfg, headers, review):
     settings, translations = cfg["settings"], cfg["translations"]
     aspects, manufacturers = cfg["aspects"], cfg["manufacturers"]
     kategoria_xml = text(offer.find("./cat"))
-    profil = profil_produktu(kategoria_xml, settings)
+    profil = profil_produktu(kategoria_xml, settings, attrs)
+    if blad := blokada_nowego_towaru(attrs, settings, profil):
+        review.add("nowy towar", attrs.get("SKU", ""), blad)
+        return None, blad
     gpsr, gpsr_error = gpsr_block(attrs.get("Producent", ""), manufacturers)
     if gpsr_error:
         review.add("gpsr", attrs.get("Producent", ""), gpsr_error)
@@ -833,9 +921,14 @@ def build_row(offer, attrs, cfg, headers, review):
         "CustomLabel": attrs.get("SKU", ""),
         "*Category": kategoria,
         "*Title": build_title(attrs, settings, aspects),
-        "*ConditionID": cond_map.get(grade, cond_map["_brak"]),
+        # Nowy towar ma ConditionID wprost z profilu - klasa [Klasa X] dotyczy
+        # wylacznie sprzetu poleasingowego i dla nowego zawsze byla by pusta.
+        "*ConditionID": profil.get("condition_id") or cond_map.get(grade, cond_map["_brak"]),
         "VAT%": settings["vat_percent"],
-        "*C:Marke": brand_name(attrs.get("Producent", "")),
+        # Zestawy skladane nie maja marki w slowniku eBaya - profil podaje wartosc,
+        # ktora ten slownik zna ("Custom, Whitebox").
+        "*C:Marke": (profil.get("marke_aspekt", {}).get("wartosc")
+                     or brand_name(attrs.get("Producent", ""))),
         "*C:Bildschirmgröße": vocab_match("Bildschirmgröße", screen_size_de(attrs.get("Przekątna ekranu", "")), vocab, review, ""),
         "*C:Prozessor": cpu_aspect,
         "C:Festplattentyp": aspects["festplattentyp"].get(attrs.get("Typ dysku", ""), ""),
@@ -865,7 +958,11 @@ def build_row(offer, attrs, cfg, headers, review):
         "C:Grafikprozessortyp": aspects["grafikprozessortyp"].get(
             attrs.get("Rodzaj karty graficznej", ""), ""),
         "C:Konnektivität": connectivity_aspect(ports, aspects, review),
-        "C:Herstellergarantie": aspects["herstellergarantie"]["wartosc"],
+        "C:Herstellergarantie": vocab_match(
+            "Herstellergarantie",
+            profil.get("gwarancja", {}).get(attrs.get("Gwarancja", ""),
+                                            aspects["herstellergarantie"]["wartosc"]),
+            vocab, review),
         "C:Serie": vocab_match("Serie", series_aspect(model, aspects), vocab, review),
         "C:Passend für": "|".join(aspects["passend_fuer"]["wartosci"]),
         "PicURL": "|".join(images),
@@ -985,9 +1082,12 @@ def zbierz_produkty(root, cfg, review, skipped):
         if int(float(offer.get("stock", "0") or 0)) <= 0:
             skipped["stock_zero"] += 1
             continue
-        typ = typ_produktu(kategoria_xml, settings)
-        profil = profil_produktu(kategoria_xml, settings)
-        attrs = zastosuj_aliasy(offer_attrs(offer), profil)
+        # Aliasy bierzemy z profilu bazowego (kategoria), bo dopiero po nich pole
+        # kondycji ma kanoniczna nazwe i da sie rozpoznac wariant nowego towaru.
+        attrs = zastosuj_aliasy(offer_attrs(offer), profil_produktu(kategoria_xml, settings))
+        typ = typ_produktu(kategoria_xml, settings, attrs)
+        profil = profil_produktu(kategoria_xml, settings, attrs)
+        attrs = podstaw_dane_profilu(attrs, profil)
         pole_obudowy = profil.get("formfaktor", {}).get("z_atrybutu", "")
         obudowa = norm(attrs.get(pole_obudowy, "")) if pole_obudowy else ""
         if obudowa and any(w in obudowa for w in profil.get("pomijaj_obudowy", [])):
@@ -1010,7 +1110,8 @@ def licz_wg_typu(produkty, settings: dict) -> dict[str, int]:
     """Ile ofert z zapasem przypada na typ towaru. Bez tego "1071 produktow"
     nie mowi, czy komputery w ogole doszly do generowania."""
     licznik: Counter = Counter(
-        typ_produktu(text(offer.find("./cat")), settings) for offer, _ in produkty)
+        typ_produktu(text(offer.find("./cat")), settings, attrs)
+        for offer, attrs in produkty)
     return dict(sorted(licznik.items()))
 def licz_wg_kategorii(wiersze: list[dict], settings: dict) -> dict[str, int]:
     """Ile gotowych wierszy poszlo do ktorej kategorii eBay - zero przy 179 znaczy,
@@ -1113,7 +1214,7 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
             wiersze_add.append(wiersz)
             nazwa = "ebay-add.csv"
             if rozdziel:
-                profil = profil_produktu(text(offer.find("./cat")), settings)
+                profil = profil_produktu(text(offer.find("./cat")), settings, attrs)
                 nazwa = profil.get("plik_add", "ebay-add.csv")
             pliki_add.setdefault(nazwa, []).append(wiersz)
         for nazwa, wiersze in sorted(pliki_add.items()):
@@ -1139,7 +1240,7 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
             if not (zmiana_ceny or zmiana_ilosci):
                 skipped["bez_zmian"] += 1
                 continue
-            profil = profil_produktu(text(offer.find("./cat")), settings)
+            profil = profil_produktu(text(offer.find("./cat")), settings, attrs)
             kat = kategoria_produktu(attrs.get("Producent", ""), profil, settings)
             wiersze_revise.append({
                 "Action": "Revise", "Category name": nazwy.get(kat, ""),
