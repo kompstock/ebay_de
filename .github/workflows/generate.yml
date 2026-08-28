@@ -42,6 +42,9 @@ jobs:
       - name: Uruchom testy
         run: python -m unittest discover -s tests -v
 
+      - name: Dopisz kategorie 179 (komputery) do ebay-vocab.json
+        run: python3 tools/dodaj_kategorie_179.py
+
       - name: Wygeneruj pliki
         continue-on-error: true
         run: python src/generate.py --tryb "${{ inputs.tryb }}"
