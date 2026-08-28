@@ -63,13 +63,87 @@
     "Tablety": "Tablet",
     "_domyslnie": "Gerät"
   },
-  "formfaktor_desktop": {
-    "_about": "Mapowanie atrybutu 'Obudowa' z kompre.xml (kategoria Komputery) na wartosc C:Formfaktor z kategorii eBay 179. All in one / AIO nie mapujemy tutaj w ogole - te oferty sa pomijane w zbierz_produkty() w generate.py, zanim dojdzie do tego mapowania.",
-    "SFF": "Small Form Factor (SFF)",
-    "Tower": "Tower",
-    "Micro / Mini / Tiny": "Mini Desktop",
-    "Desktop": "Tower",
-    "_domyslnie": "Tower"
+  "rozdziel_pliki_add": false,
+  "_uwaga_rozdziel_pliki": "false = jeden ebay-add.csv z laptopami i komputerami razem. true = osobny plik na typ towaru (nazwy w profile_produktu.plik_add). Przelacz na true, jesli eBay odrzuci wiersze kategorii 179 przez pusta kolumne *C:Bildschirmgroesse z szablonu laptopow. Tryb 'aktualizacja' zawsze daje jeden ebay-revise.csv - revise nie zalezy od kategorii.",
+  "profile_produktu": {
+    "_about": "Rozdzial laptopow i komputerow. Jeden blok na typ z 'typ_produktu'. generate.py bierze stad szablon opisu, nazwy pol w feedzie, pola wymagane i aspekty zalezne od typu - w kodzie nie ma juz ani jednego 'if kategoria == Komputery'. Nowy typ towaru = wpis w typ_produktu + blok tutaj.",
+    "Notebook": {
+      "szablon": "description-notebook.html",
+      "plik_add": "ebay-add-laptopy.csv",
+      "kategoria_ebay": "domyslna",
+      "kategoria_ebay_apple": "apple",
+      "aliasy_atrybutow": {},
+      "scal_atrybuty": {},
+      "nadpisz_tlumaczenia": {},
+      "wymagane_xml": ["Producent", "SKU", "Model", "Ilość pamięci RAM", "Dysk", "Przekątna ekranu"],
+      "wymagane_tlumaczenia": ["Kondycja sprzętu", "Stan obudowy", "Stan ekranu", "Bateria", "W zestawie"],
+      "cechy_domyslne": ["Bluetooth", "Wi-Fi", "Eingebautes Mikrofon"],
+      "_uwaga_cechy": "Zalozenia bezpieczne dla laptopa. Desktop ma te liste pusta - w pececie ani Wi-Fi, ani mikrofon nie sa oczywiste.",
+      "produktart": "Notebook / Laptop",
+      "sekcja_opisu": "sekcja_business_notebook",
+      "ladegeraet": { "tryb": "niepuste" },
+      "_uwaga_ladegeraet": "Zachowanie historyczne laptopow: niepuste 'W zestawie' = Ja. Nie ruszamy, zeby nie zmieniac tysiaca dzialajacych ofert.",
+      "pomijaj_producentow": [],
+      "pomijaj_obudowy": [],
+      "formfaktor": {}
+    },
+    "Desktop-PC": {
+      "_zrodlo": "Wylacznie XML sklepowy (feed_url). Komputery z Allegro nie wchodza - pilnuje tego allegro.kategorie_zrodlowe plus straznik w src/allegro.py.",
+      "szablon": "description-desktop.html",
+      "plik_add": "ebay-add-komputery.csv",
+      "kategoria_ebay": "desktop",
+      "aliasy_atrybutow": {
+        "_about": "Feed nazywa te same pola inaczej w kategorii Komputery niz w laptopach. Nazwa docelowa -> lista nazw z feedu, wygrywa pierwsza niepusta.",
+        "Kondycja sprzętu": ["Kondycja sprzętu", "Kondycja"],
+        "Zainstalowany system": ["Zainstalowany system", "Zainstalowany System"]
+      },
+      "scal_atrybuty": {
+        "_about": "Jak wyzej, ale wartosci sklejamy przecinkiem zamiast brac pierwsza - desktop opisuje zlacza osobno z tylu i z boku, a oba komplety maja trafic do opisu.",
+        "Złącza zewnętrzne": ["Złącza zewnętrzne", "Złącza z tyłu", "Złącza z boku"]
+      },
+      "wymagane_xml": ["Producent", "SKU", "Model", "Ilość pamięci RAM", "Dysk"],
+      "_uwaga_wymagane_xml": "Bez 'Przekątna ekranu' - desktop nie ma ekranu.",
+      "wymagane_tlumaczenia": ["Kondycja sprzętu", "Stan obudowy", "W zestawie"],
+      "_uwaga_wymagane_tlumaczenia": "Bez 'Stan ekranu' i 'Bateria' - nie maja zastosowania, wiec nie blokuja oferty.",
+      "nadpisz_tlumaczenia": {
+        "_about": "translations.json jest wspolny dla calego sklepu i pisany pod laptopa - 'Zasilacz z przewodem' znaczy tam 'Notebook, Netzteil mit Kabel'. Dla peceta to nieprawda, wiec te wartosci podmieniamy tutaj. Klucz to wartosc z feedu, dokladnie jak w translations.json.",
+        "W zestawie": {
+          "Zasilacz z przewodem": "Netzteil mit Kabel.",
+          "Zasilacz w zestawie": "Netzteil."
+        }
+      },
+      "cechy_domyslne": [],
+      "produktart": "Desktop",
+      "sekcja_opisu": "",
+      "ladegeraet": {
+        "tryb": "lista",
+        "_about": "Dla desktopa liczy sie tresc pola 'W zestawie', a nie samo jego istnienie - 'Brak okablowania' to najczestsza wartosc w feedzie. Cokolwiek spoza listy = Nein.",
+        "tak": [
+          "Zasilacz z przewodem",
+          "Zasilacz w zestawie",
+          "ZASILACZ W ZESTAWIE",
+          "Zasilacz",
+          "Zasilacz z przewodem Podstawka",
+          "Zasilacz , Brak podstawki",
+          "Kompletne okablowanie"
+        ]
+      },
+      "pomijaj_producentow": ["Apple"],
+      "_uwaga_apple": "Apple desktop ma osobny szablon eBay - na razie nie wystawiamy.",
+      "pomijaj_obudowy": ["all in one", "aio"],
+      "_uwaga_aio": "Porownanie na znormalizowanej wartosci, jako fragment. All-in-One ma ekran i wymaga innych aspektow niz zwykly pecet.",
+      "formfaktor": {
+        "_about": "Atrybut 'Obudowa' z feedu -> C:Formfaktor w kategorii eBay 179. All in one nie mapujemy w ogole - te oferty odpadaja wyzej przez pomijaj_obudowy.",
+        "z_atrybutu": "Obudowa",
+        "mapa": {
+          "SFF": "Small Form Factor (SFF)",
+          "Tower": "Tower",
+          "Micro / Mini / Tiny": "Mini Desktop",
+          "Desktop": "Tower"
+        },
+        "_domyslnie": "Tower"
+      }
+    }
   },
   "sekcja_business_notebook": "<div class=\"kpx-sec\"><h2 class=\"kpx-h2\"><span>Warum ein Business-Notebook?</span></h2><p>Ger&auml;te aus der Business-Serie werden f&uuml;r Unternehmen gebaut, nicht f&uuml;r den Elektromarkt. Das merkt man jeden Tag.</p><ul class=\"kpx-ul\"><li>Robustes Geh&auml;use aus Magnesium oder Karbon statt d&uuml;nnem Kunststoff.</li><li>F&uuml;r den t&auml;glichen Dauereinsatz entwickelt und entsprechend getestet.</li><li>Hochwertige Tastatur mit sp&uuml;rbarem Druckpunkt.</li><li>Langlebige Komponenten und lange Ersatzteilverf&uuml;gbarkeit.</li><li>Wartungsfreundlich konstruiert &ndash; Servicearbeiten sind ohne Spezialwerkzeug m&ouml;glich.</li></ul></div>",
   "_uwaga_sekcja_business": "Celowo bez obietnicy rozbudowy RAM - w wielu modelach pamiec jest wlutowana, a FAQ odsyla do kontaktu przed zakupem.",

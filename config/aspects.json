@@ -177,7 +177,16 @@
       "_komentarz": "eBay nie ma jeszcze tych wersji. Pole zostaje puste, oferta wychodzi.",
       "macOS 15 Sequoia": "",
       "macOS 26 Tahoe": ""
-    }
+    },
+    "Windows 11 Professional": "Windows 11 Pro",
+    "Windows 11 HOME": "Windows 11 Home",
+    "Windows 10 PRO": "Windows 10 Pro",
+    "Windows 10 lub 11 Professional": "Windows 10 Pro",
+    "Windows 10/11 Professional": "Windows 10 Pro",
+    "System Windows 10 IoT Enterprise": "Windows 10",
+    "Windows Embedded Standard 10 LTSB": "Windows 10",
+    "brak": "Nicht enthalten",
+    "Brak Licencja -Windows Embedded Standard": "Nicht enthalten"
   },
   "erscheinungsjahr": {
     "_about": "C:Erscheinungsjahr - feed tego nie ma. Rocznik per model, uzupelniany recznie. Brak = pole puste.",
@@ -391,6 +400,13 @@
     "MacOS 13, Ventura": "macOS",
     "macOS 15 Sequoia": "macOS",
     "macOS 26 Tahoe": "macOS",
-    "MacOS 14, Sonoma": "macOS"
+    "MacOS 14, Sonoma": "macOS",
+    "Windows 11 Professional": "Win11 Pro",
+    "Windows 11 HOME": "Win11 Home",
+    "Windows 10 PRO": "Win10 Pro",
+    "Windows 10 lub 11 Professional": "Win10/11 Pro",
+    "Windows 10/11 Professional": "Win10/11 Pro",
+    "System Windows 10 IoT Enterprise": "Win10",
+    "Windows Embedded Standard 10 LTSB": "Win10"
   }
 }

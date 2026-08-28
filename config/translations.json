@@ -136,7 +136,17 @@
     "procesor: intel core i5 4x 2.30 - 4.00 ghz model procesora: i5 - 8300h, 8mb cache, 8 gen.": "Prozessor: Intel Core i5-8300H, 4 Kerne, 2,30 bis 4,00 GHz, 8 MB Cache, 8. Generation.",
     "procesor: intel core i5 4x 1.00 - 3.60ghz model procesora: i5-1035g1, 6mb cache, 10 gen.": "Prozessor: Intel Core i5-1035G1, 4 Kerne, 1,00 bis 3,60 GHz, 6 MB Cache, 10. Generation.",
     "procesor: intel celeron n4100": "Prozessor: Intel Celeron N4100.",
-    "procesor: intel core ultra 5 125u": "Prozessor: Intel Core Ultra 5 125U."
+    "procesor: intel core ultra 5 125u": "Prozessor: Intel Core Ultra 5 125U.",
+    "[klasa a] komputer poleasingowy, w 100% sprawny, przetestowany": "Geprüfter Leasingrückläufer, voll funktionsfähig und getestet.",
+    "normalne, slady uzytkowania": "Normale Gebrauchsspuren.",
+    "normlane slady uzytkowania": "Normale Gebrauchsspuren.",
+    "normalne slady uzytkowania typu ryski lub otarcia, powstale glownie na skutek transportu.": "Normale Gebrauchsspuren wie feine Kratzer oder Abriebspuren, hauptsächlich transportbedingt.",
+    "brak okablowania": "Ohne Kabel.",
+    "brak zasilacza": "Ohne Netzteil.",
+    "zasilacz": "Netzteil.",
+    "zasilacz z przewodem podstawka": "Netzteil mit Kabel, Standfuß.",
+    "zasilacz, brak podstawki": "Netzteil, ohne Standfuß.",
+    "kompletne okablowanie": "Vollständige Verkabelung."
   },
   "_podpowiedzi": {
     "laptop poleasingowy": "Business-Notebook aus Leasingrücklauf",
@@ -189,7 +199,9 @@
     "DVD": "DVD",
     "DVD-RW": "DVD-RW",
     "Nagrywarka DVD": "DVD-Brenner",
-    "Blu-ray": "Blu-ray"
+    "Blu-ray": "Blu-ray",
+    "Brak": "nicht vorhanden",
+    "DVD/RW": "DVD-RW"
   },
   "_zasada_encje": "Wartosci trzymamy z prawdziwymi umlautami. CSV jest UTF-8, a e() escapuje tylko & < > \" - encje w zrodle daja podwojne escapowanie."
 }
