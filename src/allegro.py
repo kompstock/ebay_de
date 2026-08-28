@@ -114,6 +114,23 @@ def przerob_oferte(offer, acfg: dict, sku_zajete: set[str],
     return nowa, ""
 
 
+def sprawdz_kategorie(cfg: dict) -> list[str]:
+    """Z Allegro biora sie WYLACZNIE laptopy. Komputery ida tylko z XML-a sklepowego.
+
+    Powod jest w danych, nie w wygodzie: dla peceta pipeline potrzebuje pola
+    'Obudowa' (C:Formfaktor i odsiew All-in-One), a empi.xml go nie ma - kazdy
+    desktop z Allegro dostalby domyslna bryle i mogl przejsc jako AiO.
+    Dopisanie kategorii komputerowej do 'kategorie_zrodlowe' ma sie skonczyc
+    czytelna blokada, a nie cicho wystawionymi ofertami.
+    """
+    settings = cfg["settings"]
+    acfg = settings.get("allegro", {})
+    docelowa = acfg.get("kategoria_docelowa", "")
+    typ = settings["typ_produktu"].get(docelowa, settings["typ_produktu"]["_domyslnie"])
+    if typ != "Notebook":
+        return [f"config/settings.json: allegro.kategoria_docelowa to '{docelowa}' "
+                f"(typ '{typ}') - z Allegro wolno brac tylko laptopy"]
+    return []
 def scal(feed_shoper: bytes, feed_allegro: bytes, cfg: dict) -> tuple[bytes, dict]:
     """Jeden feed dla generate.py: Shoper + doklejone laptopy z Allegro."""
     acfg = cfg["settings"]["allegro"]
