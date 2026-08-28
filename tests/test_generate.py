@@ -56,9 +56,12 @@ class Wystawianie(unittest.TestCase):
                 self.assertTrue(system.lower().startswith(("macos", "mac os")) or not system,
                                 f"tytul obiecuje macOS, a system to {system!r}")
 
-    def test_apple_ma_wlasna_kategorie(self):
+    def test_kategoria_wynika_z_typu_towaru(self):
+        """Apple laptop -> 111422, pecet -> 179, reszta laptopow -> 177."""
         for w in self.wiersze:
-            if w["*C:Marke"] == "Apple":
+            if w["C:Produktart"] == "Desktop":
+                self.assertEqual(w["*Category"], "179")
+            elif w["*C:Marke"] == "Apple":
                 self.assertEqual(w["*Category"], "111422")
                 self.assertEqual(w["C:Produktart"], "", "kategoria Apple nie ma aspektu Produktart")
             else:
@@ -115,6 +118,117 @@ class Wystawianie(unittest.TestCase):
             for aspekt in vocab["kategorie"][w["*Category"]]["_wymagane"]:
                 self.assertTrue(w.get(f"*C:{aspekt}") or w.get(f"C:{aspekt}"),
                                 f"puste pole wymagane C:{aspekt}")
+
+
+class KomputeryOsobnoOdLaptopow(unittest.TestCase):
+    """Pecet i laptop nie moga sie gryzc: inny szablon, inne pola, inne aspekty.
+
+    Fixture ma dwa prawdziwe komputery z feedu sklepowego - zwykly (SKU 3959)
+    i All-in-One (SKU 4967), ktory ma zostac pominiety.
+    """
+    PECET = "3959"
+    AIO = "4967"
+
+    @classmethod
+    def setUpClass(cls):
+        cls.wiersze, cls.raport, cls.out = uruchom()
+        cls.wg_sku = {w["CustomLabel"]: w for w in cls.wiersze}
+
+    def pecet(self):
+        self.assertIn(self.PECET, self.wg_sku,
+                      f"pecet wypadl z CSV; pominieto: {self.raport.get('pominieto')}")
+        return self.wg_sku[self.PECET]
+
+    def opis(self, wiersz):
+        tekst = re.sub(r"(?is)<(style|script)\b.*?</\1>", " ", wiersz["*Description"])
+        return re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", tekst)))
+
+    def test_pecet_trafia_do_csv(self):
+        self.assertEqual(self.pecet()["*Category"], "179")
+
+    def test_all_in_one_pominiety(self):
+        self.assertNotIn(self.AIO, self.wg_sku, "All-in-One nie ma byc wystawiany")
+
+    def test_pecet_nie_obiecuje_ekranu_ani_baterii(self):
+        """Najdrozszy blad starego szablonu: 'Das Display misst  bei .' u kazdego peceta."""
+        wiersz = self.pecet()
+        tekst = self.opis(wiersz)
+        self.assertNotIn("Das Display misst", tekst)
+        self.assertNotRegex(tekst, r"\bAkku\b")
+        self.assertEqual(wiersz["*C:Bildschirmgröße"], "")
+        self.assertEqual(wiersz["C:Maximale Auflösung"], "")
+
+    def test_pecet_nie_zaklada_wifi_i_mikrofonu(self):
+        """Dla laptopa to zalozenia bezpieczne, dla peceta twierdzenia nieprawdziwe."""
+        for cecha in ("Wi-Fi", "Bluetooth", "Eingebautes Mikrofon"):
+            self.assertNotIn(cecha, self.pecet()["C:Besonderheiten"])
+
+    def test_pecet_dostaje_wlasne_aspekty(self):
+        wiersz = self.pecet()
+        self.assertEqual(wiersz["C:Produktart"], "Desktop")
+        self.assertTrue(wiersz["C:Formfaktor"], "pecet musi miec Formfaktor")
+
+    def test_aliasy_pol_z_feedu_dzialaja(self):
+        """Feed nazywa pola peceta inaczej. Puste tu = aliasy przestaly dzialac."""
+        wiersz = self.pecet()
+        self.assertTrue(wiersz["C:Betriebssystem"], "alias 'Zainstalowany System'")
+        self.assertTrue(wiersz["C:Konnektivität"], "scalanie 'Złącza z tyłu'")
+        self.assertIn("Win", wiersz["*Title"], "sufiks tytulu wymaga aliasu systemu")
+
+    def test_ladegeraet_wynika_z_tresci_pola(self):
+        """SKU 3959 ma 'Zasilacz z przewodem', wiec Ja. Liczy sie tresc, nie samo pole."""
+        self.assertEqual(self.pecet()["C:Inklusive Ladegerät"], "Ja")
+
+    def test_opis_peceta_nie_mowi_o_notebooku(self):
+        """Wspolny slownik tlumaczy 'Zasilacz z przewodem' na 'Notebook, Netzteil mit
+        Kabel'. W opisie peceta profil ma to nadpisac."""
+        tekst = self.opis(self.pecet())
+        self.assertIn("Business-Desktop-PC", tekst)
+        self.assertNotIn("Notebook, Netzteil", tekst)
+
+    def test_laptop_zostal_przy_swoim_szablonie(self):
+        laptopy = [w for w in self.wiersze if w["C:Produktart"] != "Desktop"
+                   and w["*C:Marke"] != "Apple"]
+        self.assertTrue(laptopy)
+        for w in laptopy:
+            self.assertIn("Business-Notebook", self.opis(w))
+            self.assertTrue(w["*C:Bildschirmgröße"], "laptop musi miec przekatna")
+
+
+class BramkiKonfiguracji(unittest.TestCase):
+    """Bledy konfiguracji maja byc glosna blokada, nie cichym zerem produktow."""
+
+    def cfg(self):
+        sys.path.insert(0, str(ROOT / "src"))
+        import generate
+        return generate, {
+            "settings": json.loads((ROOT / "config" / "settings.json").read_text(encoding="utf-8")),
+            "vocab": json.loads((ROOT / "config" / "ebay-vocab.json").read_text(encoding="utf-8")),
+        }
+
+    def test_komplet_profili_przechodzi(self):
+        generate, cfg = self.cfg()
+        self.assertEqual(generate.sprawdz_profile(cfg), [])
+
+    def test_brak_kategorii_w_slowniku_to_blokada(self):
+        """Wczesniej konczylo sie to KeyError zlapanym jako 'blad_konwersji' -
+        komputery znikaly, a raport mowil "ok": true."""
+        generate, cfg = self.cfg()
+        cfg["vocab"]["kategorie"].pop("179")
+        braki = generate.sprawdz_profile(cfg)
+        self.assertTrue(any("179" in b for b in braki), braki)
+
+    def test_brak_szablonu_to_blokada(self):
+        generate, cfg = self.cfg()
+        cfg["settings"]["profile_produktu"]["Desktop-PC"]["szablon"] = "nie-ma-takiego.html"
+        self.assertTrue(generate.sprawdz_profile(cfg))
+
+    def test_komputery_z_allegro_sa_blokowane(self):
+        """Z Allegro biora sie wylacznie laptopy - empi.xml nie ma pola 'Obudowa'."""
+        generate, cfg = self.cfg()
+        self.assertEqual(generate.allegro.sprawdz_kategorie(cfg), [])
+        cfg["settings"]["allegro"]["kategoria_docelowa"] = "Komputery"
+        self.assertTrue(generate.allegro.sprawdz_kategorie(cfg))
 
 
 class Tryby(unittest.TestCase):
