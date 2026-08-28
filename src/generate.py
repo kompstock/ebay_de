@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 """Generuje CSV eBay DE z feedu XML KOMPRE.
-
 Zasady egzekwowane twardo:
   1. Brak kompletnych danych GPSR (producent + osoba odpowiedzialna w UE)
      -> produkt NIE trafia do CSV.
@@ -12,10 +11,15 @@ Zasady egzekwowane twardo:
      -> produkt NIE trafia do CSV.
   5. Klasa stanu ([Klasa A-]) nie pojawia sie w opisie.
      Sluzy wylacznie do wyboru ConditionID.
+
+Komputery stacjonarne (kategoria XML "Komputery", eBay category 179):
+  - All-in-One i Apple sa celowo pomijane na tym etapie (patrz zbierz_produkty()).
+  - Nie maja ekranu / baterii / Wi-Fi z zalozenia - stad osobne galezie w
+    render_description(), features_aspect() i w budowie C:Inklusive Ladegerät.
+  - Obudowa (Formfaktor) czytana z atrybutu feedu "Obudowa" i mapowana przez
+    settings["formfaktor_desktop"].
 """
-
 from __future__ import annotations
-
 import argparse
 import csv
 import html
@@ -27,30 +31,35 @@ import sys
 import unicodedata
 import urllib.request
 import xml.etree.ElementTree as ET
-
 import allegro
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
-
 ROOT = Path(__file__).resolve().parents[1]
-
-REQUIRED_XML = (
-    "Producent", "SKU", "Model", "Przekątna ekranu", "Ilość pamięci RAM", "Dysk",
+# Pola wymagane z XML dla WSZYSTKICH typow produktow.
+REQUIRED_XML_WSPOLNE = (
+    "Producent", "SKU", "Model", "Ilość pamięci RAM", "Dysk",
 )
-
+# Dodatkowe pole wymagane tylko dla notebookow - desktopy nie maja ekranu.
+REQUIRED_XML_TYLKO_NOTEBOOK = (
+    "Przekątna ekranu",
+)
 REQUIRED_TRANSLATIONS = (
     "Kondycja sprzętu", "Stan obudowy", "Stan ekranu", "Bateria", "W zestawie",
 )
-
+# Dla desktopow "Stan ekranu" i "Bateria" nie maja sensu (brak ekranu/baterii) -
+# nie blokujemy na nich produktu, ale nadal probujemy je przetlumaczyc, gdyby
+# feed cos tam mial.
+WYMAGANE_TLUMACZENIA_DESKTOP = (
+    "Kondycja sprzętu", "Stan obudowy", "W zestawie",
+)
 # Kolumny, po ktorych poznajemy eksport aktywnych ofert z eBaya. Zly plik
 # wrzucony do katalogu ma sie skonczyc blokada, nie cichym brakiem zmian.
 KOLUMNY_RAPORTU = (
     "Item number", "Custom label (SKU)", "Available quantity",
     "Start price", "Currency", "Listing site",
 )
-
 POLISH_CHARS = set("ąćęłńóśźżĄĆĘŁŃÓŚŹŻ")
 POLISH_WORDS = re.compile(
     r"(?<![\wäöüß])(i|oraz|lub|albo|we|ze|na|do|dla|od|po|przy|jest|są|"
@@ -58,8 +67,6 @@ POLISH_WORDS = re.compile(
     r"klawiatura|obudowa|zasilacz|sprzęt|typu|złącze|gniazdo|czytnik|ilość)(?![\wäöüß])",
     re.IGNORECASE,
 )
-
-
 WYMAGANE_KLUCZE = {
     "settings": ["zdania_wiodace", "typ_produktu", "doplata_wysylka_eur", "kategorie",
                  "sekcja_business_notebook", "min_produktow_w_feedzie", "company_since"],
@@ -68,11 +75,8 @@ WYMAGANE_KLUCZE = {
     "translations": ["values"],
     "manufacturers": ["producenci", "aliasy"],
 }
-
-
 def sprawdz_konfiguracje(cfg: dict) -> list[str]:
     """Wychwytuje rozjazd wersji: nowy kod ze starym plikiem konfiguracyjnym.
-
     Bez tego brakujacy klucz konczy sie zerem produktow i komunikatem,
     z ktorego nic nie wynika.
     """
@@ -87,46 +91,30 @@ def sprawdz_konfiguracje(cfg: dict) -> list[str]:
                     break
                 biezacy = biezacy[czesc]
     return braki
-
-
 def load_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
-
-
 def fetch_bytes(url: str, timeout: int = 120) -> bytes:
     request = urllib.request.Request(url, headers={"User-Agent": "kompre-ebay-csv/2.0"})
     with urllib.request.urlopen(request, timeout=timeout) as response:
         return response.read()
-
-
 def fetch_nbp_rate(url: str) -> dict[str, Any]:
     payload = json.loads(fetch_bytes(url).decode("utf-8"))
     rate = payload["rates"][0]
     return {"currency": payload["currency"], "code": payload["code"],
             "table": payload["table"], "number": rate["no"],
             "effective_date": rate["effectiveDate"], "rate": float(rate["mid"])}
-
-
 def norm(value: str) -> str:
     value = unicodedata.normalize("NFKD", str(value or ""))
     value = "".join(c for c in value if not unicodedata.combining(c))
-    value = value.replace("\u0142", "l").replace("\u0141", "l")
+    value = value.replace("ł", "l").replace("Ł", "l")
     value = re.sub(r"\s*,\s*", ", ", value)   # "a,b" i "a, b" to ten sam klucz
     return re.sub(r"\s+", " ", value).strip().lower()
-
-
 def normalize_space(value: str) -> str:
     return re.sub(r"\s+", " ", value or "").strip()
-
-
 def e(value: Any) -> str:
     return html.escape(str(value or ""), quote=True)
-
-
 def text(node: ET.Element | None) -> str:
     return (node.text or "").strip() if node is not None else ""
-
-
 def offer_attrs(offer: ET.Element) -> dict[str, str]:
     out: dict[str, str] = {}
     for item in offer.findall("./attrs/a"):
@@ -134,24 +122,17 @@ def offer_attrs(offer: ET.Element) -> dict[str, str]:
         if name:
             out[name] = normalize_space(text(item))
     return out
-
-
 class Review:
     def __init__(self) -> None:
         self.items: set[tuple[str, str, str]] = set()
-
     def add(self, kind: str, field: str, value: str) -> None:
         self.items.add((kind, field, value))
-
     def rows(self) -> list[tuple[str, str, str]]:
         return sorted(self.items)
-
     def top(self, kind: str, by: str = "value", limit: int = 20):
         idx = 1 if by == "field" else 2
         counter = Counter(item[idx] for item in self.items if item[0] == kind)
         return [{"wartosc": v, "produktow": n} for v, n in counter.most_common(limit)]
-
-
 def suggest_translation(value: str, translations: dict) -> str:
     out = value
     for source, target in sorted(
@@ -159,8 +140,6 @@ def suggest_translation(value: str, translations: dict) -> str:
     ):
         out = re.sub(re.escape(source), target, out, flags=re.IGNORECASE)
     return normalize_space(out)
-
-
 def translate_value(field: str, value: str, translations: dict, review: Review) -> str | None:
     if not value:
         return ""
@@ -170,11 +149,8 @@ def translate_value(field: str, value: str, translations: dict, review: Review) 
     review.add("tlumaczenie", field,
                f"{value}  ->  [propozycja] {suggest_translation(value, translations)}")
     return None
-
-
 def has_polish_leak(text_value: str) -> str | None:
     """Sprawdza tylko tekst widoczny dla kupujacego.
-
     CSS musi wypasc PRZED sprawdzeniem - selektor '.kpx-key i{...}' zawiera
     samotne 'i' i bez tego wywala falszywy alarm na kazdym produkcie.
     """
@@ -190,32 +166,21 @@ def has_polish_leak(text_value: str) -> str | None:
         kontekst = normalize_space(plain[max(0, match.start() - 45):match.end() + 45])
         return f"slowo {match.group(0)!r} w: ...{kontekst}..."
     return None
-
-
 def brand_name(value: str) -> str:
     known = {"lenovo": "Lenovo", "dell": "Dell", "hp": "HP", "fujitsu": "Fujitsu",
              "apple": "Apple", "acer": "Acer", "asus": "ASUS", "toshiba": "Toshiba",
              "microsoft": "Microsoft", "panasonic": "Panasonic", "samsung": "Samsung"}
     return known.get(norm(value), value.title())
-
-
 def clean_capacity(value: str) -> str:
     return normalize_space(re.sub(r"(?i)(\d)\s*(GB|TB|MB)\b", r"\1 \2", value or ""))
-
-
 def screen_size_de(value: str) -> str:
     number = re.search(r"\d+(?:[.,]\d+)?", value or "")
     return f"{number.group(0).replace('.', ',')} Zoll" if number else ""
-
-
 def base_clock(value: str) -> str:
     match = re.search(r"(\d+[.,]\d+)", value or "")
     return f"{match.group(1).replace('.', ',')} GHz" if match else ""
-
-
 def zrodlo_procesora(attrs: dict) -> str:
     """Feed podaje procesor w trzech miejscach. Bierzemy pierwsze, ktore cos zawiera.
-
     1. pole 'Procesor'
     2. 'Informacje dodatkowe' - czesto siedzi tam 'Model procesora: i5-8300H, 8 gen.'
     3. 'Seria procesora' - zgrubnie, ale dla Celerona czy Ryzena eBay to akceptuje
@@ -228,11 +193,8 @@ def zrodlo_procesora(attrs: dict) -> str:
         if m and m.group(1).strip():
             return m.group(1).strip()
     return attrs.get("Seria procesora", "")
-
-
 def procesor_opis(raw: str) -> str:
     """'i5 - 8400H, 8MB Cache, 8 gen.' -> 'Intel Core i5-8400H (8. Generation, 8 MB Cache)'.
-
     Surowy zapis z feedu jest polski i skrocony - w niemieckiej ofercie wyglada obco.
     """
     kandydaci = cpu_candidates(raw)
@@ -245,21 +207,16 @@ def procesor_opis(raw: str) -> str:
     if cache:
         dodatki.append(f"{cache.group(1)} MB Cache")
     return f"{nazwa} ({', '.join(dodatki)})" if dodatki else nazwa
-
-
 def cpu_candidates(processor: str) -> list[str]:
     """Zwraca kandydatow od najbardziej do najmniej precyzyjnego.
-
     Feed uzywa formatu 'i5 - 1135G7, 8MB Cache, 11 gen.' albo 'Ryzen 5 PRO 4650U'.
     """
     p = normalize_space((processor or "").upper())
     out: list[str] = []
-
     ultra = re.search(r"ULTRA\s*([3579])\s*-?\s*(\d{3}[A-Z]*)", p)
     if ultra:
         out.append(f"Intel Core Ultra {ultra.group(1)} {ultra.group(2)}")
         return out
-
     ryzen = re.search(r"RYZEN\s*([3579])\s*(PRO)?\s*(\d{4}[A-Z]*)", p)
     if ryzen:
         pro = " PRO" if ryzen.group(2) else ""
@@ -270,7 +227,6 @@ def cpu_candidates(processor: str) -> list[str]:
             out.append(f"AMD Ryzen {ryzen.group(1)} {ryzen.group(3)[0]}000 Series")
             out.append(f"AMD Ryzen {ryzen.group(1)}")
         return out
-
     core = re.search(r"\bI([3579])\s*-?\s*(\d{4,5}[A-Z]{0,2}\d?)", p)
     if core:
         rodzina, model = core.group(1), core.group(2)
@@ -288,17 +244,14 @@ def cpu_candidates(processor: str) -> list[str]:
         out.append(f"Intel Core i{rodzina} {numer}. Gen")
         out.append(f"Intel Core i{rodzina}")
         return out
-
     celeron = re.search(r"CELERON\s*([A-Z]?\d{4}[A-Z]*)", p)
     if celeron:
         out += [f"Intel Celeron {celeron.group(1)}", "Intel Celeron"]
         return out
-
     silver = re.search(r"SILVER\s*([A-Z]?\d{4}[A-Z]*)", p)
     if silver:
         out += [f"Intel Pentium Silver {silver.group(1)}", "Intel Pentium Silver", "Intel Pentium"]
         return out
-
     # sama nazwa rodziny - feed podaje ja w polu "Seria procesora"
     if "CELERON" in p:
         out.append("Intel Celeron")
@@ -310,8 +263,6 @@ def cpu_candidates(processor: str) -> list[str]:
     if rodzina:
         out.append(f"AMD Ryzen {rodzina.group(1)}")
     return out
-
-
 def processor_aspect(processor: str, series: str, review: Review) -> str:
     p = (processor or "").upper()
     for label, pattern in (("AMD Ryzen 3 PRO", r"RYZEN 3 PRO"), ("AMD Ryzen 5 PRO", r"RYZEN 5 PRO"),
@@ -333,8 +284,6 @@ def processor_aspect(processor: str, series: str, review: Review) -> str:
         return "Intel Pentium"
     review.add("aspekt", "C:Prozessor", processor)
     return series or processor
-
-
 def _rozbij_fragment(fragment: str) -> list[tuple[int, str]]:
     """Fragment listy zlacz -> pary (ilosc, etykieta)."""
     fragment = fragment.strip(" ,;.")
@@ -350,17 +299,14 @@ def _rozbij_fragment(fragment: str) -> list[tuple[int, str]]:
     if m:
         return [(int(m.group(2)), m.group(1).strip(" ,;."))]
     return [(1, fragment)]                                        # sama nazwa
-
-
 def parse_ports_raw(value: str) -> list[tuple[int, str]]:
     """Feed zapisuje zlacza na trzy sposoby, czesto mieszajac je w jednym polu."""
     v = normalize_space(value or "")
     if not v:
         return []
-    v = v.replace("\u00d7", "x")                    # feed miesza 'x' i '×'
+    v = v.replace("×", "x")                    # feed miesza 'x' i '×'
     v = re.sub(r"(\d),(\d)", r"\1.\2", v)          # '3,5 mm' nie moze sie rozpasc na przecinku
     out: list[tuple[int, str]] = []
-
     if re.search(r"szt\.?", v, re.I):                             # "HDMI - 1 szt."
         for chunk in re.split(r"szt\.?", v, flags=re.I):
             m = re.match(r"^\s*(.*?)\s*-\s*(\d+)\s*$", chunk)
@@ -368,12 +314,9 @@ def parse_ports_raw(value: str) -> list[tuple[int, str]]:
                 out.append((int(m.group(2)), m.group(1).strip(" ,;.")))
         if out:
             return out
-
     for fragment in re.split(r"[,;]", v):                         # reszta: po przecinkach
         out += _rozbij_fragment(fragment)
     return out
-
-
 def port_label(label: str, aspects: dict, review: Review) -> str:
     """Etykieta portu po niemiecku. Brak reguly -> pusty string (port pomijany)."""
     czysty = re.sub(r"\s*\([^)]*\)", "", label).strip(" ,;.")
@@ -387,8 +330,6 @@ def port_label(label: str, aspects: dict, review: Review) -> str:
                 return niemiecki
     review.add("port", "opis", label)
     return ""
-
-
 def connectivity_aspect(ports, aspects: dict, review: Review) -> str:
     """Jedno zrodlo prawdy: etykieta z regul, potem mapa na wartosc aspektu eBay."""
     cfg = aspects["konnektivitaet"]
@@ -400,10 +341,16 @@ def connectivity_aspect(ports, aspects: dict, review: Review) -> str:
         if wartosc and wartosc in dozwolone and wartosc not in znalezione:
             znalezione.append(wartosc)
     return "|".join(sorted(znalezione))
-
-
-def features_aspect(attrs: dict, ports, aspects: dict, podswietlenie: bool | None = None) -> str:
-    out = ["Bluetooth", "Wi-Fi", "Eingebautes Mikrofon"]
+def features_aspect(attrs: dict, ports, aspects: dict, podswietlenie: bool | None = None,
+                    typ: str = "Notebook") -> str:
+    """Desktopy nie dostaja z gory zalozonego Wi-Fi/Bluetooth/mikrofonu -
+    to zalozenia bezpieczne dla laptopa, ale nieprawdziwe dla wiekszosci komputerow
+    stacjonarnych. Dla desktopa liczy sie wylacznie to, co realnie wynika z feedu
+    (touchscreen u AiO by tu trafil, ale te oferty i tak sa pomijane wczesniej)."""
+    if typ == "Desktop-PC":
+        out: list[str] = []
+    else:
+        out = ["Bluetooth", "Wi-Fi", "Eingebautes Mikrofon"]
     if attrs.get("Ekran dotykowy") == "Tak":
         out.append("Touchscreen")
     if norm(attrs.get("Kamera", "")).startswith("tak"):
@@ -412,8 +359,6 @@ def features_aspect(attrs: dict, ports, aspects: dict, podswietlenie: bool | Non
         out.append("Hintergrundbeleuchtete Tastatur")
     allowed = aspects["besonderheiten"]["_dozwolone"]
     return "|".join(v for v in out if v in allowed)
-
-
 def gpu_clean(value: str) -> list[str]:  # noqa: C901
     """Feed: 'Grafika Intel HD 630 + Radeon Pro 460 4GB' -> kandydaci dla eBaya."""
     v = normalize_space(value or "")
@@ -448,11 +393,8 @@ def gpu_clean(value: str) -> list[str]:  # noqa: C901
     elif "RADEON" in u and "VEGA" not in u:
         out.append("AMD Radeon Graphics")
     return [x for x in dict.fromkeys(out) if x]
-
-
 def nazwa_modelu(attrs: dict) -> str:
     """Marka + model, ale bez powtorzenia gdy feed juz ja w modelu zawiera.
-
     Feed miesza zapisy: raz 'ThinkPad T14', raz 'Apple MacBook Pro A1707'.
     """
     marka = brand_name(attrs.get("Producent", ""))
@@ -460,28 +402,20 @@ def nazwa_modelu(attrs: dict) -> str:
     if norm(model).startswith(norm(marka)):
         return model
     return normalize_space(f"{marka} {model}")
-
-
 def series_aspect(model: str, aspects: dict) -> str:
     key = norm(model)
     for pattern, value in sorted(aspects["serie"]["wzorce"].items(), key=lambda i: -len(i[0])):
         if pattern in key:
             return value
     return ""
-
-
 def year_aspect(model: str, aspects: dict) -> str:
     return aspects["erscheinungsjahr"]["modele"].get(norm(model), "")
-
-
 def colour_aspect(model: str, aspects: dict) -> str:
     key = norm(model)
     for pattern, value in aspects["farbe"]["z_modelu"].items():
         if pattern in key:
             return value
     return aspects["farbe"]["domyslnie"]
-
-
 def keyboard_parts(value: str, aspects: dict, review: Review) -> tuple[str, bool | None]:
     """Zwraca (opis po niemiecku, czy podswietlana). None = brak informacji."""
     cfg = aspects["klawiatura_czesci"]
@@ -508,11 +442,8 @@ def keyboard_parts(value: str, aspects: dict, review: Review) -> tuple[str, bool
             if niemiecki:                      # pusty wpis = czlon swiadomie pomijany
                 czesci.append(niemiecki)
     return ", ".join(dict.fromkeys(czesci)), podswietlenie
-
-
 def tekst_wiodacy(attrs: dict, settings: dict) -> str:
     """Zdanie pod kafelkami, wybierane z puli na podstawie SKU.
-
     Wybor jest STALY, a nie losowy - ten sam produkt zawsze dostaje to samo zdanie.
     Inaczej kazde przegenerowanie opisu zmienialoby tresc wszystkich ofert.
     """
@@ -522,31 +453,25 @@ def tekst_wiodacy(attrs: dict, settings: dict) -> str:
     klucz = attrs.get("SKU") or attrs.get("Model", "")
     indeks = int(hashlib.md5(klucz.encode("utf-8")).hexdigest(), 16) % len(lista)
     return lista[indeks]
-
-
 def typ_produktu(kategoria_xml: str, settings: dict) -> str:
     """Rzeczownik do opisu. Nowy typ towaru = jeden wpis w settings, zero zmian w kodzie."""
     mapa = settings["typ_produktu"]
     return mapa.get(kategoria_xml, mapa["_domyslnie"])
-
-
-def kategoria_produktu(producent: str, settings: dict) -> str:
-    """Apple ma wlasna kategorie eBay z innym slownikiem systemow."""
+def kategoria_produktu(producent: str, typ: str, settings: dict) -> str:
+    """Desktopy (poza Apple - Apple desktop na razie nie wystawiamy, patrz
+    zbierz_produkty()) maja wlasna kategorie eBay 179. Apple laptopy maja
+    wlasna kategorie eBay z innym slownikiem systemow."""
+    if typ == "Desktop-PC":
+        return settings["kategorie"]["desktop"]
     if norm(producent) == "apple":
         return settings["kategorie"]["apple"]
     return settings["kategorie"]["domyslna"]
-
-
 def sufiks_tytulu(system: str, aspects: dict) -> str:
     """Sufiks MUSI wynikac z pola systemu. Nieznana wartosc = brak sufiksu."""
     return aspects["sufiks_tytulu"].get(system, "")
-
-
 def condition_class(value: str) -> str:
     match = re.search(r"\[klasa\s*([a-c][+\-]?)\]", norm(value))
     return match.group(1).upper() if match else ""
-
-
 def gpsr_block(producent: str, manufacturers: dict) -> tuple[dict[str, str], str]:
     key = norm(producent)
     key = manufacturers["aliasy"].get(key, key)
@@ -579,12 +504,9 @@ def gpsr_block(producent: str, manufacturers: dict) -> tuple[dict[str, str], str
         "Responsible Person 1 Email": r["email"],
         "Responsible Person 1 ContactURL": r.get("url", ""),
     }, ""
-
-
 def vocab_match(aspect: str, value: str, slownik: dict, review: Review,
                 prefix: str = "", strict: bool = True) -> str:
     """Dopasowuje wartosc do slownika eBaya.
-
     strict=True  -> brak dopasowania daje puste pole (pola z zamknieta lista).
     strict=False -> brak dopasowania przepuszcza wartosc surowa (modele, pojemnosci),
                     bo eBay przyjmuje tam tekst dowolny.
@@ -610,8 +532,6 @@ def vocab_match(aspect: str, value: str, slownik: dict, review: Review,
         return bez_spacji
     review.add("aspekt", f"C:{aspect}", value)
     return value if not strict else ""
-
-
 def scal_porty(ports, aspects: dict, review: Review) -> list[tuple[str, int]]:
     """Sumuje sztuki tego samego portu: 2x USB 3.2 + 3x USB 3.2 -> 5x USB 3.2."""
     razem: dict[str, int] = {}
@@ -620,29 +540,30 @@ def scal_porty(ports, aspects: dict, review: Review) -> list[tuple[str, int]]:
         if niemiecki:
             razem[niemiecki] = razem.get(niemiecki, 0) + count
     return list(razem.items())
-
-
 def spec_row(label: str, value: str) -> str:
     return f"<tr><th>{e(label)}</th><td>{e(value)}</td></tr>" if value else ""
-
-
 def render_description(template, attrs, images, translations, aspects, settings, review,
                        kategoria_xml: str = ""):
+    typ = typ_produktu(kategoria_xml, settings)
+    wymagane_pola = WYMAGANE_TLUMACZENIA_DESKTOP if typ == "Desktop-PC" else REQUIRED_TRANSLATIONS
     de: dict[str, str] = {}
     for field in REQUIRED_TRANSLATIONS:
         raw = attrs.get(field, "")
         if not raw:
-            return "", f"opis: brak pola {field}"
+            if field in wymagane_pola:
+                return "", f"opis: brak pola {field}"
+            de[field] = ""
+            continue
         value = translate_value(field, raw, translations, review)
         if value is None:
-            return "", f"opis: brak tlumaczenia {field}"
+            if field in wymagane_pola:
+                return "", f"opis: brak tlumaczenia {field}"
+            value = ""
         de[field] = value
-
     extra = attrs.get("Informacje dodatkowe", "")
     extra_de = translate_value("Informacje dodatkowe", extra, translations, review) if extra else ""
     if extra_de is None:
         extra_de = ""
-
     ports = parse_ports_raw(attrs.get("Złącza zewnętrzne", ""))
     manufacturer = brand_name(attrs.get("Producent", ""))
     model = attrs.get("Model", "")
@@ -652,7 +573,6 @@ def render_description(template, attrs, images, translations, aspects, settings,
     gpu_type = translations["gpu_type"].get(attrs.get("Rodzaj karty graficznej", ""), "")
     operating_system = aspects["betriebssystem"].get(
         attrs.get("Zainstalowany system", ""), attrs.get("Zainstalowany system", ""))
-
     specs = [
         ("Hersteller", manufacturer),
         ("Modell", model),
@@ -677,7 +597,6 @@ def render_description(template, attrs, images, translations, aspects, settings,
         ("Akku", de["Bateria"]),
         ("Lieferumfang", de["W zestawie"]),
     ]
-
     system_raw = attrs.get("Zainstalowany system", "")
     faq_system = ""
     if system_raw.lower().startswith("windows"):
@@ -685,9 +604,8 @@ def render_description(template, attrs, images, translations, aspects, settings,
             "<details><summary>Ist Windows dauerhaft aktiviert?</summary>"
             "<div class=\"kpx-a\">Ja. Die digitale Lizenz ist im Ger&auml;t hinterlegt und bleibt "
             "auch nach einem Zur&uuml;cksetzen von Windows aktiv.</div></details>")
-
     values = {
-        "typ": typ_produktu(kategoria_xml, settings),
+        "typ": typ,
         "processor": procesor_opis(zrodlo_procesora(attrs)),
         "ram": ram, "ram_type": attrs.get("Typ pamięci RAM", ""),
         "disk": disk, "disk_type": attrs.get("Typ dysku", ""),
@@ -699,14 +617,12 @@ def render_description(template, attrs, images, translations, aspects, settings,
         "condition_summary": de["Kondycja sprzętu"],
         "case_condition": de["Stan obudowy"],
         "screen_condition": de["Stan ekranu"],
-        
         "battery": de["Bateria"],
         "company_since": settings["company_since"],
     }
     sekcja_business = ""
-    if typ_produktu(kategoria_xml, settings) == "Notebook":
+    if typ == "Notebook":
         sekcja_business = settings["sekcja_business_notebook"]
-
     raw = {
         "sekcja_business": sekcja_business,
         "lead": tekst_wiodacy(attrs, settings),
@@ -723,11 +639,8 @@ def render_description(template, attrs, images, translations, aspects, settings,
     for key, value in {**values, **raw}.items():
         out = out.replace("{{" + key + "}}", value if key in raw else e(value))
     out = normalize_space(out)
-
     leak = has_polish_leak(out)
     return ("", f"opis: niedotlumaczony ({leak})") if leak else (out, "")
-
-
 def build_title(attrs: dict, settings: dict, aspects: dict) -> str:
     kandydaci = cpu_candidates(zrodlo_procesora(attrs))
     cpu = kandydaci[0] if kandydaci else ""
@@ -740,38 +653,33 @@ def build_title(attrs: dict, settings: dict, aspects: dict) -> str:
     while len(title) > 80 and " " in title:
         title = title.rsplit(" ", 1)[0]
     return title
-
-
 def build_row(offer, attrs, cfg, headers, review):
     settings, translations = cfg["settings"], cfg["translations"]
     aspects, manufacturers = cfg["aspects"], cfg["manufacturers"]
-
+    kategoria_xml = text(offer.find("./cat"))
+    typ = typ_produktu(kategoria_xml, settings)
     gpsr, gpsr_error = gpsr_block(attrs.get("Producent", ""), manufacturers)
     if gpsr_error:
         review.add("gpsr", attrs.get("Producent", ""), gpsr_error)
         return None, gpsr_error
-
     images: list[str] = []
     for node in offer.findall("./imgs/*"):
         url = (node.get("url") or "").strip()
         if url and url not in images:
             images.append(url)
     images = images[: int(settings["max_images"])]
-
     description, desc_error = render_description(
         cfg["template"], attrs, images, translations, aspects, settings, review,
-        text(offer.find("./cat")))
+        kategoria_xml)
     if desc_error:
         return None, desc_error
-
     ports = parse_ports_raw(attrs.get("Złącza zewnętrzne", ""))
     disk = clean_capacity(attrs.get("Dysk", ""))
     ram = clean_capacity(attrs.get("Ilość pamięci RAM", ""))
     model = attrs.get("Model", "")
     grade = condition_class(attrs.get("Kondycja sprzętu", ""))
     cond_map = aspects["condition_id"][aspects["condition_id"]["_tryb"]]
-
-    kategoria = kategoria_produktu(attrs.get("Producent", ""), settings)
+    kategoria = kategoria_produktu(attrs.get("Producent", ""), typ, settings)
     slownik = cfg["vocab"]["kategorie"][kategoria]
     vocab = slownik
     cpu_aspect = ""
@@ -782,7 +690,6 @@ def build_row(offer, attrs, cfg, headers, review):
             break
     if not cpu_aspect:
         review.add("aspekt", "C:Prozessor", zrodlo_procesora(attrs) or "(brak danych)")
-
     gpu_raw = attrs.get("Model karty graficznej", "")
     gpu_aspect = aspects["grafikprozessor_alias"].get(norm(gpu_raw), "")
     if not gpu_aspect:
@@ -792,14 +699,27 @@ def build_row(offer, attrs, cfg, headers, review):
                 break
     if gpu_raw and not gpu_aspect:
         review.add("aspekt", "C:Grafikprozessor", gpu_raw)
-
     quantity = int(float(offer.get("stock", "0") or 0))
     cap = int(settings.get("max_quantity", 0) or 0)
     if cap:
         quantity = min(quantity, cap)
-
     price_eur = cena_eur(offer, cfg)
-
+    # Produktart / Formfaktor - desktop dostaje inna wartosc niz notebook,
+    # a Formfaktor w ogole nie istnieje dla notebooka.
+    if typ == "Desktop-PC":
+        produktart = "Desktop" if "Produktart" in slownik["aspekty"] else ""
+        obudowa_raw = attrs.get("Obudowa", "")
+        mapa_obudowy = settings.get("formfaktor_desktop", {})
+        formfaktor = mapa_obudowy.get(obudowa_raw, mapa_obudowy.get("_domyslnie", ""))
+        # "W zestawie" dla desktopow to wprost "Zasilacz z przewodem" albo
+        # "Brak przewodu zasilajacego" - liczy sie tresc, nie samo istnienie pola.
+        ladegerat = "Ja" if attrs.get("W zestawie", "") == "Zasilacz z przewodem" else "Nein"
+    else:
+        produktart = "Notebook / Laptop" if "Produktart" in slownik["aspekty"] else ""
+        formfaktor = ""
+        # Zachowanie historyczne dla notebookow - bez zmian, zeby nie ruszac
+        # dzialajacej dzis logiki dla laptopow.
+        ladegerat = "Ja" if attrs.get("W zestawie") else ""
     values: dict[str, str] = {
         headers[0]: "Add",
         "CustomLabel": attrs.get("SKU", ""),
@@ -811,11 +731,13 @@ def build_row(offer, attrs, cfg, headers, review):
         "*C:Bildschirmgröße": vocab_match("Bildschirmgröße", screen_size_de(attrs.get("Przekątna ekranu", "")), vocab, review, ""),
         "*C:Prozessor": cpu_aspect,
         "C:Festplattentyp": aspects["festplattentyp"].get(attrs.get("Typ dysku", ""), ""),
-        "C:Produktart": ("Notebook / Laptop" if "Produktart" in slownik["aspekty"] else ""),
+        "C:Produktart": produktart,
+        "C:Formfaktor": formfaktor,
         "C:Festplattenkapazität": vocab_match("Festplattenkapazität", disk, vocab, review, "", strict=False),
         "C:Besonderheiten": features_aspect(
             attrs, ports, aspects,
-            keyboard_parts(attrs.get("Klawiatura (ISO lub ANSI)", ""), aspects, Review())[1]),
+            keyboard_parts(attrs.get("Klawiatura (ISO lub ANSI)", ""), aspects, Review())[1],
+            typ=typ),
         "C:SSD-Festplattenkapazität": (vocab_match("SSD-Festplattenkapazität", disk, vocab, review, "", strict=False) if attrs.get("Typ dysku") == "SSD" else ""),
         "C:Grafikprozessor": gpu_aspect,
         "C:Erscheinungsjahr": vocab_match("Erscheinungsjahr", year_aspect(model, aspects), vocab, review),
@@ -830,7 +752,7 @@ def build_row(offer, attrs, cfg, headers, review):
             slownik, review),
         "C:Anzahl der Einheiten": "1",
         "C:Maßeinheit": "Einheit",
-        "C:Inklusive Ladegerät": "Ja" if attrs.get("W zestawie") else "",
+        "C:Inklusive Ladegerät": ladegerat,
         "C:Arbeitsspeichergröße": vocab_match("Arbeitsspeichergröße", ram, vocab, review, "", strict=False),
         "C:Grafikprozessortyp": aspects["grafikprozessortyp"].get(
             attrs.get("Rodzaj karty graficznej", ""), ""),
@@ -857,20 +779,15 @@ def build_row(offer, attrs, cfg, headers, review):
             if column in values and not values[column]:
                 review.add("blokada", attrs.get("SKU", ""), f"puste pole wymagane C:{aspect}")
                 return None, f"aspekt: puste wymagane C:{aspect}"
-
     return {h: values.get(h, "") for h in headers}, ""
-
-
 def wskaz_raport(settings: dict, arg_raport: Path | None) -> tuple[Path | None, str]:
     """Raport aktywnych ofert: wskazany plik albo najnowszy CSV z katalogu.
-
     Plik z eBaya mozna wrzucic pod jego wlasna nazwa - nie trzeba go
     przemianowywac na aktywne.csv. Sortujemy po (mtime, nazwa), bo w GitHub
     Actions checkout ustawia wszystkim ten sam mtime i wtedy decyduje nazwa.
     """
     if arg_raport:
         return arg_raport, f"{arg_raport} (--raport)"
-
     katalog = ROOT / settings.get("raport_katalog", "input/ebay")
     if katalog.is_dir():
         pliki = sorted(katalog.glob(settings.get("raport_wzorzec", "*.csv")),
@@ -880,23 +797,17 @@ def wskaz_raport(settings: dict, arg_raport: Path | None) -> tuple[Path | None, 
             if len(pliki) > 1:
                 gdzie += f" (najnowszy z {len(pliki)} plikow w katalogu)"
             return pliki[0], gdzie
-
     stary = ROOT / "input" / "aktywne.csv"
     if stary.is_file():
         return stary, "input/aktywne.csv"
     # Zwracamy katalog, zeby komunikat blokady pokazal, gdzie wrzucic plik.
     return katalog, f"brak pliku - wrzuc eksport z eBaya do {katalog.name}/"
-
-
 def brakujace_kolumny_raportu(path: Path) -> list[str]:
     with path.open(encoding="utf-8-sig", newline="") as handle:
         naglowek = next(csv.reader(handle), [])
     return [k for k in KOLUMNY_RAPORTU if k not in naglowek]
-
-
 def wczytaj_raport(path: Path, site: str) -> tuple[dict[str, dict], list[str]]:
     """Raport aktywnych ofert z eBaya = nasza pamiec o tym, co juz wystawione.
-
     Zwraca (mapa SKU -> dane, lista SKU zdublowanych).
     Zdublowany SKU jest pomijany - nie zgadujemy, ktora aukcje ruszyc.
     """
@@ -922,34 +833,44 @@ def wczytaj_raport(path: Path, site: str) -> tuple[dict[str, dict], list[str]]:
     for sku in duplikaty:
         mapa.pop(sku, None)
     return mapa, sorted(duplikaty)
-
-
 def cena_eur(offer, cfg) -> int:
     """PLN z feedu -> EUR po kursie NBP, w gore, plus ukryta doplata za wysylke."""
     pln = float((offer.get("price") or "0").replace(",", "."))
     return math.ceil(pln / cfg["rate"]) + int(cfg["settings"]["doplata_wysylka_eur"])
-
-
 def read_headers(path: Path) -> list[str]:
     with path.open(encoding="utf-8-sig", newline="") as handle:
         for row in csv.reader(handle, delimiter=";"):
             if row and row[0].startswith("*Action("):
                 return row
     raise ValueError(f"brak wiersza naglowka w {path}")
-
-
 def zbierz_produkty(root, cfg, review, skipped):
-    """Produkty z naszych kategorii, z zapasem, z kompletem pol wymaganych."""
+    """Produkty z naszych kategorii, z zapasem, z kompletem pol wymaganych.
+    Dla kategorii "Komputery" pomijamy calkowicie All-in-One (nie wystawiamy)
+    oraz Apple (osobny szablon eBay, na razie nie obslugiwany) - te oferty
+    znikaja tutaj, zanim dojda do reszty pipeline'u.
+    """
     out = []
     for offer in root.findall("./o"):
-        if text(offer.find("./cat")) not in cfg["settings"]["xml_categories"]:
+        kategoria_xml = text(offer.find("./cat"))
+        if kategoria_xml not in cfg["settings"]["xml_categories"]:
             continue
         skipped["w_kategorii"] += 1
         if int(float(offer.get("stock", "0") or 0)) <= 0:
             skipped["stock_zero"] += 1
             continue
         attrs = offer_attrs(offer)
-        brakuje = [f for f in REQUIRED_XML if not attrs.get(f)]
+        if kategoria_xml == "Komputery":
+            obudowa = norm(attrs.get("Obudowa", ""))
+            if "all in one" in obudowa or "aio" in obudowa:
+                skipped["desktop_aio_pominiety"] += 1
+                continue
+            if norm(attrs.get("Producent", "")) == "apple":
+                skipped["desktop_apple_pominiety"] += 1
+                continue
+        wymagane_pola_xml = REQUIRED_XML_WSPOLNE
+        if kategoria_xml != "Komputery":
+            wymagane_pola_xml = REQUIRED_XML_WSPOLNE + REQUIRED_XML_TYLKO_NOTEBOOK
+        brakuje = [f for f in wymagane_pola_xml if not attrs.get(f)]
         if not zrodlo_procesora(attrs):
             brakuje.append("Procesor / Seria procesora")
         if brakuje:
@@ -958,8 +879,6 @@ def zbierz_produkty(root, cfg, review, skipped):
             continue
         out.append((offer, attrs))
     return out
-
-
 def zapisz_add(sciezka: Path, headers: list[str], wiersze: list[dict], akcja: str) -> None:
     with sciezka.open("w", encoding="utf-8-sig", newline="") as handle:
         writer = csv.writer(handle, delimiter=";", quoting=csv.QUOTE_MINIMAL, lineterminator="\n")
@@ -968,13 +887,9 @@ def zapisz_add(sciezka: Path, headers: list[str], wiersze: list[dict], akcja: st
         for wiersz in wiersze:
             wiersz[headers[0]] = akcja
             writer.writerow([wiersz[h] for h in headers])
-
-
 KOLUMNY_REVISE = ["Action", "Category name", "Item number", "Title", "Listing site", "Currency",
                   "Start price", "Buy It Now price", "Available quantity", "Relationship",
                   "Relationship details", "Custom label (SKU)"]
-
-
 def zapisz_revise(sciezka: Path, wiersze: list[dict]) -> None:
     with sciezka.open("w", encoding="utf-8-sig", newline="") as handle:
         writer = csv.writer(handle, quoting=csv.QUOTE_MINIMAL, lineterminator="\n")
@@ -983,8 +898,6 @@ def zapisz_revise(sciezka: Path, wiersze: list[dict]) -> None:
         writer.writerow(KOLUMNY_REVISE)
         for w in wiersze:
             writer.writerow([w.get(k, "") for k in KOLUMNY_REVISE])
-
-
 def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | None,
              extra: dict | None = None):
     headers = cfg["headers"]
@@ -994,19 +907,16 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
     review = Review()
     skipped: Counter = Counter()
     blokady: list[str] = []
-
     braki_konfiguracji = sprawdz_konfiguracje(cfg)
     if braki_konfiguracji:
         blokady.append("pliki konfiguracyjne sa starsze niz kod - " +
                        "; ".join(braki_konfiguracji) +
                        ". Wgraj komplet plikow z ostatniej paczki.")
-
     produkty = zbierz_produkty(root, cfg, review, skipped)
     if len(produkty) < int(settings["min_produktow_w_feedzie"]):
         blokady.append(f"feed ma tylko {len(produkty)} produktow z zapasem, "
                        f"minimum to {settings['min_produktow_w_feedzie']} - "
                        "wyglada na niepelne pobranie, przerywam")
-
     aktywne: dict[str, dict] = {}
     duplikaty: list[str] = []
     if tryb in ("nowe", "aktualizacja"):
@@ -1024,12 +934,10 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
                                f"'{settings['listing_site']}' - zly eksport albo zly serwis")
             for sku in duplikaty:
                 review.add("konflikt", sku, "ten sam SKU ma kilka aktywnych aukcji - pomijam")
-
     output_dir.mkdir(parents=True, exist_ok=True)
     wiersze_add: list[dict] = []
     wiersze_revise: list[dict] = []
     zerowane = 0
-
     if not blokady and tryb in ("pierwsze", "nowe", "test"):
         for offer, attrs in produkty:
             if tryb == "nowe" and attrs.get("SKU", "") in aktywne:
@@ -1048,7 +956,6 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
             wiersze_add.append(wiersz)
         zapisz_add(output_dir / "ebay-add.csv", headers,
                    wiersze_add, "VerifyAdd" if tryb == "test" else "Add")
-
     if not blokady and tryb == "aktualizacja":
         nazwy = settings["kategorie_nazwy"]
         w_feedzie = set()
@@ -1069,7 +976,8 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
             if not (zmiana_ceny or zmiana_ilosci):
                 skipped["bez_zmian"] += 1
                 continue
-            kat = kategoria_produktu(attrs.get("Producent", ""), settings)
+            typ = typ_produktu(text(offer.find("./cat")), settings)
+            kat = kategoria_produktu(attrs.get("Producent", ""), typ, settings)
             wiersze_revise.append({
                 "Action": "Revise", "Category name": nazwy.get(kat, ""),
                 "Item number": biezaca["item"], "Title": biezaca["tytul"],
@@ -1078,7 +986,6 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
                 "Buy It Now price": "", "Available quantity": str(nowa_ilosc),
                 "Relationship": "", "Relationship details": "",
                 "Custom label (SKU)": sku})
-
         for sku, biezaca in aktywne.items():
             if sku in w_feedzie or biezaca["ilosc"] == 0:
                 continue
@@ -1089,19 +996,16 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
                 "Currency": biezaca["waluta"], "Start price": f"{biezaca['cena']:.1f}",
                 "Buy It Now price": "", "Available quantity": "0",
                 "Relationship": "", "Relationship details": "", "Custom label (SKU)": sku})
-
         if aktywne and zerowane / len(aktywne) > float(settings["max_udzial_zerowanych"]):
             blokady.append(f"zerowanie objelo by {zerowane} z {len(aktywne)} aukcji "
                            f"({zerowane / len(aktywne):.0%}) - to wyglada na blad feedu, przerywam")
             wiersze_revise = []
         else:
             zapisz_revise(output_dir / "ebay-revise.csv", wiersze_revise)
-
     with (output_dir / "review.csv").open("w", encoding="utf-8-sig", newline="") as handle:
         writer = csv.writer(handle, delimiter=";", lineterminator="\n")
         writer.writerow(["Rodzaj", "Pole / SKU", "Wartość"])
         writer.writerows(review.rows())
-
     raport_json = {
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "tryb": tryb,
@@ -1130,8 +1034,6 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
     (output_dir / "generation-report.json").write_text(
         json.dumps(raport_json, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return raport_json
-
-
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--min-produktow", type=int)
@@ -1143,7 +1045,6 @@ def main() -> int:
     parser.add_argument("--nbp-rate", type=float)
     parser.add_argument("--output-dir", type=Path, default=ROOT / "output")
     args = parser.parse_args()
-
     settings = load_json(ROOT / "config" / "settings.json")
     if args.min_produktow is not None:
         settings["min_produktow_w_feedzie"] = args.min_produktow
@@ -1170,11 +1071,8 @@ def main() -> int:
     nbp = ({"currency": "euro", "code": "EUR", "table": "A", "number": "TEST",
             "effective_date": "TEST", "rate": args.nbp_rate}
            if args.nbp_rate else fetch_nbp_rate(settings["nbp_url"]))
-
     report = generate(feed, nbp, cfg, args.output_dir, args.tryb, raport, extra)
     print(json.dumps(report, ensure_ascii=False, indent=2))
     return 0 if report["ok"] else 2
-
-
 if __name__ == "__main__":
     sys.exit(main())
