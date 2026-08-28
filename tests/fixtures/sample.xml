@@ -147,4 +147,88 @@
     </attrs>
   </o>
   
+<o id="6874" url="https://kompre.pl/pl/p/Komputer-HP-EliteDesk-800-G4-Mini-i5-8500T-8GB-240GB-SSD-WINDOWS-11/6874" price="699" avail="1" stock="47" basket="1">
+  <cat>Komputery</cat>
+  <name>Komputer HP EliteDesk 800 G4 Mini i5-8500T 8GB 240GB SSD WINDOWS 11</name>
+  <imgs>
+    <main url="https://sklep998844.shoparena.pl/userdata/public/gfx/81263.png" />
+    <i url="https://sklep998844.shoparena.pl/userdata/public/gfx/81264.jpg" />
+    </imgs>
+  <attrs>
+    <a name="Producent">HP</a>
+    <a name="SKU">3959</a>
+    <a name="Dysk">240GB</a>
+    <a name="Gniazdo procesora">LGA 1151</a>
+    <a name="Gwarancja">12 miesięcy</a>
+    <a name="Ilość pamięci RAM">8GB</a>
+    <a name="Ilość rdzeni">6</a>
+    <a name="Informacje dodatkowe">Intel® Core™ i5-8500T Processor 9M Cache, up to 3.50 GHz 6X2.10-3.50GHz</a>
+    <a name="Kondycja">[Klasa A] komputer poleasingowy, w 100% sprawny, przetestowany</a>
+    <a name="Licencja">Windows 10 Professional</a>
+    <a name="Model">EliteDesk 800 G4</a>
+    <a name="Model karty graficznej">Intel UHD 630</a>
+    <a name="Napęd">Beznapędowy</a>
+    <a name="Obudowa">Micro / Mini / Tiny</a>
+    <a name="Procesor">i5-8500T, 9MB Cache, 8 gen.</a>
+    <a name="Rodzaj karty graficznej">Zintegrowana</a>
+    <a name="Seria procesora">Intel Core i5</a>
+    <a name="Stan obudowy">Normalne, ślady użytkowania</a>
+    <a name="Typ dysku">SSD</a>
+    <a name="Typ Licencji">OEM</a>
+    <a name="Typ pamięci RAM">DDR4</a>
+    <a name="W zestawie">Zasilacz z przewodem</a>
+    <a name="Zainstalowany System">Windows 11 Professional</a>
+    <a name="Złącza wewnętrzne">1 x M.2 Wi-Fi, 1 x M.2 SSD, SATA</a>
+    <a name="Złącza z tyłu">2 x DisplayPort, 1 x RJ-45, 4 x USB 3.0 2X USB 2.0 </a>
+  </attrs>
+</o>
+<o id="7007" url="https://kompre.pl/pl/p/Komputer-HP-EliteOne-800-G1-8GB-240GB-SSD-i5-4570s%2C-All-in-one-23-1920-x-1080-A-/7007" price="499" avail="1" stock="1" basket="1">
+  <cat>Komputery</cat>
+  <name>Komputer HP EliteOne 800 G1 8GB 240GB SSD i5-4570s, All in one 23" 1920 x 1080 [A-]</name>
+  <imgs>
+    <main url="https://sklep998844.shoparena.pl/userdata/public/gfx/81748.jpg" />
+    <i url="https://sklep998844.shoparena.pl/userdata/public/gfx/81749.jpg" />
+    </imgs>
+  <attrs>
+    <a name="Producent">HP</a>
+    <a name="SKU">4967</a>
+    <a name="Dysk">240GB</a>
+    <a name="Ekran dotykowy">Nie</a>
+    <a name="Gniazdo procesora">FCLGA 1150</a>
+    <a name="Gwarancja">12 miesięcy</a>
+    <a name="Ilość pamięci RAM">8GB</a>
+    <a name="Ilość rdzeni">4</a>
+    <a name="Jasność">250</a>
+    <a name="Kamera">Tak, wbudowana</a>
+    <a name="Karta Sieciowa">WiFi, Bluetooth</a>
+    <a name="Kondycja">[Klasa A] komputer poleasingowy, w 100% sprawny, przetestowany</a>
+    <a name="Licencja">Windows 8 Home Premium</a>
+    <a name="Model">EliteOne 800 G1</a>
+    <a name="Model karty graficznej">Intel HD 4600</a>
+    <a name="Napęd">Brak</a>
+    <a name="Obudowa">All in one (AIO)</a>
+    <a name="Pivot">Tak</a>
+    <a name="Podświetlenie">LED</a>
+    <a name="Powłoka matrycy">Matowa</a>
+    <a name="Procesor">i5-4570s, 6MB Cache, 4 gen.</a>
+    <a name="Przekątna ekranu">23"</a>
+    <a name="Regulacja kąta nachylenia">Tak</a>
+    <a name="Regulacja wysokości">Tak</a>
+    <a name="Rodzaj karty graficznej">Zintegrowana</a>
+    <a name="Rozdzielczość ekranu">1920 x 1080</a>
+    <a name="Seria procesora">Intel Core i5</a>
+    <a name="Stan ekranu">Posiada ryski plamki poświaty</a>
+    <a name="Stan obudowy">Normalne ślady użytkowania</a>
+    <a name="Taktowanie">2.90 - 3.60 GHz</a>
+    <a name="Typ dysku">SSD</a>
+    <a name="Typ Licencji">OEM</a>
+    <a name="Typ pamięci RAM">DDR3</a>
+    <a name="W zestawie">Brak okablowania</a>
+    <a name="Wbudowany głośnik">Tak</a>
+    <a name="Zainstalowany System">Windows 10 Home</a>
+    <a name="Złącza wewnętrzne">2x SATA, 2x slot RAM,1 x MXM, 1x MiniPCIe, 1x mSATA</a>
+    <a name="Złącza z boku">Czytnik kart, 2x USB 3.0, 2x Audio</a>
+    <a name="Złącza z tyłu">4x USB 3.0, 1x Audio, 2xPS/2, COM, 1x DisplayPort, Lan</a>
+  </attrs>
+</o>
 </offers>
