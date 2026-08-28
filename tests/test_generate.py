@@ -195,6 +195,97 @@ class KomputeryOsobnoOdLaptopow(unittest.TestCase):
             self.assertTrue(w["*C:Bildschirmgröße"], "laptop musi miec przekatna")
 
 
+class NowyKomputer(unittest.TestCase):
+    """Nowy zestaw skladany ma wlasny profil: inne ConditionID, opis i marka.
+
+    Fixture ma prawdziwa oferte z feedu (SKU 10362, Logic, RTX 3050) - w tej samej
+    kategorii XML co poleasingowe, wiec rozpoznaje ja wariant po polu kondycji.
+    """
+    NOWY = "10362"
+    POLEASINGOWY = "3959"
+
+    @classmethod
+    def setUpClass(cls):
+        cls.wiersze, cls.raport, cls.out = uruchom()
+        cls.wg_sku = {w["CustomLabel"]: w for w in cls.wiersze}
+
+    def nowy(self):
+        self.assertIn(self.NOWY, self.wg_sku,
+                      f"nowy komputer wypadl z CSV; pominieto: {self.raport.get('pominieto')}")
+        return self.wg_sku[self.NOWY]
+
+    def opis(self, wiersz):
+        tekst = re.sub(r"(?is)<(style|script)\b.*?</\1>", " ", wiersz["*Description"])
+        return re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", tekst)))
+
+    def test_wariant_rozpoznany_po_kondycji(self):
+        """Ta sama kategoria XML co poleasingowy, wiec kategoria go nie odrozni."""
+        self.assertEqual(self.raport["produktow_z_zapasem_wg_typu"].get("Desktop-PC nowy"), 1)
+
+    def test_nowy_ma_condition_neu(self):
+        """Bez wlasnego ConditionID leciala by wartosc _brak = 3000 'Gebraucht'."""
+        self.assertEqual(self.nowy()["*ConditionID"], "1000")
+        self.assertEqual(self.wg_sku[self.POLEASINGOWY]["*ConditionID"], "3000",
+                         "poleasingowy ma zostac na 3000")
+
+    def test_opis_nowego_nie_mowi_o_poleasingowym(self):
+        tekst = self.opis(self.nowy())
+        self.assertNotIn("Leasingrückläufer aus", tekst)
+        self.assertNotIn("Sichere Datenlöschung", tekst)
+        self.assertNotIn("Vorbesitzer", tekst)
+        self.assertIn("Neuware", tekst)
+
+    def test_gpsr_wskazuje_na_producenta_zestawu(self):
+        """Feed podaje 'Niezdefiniowany'. Kto sklada, ten jest producentem."""
+        wiersz = self.nowy()
+        self.assertIn("LOGIC CONCEPT", wiersz["Manufacturer Name"].upper())
+        self.assertTrue(wiersz["Responsible Person 1"], "wymagana osoba odpowiedzialna w UE")
+        self.assertEqual(wiersz["Manufacturer Country"], "PL")
+
+    def test_marka_jest_ze_slownika_ebay(self):
+        vocab = json.loads((ROOT / "config" / "ebay-vocab.json").read_text(encoding="utf-8"))
+        marki = vocab["kategorie"]["179"]["aspekty"]["Marke"]
+        self.assertIn(self.nowy()["*C:Marke"], marki)
+
+    def test_gwarancja_z_feedu(self):
+        """Feed mowi '24 miesiace' - w ofercie ma byc '2 Jahre', nie stala z sufitu."""
+        self.assertEqual(self.nowy()["C:Herstellergarantie"], "2 Jahre")
+
+    def test_zdanie_wiodace_nie_jest_biurowe(self):
+        tekst = self.opis(self.nowy())
+        for biurowe in ("Online-Unterricht", "Word und Excel", "Videokonferenzen"):
+            self.assertNotIn(biurowe, tekst)
+
+
+class NowyTowar(unittest.TestCase):
+    """Bramka dla typow, ktore wlasnego profilu dla nowego towaru jeszcze nie maja."""
+
+    def generate(self):
+        sys.path.insert(0, str(ROOT / "src"))
+        import generate
+        return generate
+
+    def test_nowy_jest_blokowany_z_nazwanym_powodem(self):
+        generate = self.generate()
+        settings = json.loads((ROOT / "config" / "settings.json").read_text(encoding="utf-8"))
+        blad = generate.blokada_nowego_towaru({"Kondycja sprzętu": "Nowy"}, settings)
+        self.assertIn("nowy towar", blad)
+        self.assertIn("Gebraucht", blad, "powod ma tlumaczyc, czym grozi wystawienie")
+
+    def test_poleasingowy_przechodzi(self):
+        generate = self.generate()
+        settings = json.loads((ROOT / "config" / "settings.json").read_text(encoding="utf-8"))
+        poleasingowy = {"Kondycja sprzętu": "[Klasa A] komputer poleasingowy, "
+                                            "w 100% sprawny, przetestowany"}
+        self.assertEqual(generate.blokada_nowego_towaru(poleasingowy, settings), "")
+
+    def test_bramke_da_sie_wylaczyc(self):
+        generate = self.generate()
+        settings = json.loads((ROOT / "config" / "settings.json").read_text(encoding="utf-8"))
+        settings["towar_nowy"]["blokuj"] = False
+        self.assertEqual(generate.blokada_nowego_towaru({"Kondycja sprzętu": "Nowy"}, settings), "")
+
+
 class BramkiKonfiguracji(unittest.TestCase):
     """Bledy konfiguracji maja byc glosna blokada, nie cichym zerem produktow."""
 
