@@ -63,6 +63,23 @@
     "Tablety": "Tablet",
     "_domyslnie": "Gerät"
   },
+  "typ_produktu_warianty": {
+    "_about": "Sama kategoria XML nie zawsze wystarczy. Nowe komputery do gier siedza w tej samej kategorii 'Komputery' co poleasingowe - rozni je tylko wartosc pola kondycji. Klucz to typ bazowy z 'typ_produktu', wartosc mowi, po ktorym polu i na jaki typ przelaczyc.",
+    "_uwaga": "Wariant dziedziczy aliasy pol po profilu bazowym - rozpoznanie dzieje sie PO ujednoliceniu nazw, wiec pole podajemy pod nazwa kanoniczna ('Kondycja sprzętu', nie 'Kondycja').",
+    "Desktop-PC": {
+      "pole": "Kondycja sprzętu",
+      "gdy": {
+        "Desktop-PC nowy": ["Nowy", "NOWY", "nowy"]
+      }
+    }
+  },
+  "towar_nowy": {
+    "_about": "Wartosci pola kondycji, ktore znacza NOWY towar (u nas: skladane komputery do gier). Caly pipeline jest napisany pod sprzet poleasingowy, wiec takie oferty sa blokowane, dopoki nie powstanie dla nich osobny profil.",
+    "_dlaczego_blokada": "Dwie rzeczy byly by nieprawda w gotowej ofercie. 1) ConditionID wynika z klasy [Klasa A/B/C]; 'Nowy' nie pasuje do wzorca, wiec leci wartosc _brak = 3000, czyli 'Gebraucht' - na nowym komputerze za kilka tysiecy. 2) Szablon opisu mowi 'gebrauchter Business-Desktop-PC aus Leasingruecklauf', ma sekcje o bezpiecznym kasowaniu danych i FAQ o pochodzeniu z leasingu. Lepiej nie wystawic, niz wystawic z takimi twierdzeniami.",
+    "_jak_odblokowac": "Trzeba trzech rzeczy: wpis GPSR dla producenta (kto sklada i wprowadza do obrotu), wartosc *C:Marke ze slownika eBay (dla kategorii 179 jest tam 'Custom, Whitebox' oraz 'Markenlos') i osobny profil w profile_produktu z wlasnym szablonem opisu oraz ConditionID 1000.",
+    "blokuj": true,
+    "wartosci": ["Nowy", "NOWY", "nowy"]
+  },
   "rozdziel_pliki_add": false,
   "_uwaga_rozdziel_pliki": "false = jeden ebay-add.csv z laptopami i komputerami razem. true = osobny plik na typ towaru (nazwy w profile_produktu.plik_add). Przelacz na true, jesli eBay odrzuci wiersze kategorii 179 przez pusta kolumne *C:Bildschirmgroesse z szablonu laptopow. Tryb 'aktualizacja' zawsze daje jeden ebay-revise.csv - revise nie zalezy od kategorii.",
   "profile_produktu": {
@@ -143,6 +160,79 @@
         },
         "_domyslnie": "Tower"
       }
+    },
+    "Desktop-PC nowy": {
+      "_about": "Nowe komputery skladane (zestawy do gier). Ta sama kategoria XML co poleasingowe, wiec wybiera je wariant po polu kondycji - patrz typ_produktu_warianty.",
+      "towar_nowy": true,
+      "szablon": "description-desktop-nowy.html",
+      "plik_add": "ebay-add-komputery.csv",
+      "kategoria_ebay": "desktop",
+      "condition_id": "1000",
+      "_uwaga_condition": "1000 = Neu. Klasa [Klasa A/B/C] dotyczy wylacznie sprzetu poleasingowego i dla nowego zawsze byla by pusta, czyli ConditionID zeszlo by na 3000 'Gebraucht'.",
+      "producent_zastepczy": {
+        "_about": "Feed podaje 'Niezdefiniowany' - zestaw jest skladany, nie ma producenta OEM. Kto sklada i wprowadza do obrotu, ten jest producentem w rozumieniu GPSR. 'Logic' to alias prowadzacy do wpisu 'logic concept polska' w manufacturers.json.",
+        "gdy": ["Niezdefiniowany"],
+        "nazwa": "Logic"
+      },
+      "marke_aspekt": {
+        "_about": "eBay nie zna marki 'Logic' w kategorii 179. 'Custom, Whitebox' to oficjalna wartosc slownikowa dla zestawow skladanych. Chcesz budowac wlasna marke? Wpisz ja tutaj i sprawdz trybem test, czy eBay ja przyjmie.",
+        "wartosc": "Custom, Whitebox"
+      },
+      "model_staly": "Gaming-PC",
+      "zdania_wiodace": "zdania_wiodace_gaming",
+      "_uwaga_model": "Pole 'Model' z feedu jest dla tych ofert bezuzyteczne: raz puste, raz nazwa obudowy ('Chieftec Obudowa GS-02B-OP Hunter 2' - w dodatku ze slowem 'Obudowa', ktore wywalilo by bramke polskich slow).",
+      "gwarancja": {
+        "_about": "Pole 'Gwarancja' z feedu -> C:Herstellergarantie. Wartosci musza byc ze slownika eBaya.",
+        "12 miesięcy": "1 Jahr",
+        "24 miesiące": "2 Jahre",
+        "36 miesięcy": "3 Jahre"
+      },
+      "aliasy_atrybutow": {
+        "Kondycja sprzętu": ["Kondycja sprzętu", "Kondycja"],
+        "Zainstalowany system": ["Zainstalowany system", "Zainstalowany System"]
+      },
+      "scal_atrybuty": {
+        "Złącza zewnętrzne": ["Złącza zewnętrzne", "Złącza z tyłu", "Złącza z boku"]
+      },
+      "nadpisz_tlumaczenia": {
+        "_about": "Nowy zestaw nie jest 'poleasingowy' ani 'uzywany'. Wspolny slownik tego nie wie, wiec kondycje opisujemy tutaj.",
+        "Kondycja sprzętu": {
+          "Nowy": "Neu, originalverpackt und werkseitig getestet."
+        },
+        "Stan obudowy": {
+          "Nowy": "Neu, ohne Gebrauchsspuren.",
+          "NOWY": "Neu, ohne Gebrauchsspuren.",
+          "Normalne ślady użytkowania": "Neu, ohne Gebrauchsspuren."
+        },
+        "W zestawie": {
+          "Zasilacz z przewodem": "Netzteil mit Kabel.",
+          "Zasilacz w zestawie": "Netzteil."
+        }
+      },
+      "_uwaga_stan_obudowy": "SKU 4410 ma sprzeczne dane: Kondycja 'Nowy', a Stan obudowy 'Normalne slady uzytkowania'. Skoro sprzedajemy to jako nowe, obudowa tez jest nowa - inaczej oferta przeczy sama sobie.",
+      "wymagane_xml": ["Producent", "SKU", "Ilość pamięci RAM", "Dysk"],
+      "_uwaga_wymagane_xml": "Bez 'Model' (patrz model_staly) i bez 'Przekątna ekranu'.",
+      "wymagane_tlumaczenia": ["Kondycja sprzętu", "Stan obudowy"],
+      "_uwaga_wymagane_tlumaczenia": "Bez 'W zestawie' - przy nowym zestawie brak tego pola nie jest powodem, zeby nie wystawic.",
+      "cechy_domyslne": [],
+      "produktart": "Desktop",
+      "sekcja_opisu": "",
+      "ladegeraet": {
+        "tryb": "lista",
+        "tak": ["Zasilacz z przewodem", "Zasilacz w zestawie", "Zasilacz", "Kompletne okablowanie"]
+      },
+      "pomijaj_producentow": [],
+      "pomijaj_obudowy": ["all in one", "aio"],
+      "formfaktor": {
+        "z_atrybutu": "Obudowa",
+        "mapa": {
+          "SFF": "Small Form Factor (SFF)",
+          "Tower": "Tower",
+          "Micro / Mini / Tiny": "Mini Desktop",
+          "Desktop": "Tower"
+        },
+        "_domyslnie": "Tower"
+      }
     }
   },
   "sekcja_business_notebook": "<div class=\"kpx-sec\"><h2 class=\"kpx-h2\"><span>Warum ein Business-Notebook?</span></h2><p>Ger&auml;te aus der Business-Serie werden f&uuml;r Unternehmen gebaut, nicht f&uuml;r den Elektromarkt. Das merkt man jeden Tag.</p><ul class=\"kpx-ul\"><li>Robustes Geh&auml;use aus Magnesium oder Karbon statt d&uuml;nnem Kunststoff.</li><li>F&uuml;r den t&auml;glichen Dauereinsatz entwickelt und entsprechend getestet.</li><li>Hochwertige Tastatur mit sp&uuml;rbarem Druckpunkt.</li><li>Langlebige Komponenten und lange Ersatzteilverf&uuml;gbarkeit.</li><li>Wartungsfreundlich konstruiert &ndash; Servicearbeiten sind ohne Spezialwerkzeug m&ouml;glich.</li></ul></div>",
@@ -161,6 +251,16 @@
       "Ermöglicht komfortables Arbeiten mit mehreren Programmen gleichzeitig, die Wiedergabe hochauflösender Videos und ruckelfreie Videoanrufe.",
       "Die robuste Verarbeitung auf Business-Niveau und die leistungsstarken Komponenten machen diesen Laptop zu einer zuverlässigen Wahl für zu Hause, das Büro oder unterwegs.",
       "Für alle, die Wert auf Geschwindigkeit, zuverlässige Leistung und ein robustes Gehäuse legen. Ideal für Arbeit, Lernen und Unterhaltung."
+    ]
+  },
+  "zdania_wiodace_gaming": {
+    "_about": "Pula dla profilu 'Desktop-PC nowy'. Zdania z 'zdania_wiodace' mowia o Wordzie, arkuszach i lekcjach online - na nowym komputerze do gier brzmia falszywie. Wybor jest staly po SKU, tak samo jak tam.",
+    "lista": [
+      "Ein neu aufgebauter Desktop-PC f&uuml;r aktuelle Spiele, Streaming und anspruchsvolle Anwendungen.",
+      "Genug Leistung f&uuml;r fl&uuml;ssiges Spielen in hohen Details, parallel laufende Streams und viele offene Programme.",
+      "Zusammengestellt f&uuml;r alle, die einen einsatzbereiten Rechner suchen und sich das Aufbauen sparen wollen.",
+      "Gebaut f&uuml;r Spiele, Bild- und Videobearbeitung sowie Arbeit mit mehreren Bildschirmen.",
+      "Ein leistungsstarker Rechner f&uuml;r Gaming, Content-Erstellung und alles, was daneben noch offen ist."
     ]
   },
   "allegro": {

@@ -317,6 +317,35 @@
         "type": "EUResponsiblePerson"
       },
       "_uwaga": "Brak adresu centrali spoza UE - jako producenta wpisano podmiot z UE z tej samej grupy."
+    },
+    "logic concept polska": {
+      "status": "kompletny",
+      "_uwaga": "Producent zestawow skladanych sprzedawanych jako nowe. Siedziba w PL, wiec ten sam podmiot jest osoba odpowiedzialna w UE.",
+      "manufacturer": {
+        "name": "LOGIC CONCEPT POLSKA Sp. z o.o.",
+        "address1": "ul. Postępu 16",
+        "address2": "",
+        "city": "Kolonia Lesznowola",
+        "state": "",
+        "postal": "05-506",
+        "country": "PL",
+        "email": "logic@logicconcept.eu",
+        "phone": "",
+        "url": ""
+      },
+      "responsible_person": {
+        "name": "LOGIC CONCEPT POLSKA Sp. z o.o.",
+        "address1": "ul. Postępu 16",
+        "address2": "",
+        "city": "Kolonia Lesznowola",
+        "state": "",
+        "postal": "05-506",
+        "country": "PL",
+        "email": "logic@logicconcept.eu",
+        "phone": "",
+        "url": "",
+        "type": "EUResponsiblePerson"
+      }
     }
   },
   "aliasy": {
@@ -342,7 +371,10 @@
     "msi computer": "msi",
     "micro-star": "msi",
     "micro star": "msi",
-    "microstar": "msi"
+    "microstar": "msi",
+    "logic": "logic concept polska",
+    "logic concept": "logic concept polska",
+    "logic concept polska sp. z o.o.": "logic concept polska"
   },
   "_do_uzupelnienia": [
     "samsung",
