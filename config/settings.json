@@ -22,7 +22,8 @@
     "Laptopy Dell",
     "Laptopy Lenovo",
     "Chromebooki",
-    "Laptopy poleasingowe"
+    "Laptopy poleasingowe",
+    "Komputery"
   ],
   "max_quantity": 0,
   "product_safety_pictograms": "EBPSP201",
@@ -31,11 +32,13 @@
   "prog_zmiany_ceny_eur": 3,
   "kategorie": {
     "apple": "111422",
-    "domyslna": "177"
+    "domyslna": "177",
+    "desktop": "179"
   },
   "kategorie_nazwy": {
     "111422": "Apple Laptops (111422)",
-    "177": "PC Notebooks & Netbooks (177)"
+    "177": "PC Notebooks & Netbooks (177)",
+    "179": "PCs/Desktops & All-in-Ones (179)"
   },
   "min_produktow_w_feedzie": 150,
   "max_udzial_zerowanych": 0.35,
@@ -59,6 +62,14 @@
     "Monitory": "Monitor",
     "Tablety": "Tablet",
     "_domyslnie": "Gerät"
+  },
+  "formfaktor_desktop": {
+    "_about": "Mapowanie atrybutu 'Obudowa' z kompre.xml (kategoria Komputery) na wartosc C:Formfaktor z kategorii eBay 179. All in one / AIO nie mapujemy tutaj w ogole - te oferty sa pomijane w zbierz_produkty() w generate.py, zanim dojdzie do tego mapowania.",
+    "SFF": "Small Form Factor (SFF)",
+    "Tower": "Tower",
+    "Micro / Mini / Tiny": "Mini Desktop",
+    "Desktop": "Tower",
+    "_domyslnie": "Tower"
   },
   "sekcja_business_notebook": "<div class=\"kpx-sec\"><h2 class=\"kpx-h2\"><span>Warum ein Business-Notebook?</span></h2><p>Ger&auml;te aus der Business-Serie werden f&uuml;r Unternehmen gebaut, nicht f&uuml;r den Elektromarkt. Das merkt man jeden Tag.</p><ul class=\"kpx-ul\"><li>Robustes Geh&auml;use aus Magnesium oder Karbon statt d&uuml;nnem Kunststoff.</li><li>F&uuml;r den t&auml;glichen Dauereinsatz entwickelt und entsprechend getestet.</li><li>Hochwertige Tastatur mit sp&uuml;rbarem Druckpunkt.</li><li>Langlebige Komponenten und lange Ersatzteilverf&uuml;gbarkeit.</li><li>Wartungsfreundlich konstruiert &ndash; Servicearbeiten sind ohne Spezialwerkzeug m&ouml;glich.</li></ul></div>",
   "_uwaga_sekcja_business": "Celowo bez obietnicy rozbudowy RAM - w wielu modelach pamiec jest wlutowana, a FAQ odsyla do kontaktu przed zakupem.",
