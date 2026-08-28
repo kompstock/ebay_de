@@ -231,4 +231,38 @@
     <a name="Złącza z tyłu">4x USB 3.0, 1x Audio, 2xPS/2, COM, 1x DisplayPort, Lan</a>
   </attrs>
 </o>
+<o id="8836" url="https://kompre.pl/pl/p/Nowy-Komputer-Do-Gier-Logic-32GB-1TB-i5-12400F-RTX-3050-8GB%2C-Tower-Nowy/8836" price="4199" avail="1" stock="16" basket="1">
+  <cat>Komputery</cat>
+  <name>Nowy Komputer Do Gier Logic 32GB 1TB  i5 – 12400F RTX 3050 8GB, Tower [Nowy]</name>
+  <imgs>
+    <main url="https://sklep998844.shoparena.pl/userdata/public/gfx/96474.jpg" />
+    <i url="https://sklep998844.shoparena.pl/userdata/public/gfx/96471.jpg" />
+  </imgs>
+  <attrs>
+    <a name="Producent">Niezdefiniowany</a>
+    <a name="SKU">10362</a>
+    <a name="Dysk">1TB</a>
+    <a name="Gniazdo procesora">FCLGA 1700</a>
+    <a name="Gwarancja">24 miesiące</a>
+    <a name="Ilość pamięci RAM">32GB</a>
+    <a name="Ilość rdzeni">6</a>
+    <a name="Informacje dodatkowe">I5-12400F 6X4.40GHz</a>
+    <a name="Kondycja">Nowy</a>
+    <a name="Licencja">Windows 11 Home</a>
+    <a name="Model">Logic </a>
+    <a name="Model karty graficznej">NOWA GeForce RTX 3050 8GB</a>
+    <a name="Napęd">Beznapędowy</a>
+    <a name="Obudowa">Tower</a>
+    <a name="Rodzaj karty graficznej">Dedykowana</a>
+    <a name="Seria procesora">Intel Core i5</a>
+    <a name="Stan obudowy">NOWY</a>
+    <a name="Typ dysku">SSD</a>
+    <a name="Typ Licencji">OEM</a>
+    <a name="Typ pamięci RAM">DDR4</a>
+    <a name="W zestawie">Brak okablowania</a>
+    <a name="Zainstalowany System">Windows 11 HOME</a>
+    <a name="Złącza wewnętrzne">3xSATA, 2xRAM, 1xPCIex1, 2xPCIex16, M.2</a>
+    <a name="Złącza z tyłu">2xUSB 3.0, 4x USB 2.0, VGA, 3x Audio, RJ45, PS2, HDMI</a>
+  </attrs>
+</o>
 </offers>
