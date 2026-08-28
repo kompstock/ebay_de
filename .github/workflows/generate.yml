@@ -42,8 +42,10 @@ jobs:
       - name: Uruchom testy
         run: python -m unittest discover -s tests -v
 
-      - name: Dopisz kategorie 179 (komputery) do ebay-vocab.json
-        run: python3 tools/dodaj_kategorie_179.py
+      # Kategoria 179 (komputery) siedzi na stale w config/ebay-vocab.json.
+      # Nie dopisujemy jej w kazdym przebiegu: gdy jej brakuje, generate.py
+      # przerywa z komunikatem, zamiast po cichu gubic wszystkie komputery.
+      # Do odtworzenia wpisu sluzy tools/dodaj_kategorie_179.py.
 
       - name: Wygeneruj pliki
         continue-on-error: true
@@ -67,8 +69,12 @@ jobs:
           print("| | |\n|---|---|")
           print(f"| Produktow w kategorii | {r['produktow_w_kategorii']} |")
           print(f"| Z zapasem | {r['produktow_z_zapasem']} |")
+          for typ, ile in r.get("produktow_z_zapasem_wg_typu", {}).items():
+              print(f"| &nbsp;&nbsp;{typ} | {ile} |")
           print(f"| Aktywnych na eBay | {r['aktywnych_na_ebay']} |")
           print(f"| **Do wystawienia** | **{r['do_wystawienia']}** |")
+          for kat, ile in r.get("do_wystawienia_wg_kategorii", {}).items():
+              print(f"| &nbsp;&nbsp;{kat} | {ile} |")
           print(f"| **Do aktualizacji** | **{r['do_aktualizacji']}** (zerowanych: {r['w_tym_zerowanych']}) |")
           print(f"| Kurs NBP | {r['nbp']['rate']} z {r['nbp']['effective_date']} |")
           if r["sku_zdublowane"]:
