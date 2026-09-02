@@ -63,6 +63,26 @@
     "Tablety": "Tablet",
     "_domyslnie": "Gerät"
   },
+  "producent_z_modelu": {
+    "_about": "Pole 'Producent' w feedzie Allegro to wybor z listy sprzedawcy i bywa nietrafiony - 11 ofert Panasonic ToughBook/ToughPad ma tam 'CLEVO' albo 'Chiny/reszta'. GPSR musi wskazywac faktycznego producenta, wiec gdy zadeklarowana marka jest na liscie 'niepewne', a model albo nazwa oferty mowia jednoznacznie co innego, wygrywa to drugie.",
+    "_uwaga": "Marka SPOZA listy 'niepewne' nigdy nie jest nadpisywana. Prawdziwy laptop Clevo (model np. 'NH55') zostanie przy CLEVO i trafi na wpis w manufacturers.json.",
+    "niepewne": ["CLEVO", "Chiny/reszta", "Chiny", "Inny", "Inne", "Niezdefiniowany"],
+    "wzorce": {
+      "toughbook": "Panasonic",
+      "toughpad": "Panasonic",
+      "thinkpad": "Lenovo",
+      "thinkcentre": "Lenovo",
+      "elitebook": "HP",
+      "probook": "HP",
+      "elitedesk": "HP",
+      "zbook": "HP",
+      "latitude": "Dell",
+      "optiplex": "Dell",
+      "precision": "Dell",
+      "lifebook": "Fujitsu",
+      "macbook": "Apple"
+    }
+  },
   "typ_produktu_warianty": {
     "_about": "Sama kategoria XML nie zawsze wystarczy. Nowe komputery do gier siedza w tej samej kategorii 'Komputery' co poleasingowe - rozni je tylko wartosc pola kondycji. Klucz to typ bazowy z 'typ_produktu', wartosc mowi, po ktorym polu i na jaki typ przelaczyc.",
     "_uwaga": "Wariant dziedziczy aliasy pol po profilu bazowym - rozpoznanie dzieje sie PO ujednoliceniu nazw, wiec pole podajemy pod nazwa kanoniczna ('Kondycja sprzętu', nie 'Kondycja').",

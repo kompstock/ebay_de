@@ -346,6 +346,35 @@
         "url": "",
         "type": "EUResponsiblePerson"
       }
+    },
+    "clevo": {
+      "status": "kompletny",
+      "_uwaga": "Producent barebone'ow z Tajwanu. Osoba odpowiedzialna w UE to jego niemieckie centrum serwisowe. UWAGA: wiekszosc ofert, ktore maja dzis w feedzie Producent='CLEVO', to w rzeczywistosci Panasonic ToughBook / ToughPad - przekierowuje je 'producent_z_modelu' w settings.json.",
+      "manufacturer": {
+        "name": "CLEVO CO.",
+        "address1": "35F., No. 555, Siyuan Rd.",
+        "address2": "Xinzhuang Dist.",
+        "city": "New Taipei City",
+        "state": "",
+        "postal": "242034",
+        "country": "TW",
+        "email": "marketing@clevo.com.tw",
+        "phone": "+886-2-2278-9696",
+        "url": ""
+      },
+      "responsible_person": {
+        "name": "CLEVO Germany Service Center",
+        "address1": "Rochusstr. 2",
+        "address2": "",
+        "city": "Korschenbroich",
+        "state": "",
+        "postal": "41352",
+        "country": "DE",
+        "email": "service@clevo-computer.de",
+        "phone": "+49 2161 998520",
+        "url": "",
+        "type": "EUResponsiblePerson"
+      }
     }
   },
   "aliasy": {
@@ -374,7 +403,9 @@
     "microstar": "msi",
     "logic": "logic concept polska",
     "logic concept": "logic concept polska",
-    "logic concept polska sp. z o.o.": "logic concept polska"
+    "logic concept polska sp. z o.o.": "logic concept polska",
+    "clevo co": "clevo",
+    "clevo co.": "clevo"
   },
   "_do_uzupelnienia": [
     "samsung",
