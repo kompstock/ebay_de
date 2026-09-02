@@ -286,6 +286,96 @@ class NowyTowar(unittest.TestCase):
         self.assertEqual(generate.blokada_nowego_towaru({"Kondycja sprzętu": "Nowy"}, settings), "")
 
 
+class FormatyAspektow(unittest.TestCase):
+    """Aspekty przepadaly po cichu na formacie, nie na braku danych."""
+
+    def generate(self):
+        sys.path.insert(0, str(ROOT / "src"))
+        import generate
+        return generate
+
+    def vocab(self, aspekt, kategoria="177"):
+        vocab = json.loads((ROOT / "config" / "ebay-vocab.json").read_text(encoding="utf-8"))
+        return vocab["kategorie"][kategoria]["aspekty"][aspekt]
+
+    def test_taktowanie_ma_dwa_miejsca_po_przecinku(self):
+        """Feed Allegro podaje '1.6', eBay zna tylko '1,60 GHz'. 716 ofert traci
+        ten aspekt, jesli nie wyrownamy formatu."""
+        generate = self.generate()
+        dozwolone = self.vocab("Prozessorgeschwindigkeit")
+        for surowe, oczekiwane in [("1.6", "1,60 GHz"), ("2.4", "2,40 GHz"),
+                                   ("1.60", "1,60 GHz"), ("2,30", "2,30 GHz")]:
+            wynik = generate.base_clock(surowe)
+            self.assertEqual(wynik, oczekiwane)
+            self.assertIn(wynik, dozwolone, f"{wynik} musi byc w slowniku eBaya")
+
+    def test_pojemnosc_w_zapisie_ebaya(self):
+        generate = self.generate()
+        dozwolone = self.vocab("Festplattenkapazität")
+        self.assertEqual(generate.clean_capacity("1000GB"), "1 TB")
+        self.assertEqual(generate.clean_capacity("2000 GB"), "2 TB")
+        self.assertEqual(generate.clean_capacity("120/128 GB"), "128 GB")
+        self.assertEqual(generate.clean_capacity("256GB"), "256 GB")
+        for wynik in ("1 TB", "128 GB", "256 GB"):
+            self.assertIn(wynik, dozwolone)
+
+    def test_slownik_nie_zalezy_od_wielkosci_liter(self):
+        """Config pisze 'Brak systemu', feed 'brak systemu' - to ta sama wartosc."""
+        generate = self.generate()
+        mapa = {"Brak systemu": "Nicht enthalten", "_komentarz": {"zagniezdzone": "x"}}
+        self.assertEqual(generate.wpis_bez_wzgledu_na_wielkosc(mapa, "brak systemu"),
+                         "Nicht enthalten")
+        self.assertEqual(generate.wpis_bez_wzgledu_na_wielkosc(mapa, "BRAK SYSTEMU"),
+                         "Nicht enthalten")
+        self.assertEqual(generate.wpis_bez_wzgledu_na_wielkosc(mapa, "co innego"), "")
+
+
+class ProducentDoGPSR(unittest.TestCase):
+    """GPSR musi wskazywac faktycznego producenta, nie wpis z listy sprzedawcy."""
+
+    def setUp(self):
+        sys.path.insert(0, str(ROOT / "src"))
+        import generate
+        self.generate = generate
+        self.settings = json.loads(
+            (ROOT / "config" / "settings.json").read_text(encoding="utf-8"))
+
+    def test_niepewna_marka_ustepuje_modelowi(self):
+        """Feed mowi 'CLEVO', ale model i nazwa mowia Panasonic ToughBook."""
+        attrs = {"Producent": "CLEVO", "Model": "ToughBook CF-31"}
+        self.assertEqual(
+            self.generate.producent_z_modelu(attrs, "Dotykowy Panasonic ToughBook CF-31",
+                                             self.settings),
+            "Panasonic")
+
+    def test_zaslepka_chiny_tez_ustepuje(self):
+        attrs = {"Producent": "Chiny/reszta", "Model": "Toughbook CF-31 MK5"}
+        self.assertEqual(
+            self.generate.producent_z_modelu(attrs, "Panasonic ToughBook", self.settings),
+            "Panasonic")
+
+    def test_prawdziwy_clevo_zostaje_clevo(self):
+        """Model bez rozpoznawalnej marki nie jest nadpisywany - trafi na wpis CLEVO."""
+        attrs = {"Producent": "CLEVO", "Model": "NH55 barebone"}
+        self.assertEqual(
+            self.generate.producent_z_modelu(attrs, "Laptop CLEVO NH55", self.settings), "")
+
+    def test_pewnej_marki_nie_ruszamy(self):
+        """Dell z modelem Latitude zostaje Dellem - nie wchodzimy w marki spoza listy."""
+        attrs = {"Producent": "DELL", "Model": "Latitude 5300"}
+        self.assertEqual(
+            self.generate.producent_z_modelu(attrs, "Laptop Dell Latitude", self.settings), "")
+
+    def test_clevo_ma_komplet_danych_gpsr(self):
+        manufacturers = json.loads(
+            (ROOT / "config" / "manufacturers.json").read_text(encoding="utf-8"))
+        blok, blad = self.generate.gpsr_block("CLEVO", manufacturers)
+        self.assertEqual(blad, "")
+        self.assertEqual(blok["Manufacturer Country"], "TW")
+        self.assertEqual(blok["Responsible Person 1 Country"], "DE",
+                         "osoba odpowiedzialna musi byc w UE")
+
+
 class BramkiKonfiguracji(unittest.TestCase):
     """Bledy konfiguracji maja byc glosna blokada, nie cichym zerem produktow."""
 
