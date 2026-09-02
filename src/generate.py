@@ -248,19 +248,54 @@ def has_polish_leak(text_value: str) -> str | None:
         kontekst = normalize_space(plain[max(0, match.start() - 45):match.end() + 45])
         return f"slowo {match.group(0)!r} w: ...{kontekst}..."
     return None
+def wpis_bez_wzgledu_na_wielkosc(mapa: dict, klucz: str, domyslnie: str = "") -> str:
+    """Slowniki w configu sa spisane 'ladnie' ('Brak systemu'), a feed pisze jak
+    popadnie ('brak systemu'). Dopasowanie znak w znak gubilo takie wpisy po cichu.
+    Wartosci nie-tekstowe pomijamy - w aspects.json siedza tam zagniezdzone bloki.
+    """
+    if not klucz:
+        return domyslnie
+    trafienie = mapa.get(klucz)
+    if isinstance(trafienie, str):
+        return trafienie
+    szukany = norm(klucz)
+    for nazwa, wartosc in mapa.items():
+        if isinstance(wartosc, str) and not nazwa.startswith("_") and norm(nazwa) == szukany:
+            return wartosc
+    return domyslnie
 def brand_name(value: str) -> str:
     known = {"lenovo": "Lenovo", "dell": "Dell", "hp": "HP", "fujitsu": "Fujitsu",
              "apple": "Apple", "acer": "Acer", "asus": "ASUS", "toshiba": "Toshiba",
              "microsoft": "Microsoft", "panasonic": "Panasonic", "samsung": "Samsung"}
     return known.get(norm(value), value.title())
 def clean_capacity(value: str) -> str:
-    return normalize_space(re.sub(r"(?i)(\d)\s*(GB|TB|MB)\b", r"\1 \2", value or ""))
+    """Pojemnosc w zapisie eBaya.
+
+    Feed pisze '1000 GB' i '2000 GB', a slownik eBaya zna tylko '1 TB' i '2 TB'.
+    Zapis z ukosnikiem ('120/128 GB') to widelki sprzedawcy - bierzemy wieksza
+    wartosc, bo to ta, ktora kupujacy dostanie co najmniej.
+    """
+    v = normalize_space(re.sub(r"(?i)(\d)\s*(GB|TB|MB)\b", r"\1 \2", value or ""))
+    widelki = re.match(r"^(\d+)\s*/\s*(\d+)\s*(GB|TB)$", v, re.I)
+    if widelki:
+        v = f"{max(int(widelki.group(1)), int(widelki.group(2)))} {widelki.group(3).upper()}"
+    pelne_tb = re.match(r"^(\d+)000\s*GB$", v, re.I)
+    if pelne_tb:
+        v = f"{pelne_tb.group(1)} TB"
+    return v
 def screen_size_de(value: str) -> str:
     number = re.search(r"\d+(?:[.,]\d+)?", value or "")
     return f"{number.group(0).replace('.', ',')} Zoll" if number else ""
 def base_clock(value: str) -> str:
-    match = re.search(r"(\d+[.,]\d+)", value or "")
-    return f"{match.group(1).replace('.', ',')} GHz" if match else ""
+    """Taktowanie w formacie eBaya: ZAWSZE dwa miejsca po przecinku.
+
+    Slownik eBaya zna "1,60 GHz", nie zna "1,6 GHz". Feed Allegro podaje jedno
+    miejsce, feed sklepowy dwa - bez wyrownania 726 ofert traci ten aspekt.
+    """
+    match = re.search(r"(\d+)[.,](\d+)", value or "")
+    if not match:
+        return ""
+    return f"{match.group(1)},{match.group(2)[:2].ljust(2, '0')} GHz"
 def zrodlo_procesora(attrs: dict) -> str:
     """Feed podaje procesor w czterech miejscach. Bierzemy pierwsze uzyteczne.
     1. pole 'Procesor'
@@ -613,6 +648,24 @@ def podstaw_dane_profilu(attrs: dict[str, str], profil: dict) -> dict[str, str]:
     if profil.get("model_staly"):
         out["Model"] = profil["model_staly"]
     return out
+def producent_z_modelu(attrs: dict, nazwa_oferty: str, settings: dict) -> str:
+    """Prawdziwy producent wyczytany z modelu, gdy pole 'Producent' jest niewiarygodne.
+
+    Feed Allegro ma tam wartosc wybrana z listy sprzedawcy i czesto nietrafiona:
+    11 ofert Panasonic ToughBook / ToughPad ma wpisane 'CLEVO' albo 'Chiny/reszta'.
+    GPSR musi wskazywac faktycznego producenta towaru, wiec gdy zadeklarowana marka
+    jest na liscie niepewnych, a model albo nazwa oferty jednoznacznie mowia co innego,
+    wygrywa to drugie. Marka spoza listy 'niepewne' nigdy nie jest nadpisywana.
+    """
+    cfg = settings.get("producent_z_modelu", {})
+    niepewne = {norm(w) for w in cfg.get("niepewne", [])}
+    if norm(attrs.get("Producent", "")) not in niepewne:
+        return ""
+    gdzie = f"{norm(attrs.get('Model', ''))} {norm(nazwa_oferty)}"
+    for wzorzec, marka in cfg.get("wzorce", {}).items():
+        if not wzorzec.startswith("_") and norm(wzorzec) in gdzie:
+            return marka
+    return ""
 def kategoria_produktu(producent: str, profil: dict, settings: dict) -> str:
     """Kategoria eBay z profilu. Apple ma wlasna tylko tam, gdzie profil ja wskazuje
     (laptopy) - Apple desktop odpada wczesniej przez 'pomijaj_producentow'."""
@@ -621,7 +674,7 @@ def kategoria_produktu(producent: str, profil: dict, settings: dict) -> str:
     return settings["kategorie"][profil["kategoria_ebay"]]
 def sufiks_tytulu(system: str, aspects: dict) -> str:
     """Sufiks MUSI wynikac z pola systemu. Nieznana wartosc = brak sufiksu."""
-    return aspects["sufiks_tytulu"].get(system, "")
+    return wpis_bez_wzgledu_na_wielkosc(aspects["sufiks_tytulu"], system)
 def condition_class(value: str) -> str:
     match = re.search(r"\[klasa\s*([a-c][+\-]?)\]", norm(value))
     return match.group(1).upper() if match else ""
@@ -764,8 +817,9 @@ def render_description(szablony, attrs, images, translations, aspects, settings,
     disk = clean_capacity(attrs.get("Dysk", ""))
     finish = translations["screen_finish"].get(attrs.get("Powłoka matrycy", ""), "")
     gpu_type = translations["gpu_type"].get(attrs.get("Rodzaj karty graficznej", ""), "")
-    operating_system = aspects["betriebssystem"].get(
-        attrs.get("Zainstalowany system", ""), attrs.get("Zainstalowany system", ""))
+    operating_system = wpis_bez_wzgledu_na_wielkosc(
+        aspects["betriebssystem"], attrs.get("Zainstalowany system", ""),
+        attrs.get("Zainstalowany system", ""))
     specs = [
         ("Hersteller", manufacturer),
         ("Modell", model),
@@ -893,9 +947,10 @@ def build_row(offer, attrs, cfg, headers, review):
     gpu_raw = attrs.get("Model karty graficznej", "")
     gpu_aspect = aspects["grafikprozessor_alias"].get(norm(gpu_raw), "")
     if not gpu_aspect:
+        dozwolone_gpu = {norm(x): x for x in vocab["aspekty"]["Grafikprozessor"]}
         for option in gpu_clean(gpu_raw):
-            if option in vocab["aspekty"]["Grafikprozessor"]:
-                gpu_aspect = option
+            if norm(option) in dozwolone_gpu:
+                gpu_aspect = dozwolone_gpu[norm(option)]
                 break
     if gpu_raw and not gpu_aspect:
         review.add("aspekt", "C:Grafikprozessor", gpu_raw)
@@ -949,7 +1004,8 @@ def build_row(offer, attrs, cfg, headers, review):
         "C:Modell": vocab_match("Modell", nazwa_modelu(attrs), vocab, review, "", strict=False),
         "C:Betriebssystem": vocab_match(
             "Betriebssystem",
-            aspects["betriebssystem"].get(attrs.get("Zainstalowany system", ""), ""),
+            wpis_bez_wzgledu_na_wielkosc(
+                aspects["betriebssystem"], attrs.get("Zainstalowany system", "")),
             slownik, review),
         "C:Anzahl der Einheiten": "1",
         "C:Maßeinheit": "Einheit",
@@ -982,7 +1038,8 @@ def build_row(offer, attrs, cfg, headers, review):
     for aspect in slownik["_wymagane"]:
         for column in (f"*C:{aspect}", f"C:{aspect}"):
             if column in values and not values[column]:
-                review.add("blokada", attrs.get("SKU", ""), f"puste pole wymagane C:{aspect}")
+                # Wpis do review robi generate() na podstawie zwroconego powodu.
+                # Dopisywanie go rowniez tutaj dawalo ten sam produkt dwa razy.
                 return None, f"aspekt: puste wymagane C:{aspect}"
     return {h: values.get(h, "") for h in headers}, ""
 def wskaz_raport(settings: dict, arg_raport: Path | None) -> tuple[Path | None, str]:
@@ -1088,6 +1145,9 @@ def zbierz_produkty(root, cfg, review, skipped):
         typ = typ_produktu(kategoria_xml, settings, attrs)
         profil = profil_produktu(kategoria_xml, settings, attrs)
         attrs = podstaw_dane_profilu(attrs, profil)
+        prawdziwa_marka = producent_z_modelu(attrs, text(offer.find("./name")), settings)
+        if prawdziwa_marka:
+            attrs["Producent"] = prawdziwa_marka
         pole_obudowy = profil.get("formfaktor", {}).get("z_atrybutu", "")
         obudowa = norm(attrs.get(pole_obudowy, "")) if pole_obudowy else ""
         if obudowa and any(w in obudowa for w in profil.get("pomijaj_obudowy", [])):
