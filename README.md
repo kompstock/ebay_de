@@ -78,6 +78,10 @@ Jeśli eBay odrzuci wiersze kategorii 179 przez pustą kolumnę `*C:Bildschirmgr
 - Wartość opisowa bez tłumaczenia w słowniku → produkt nie trafia do CSV.
 - Polski znak lub polskie słowo w gotowym opisie → produkt nie trafia do CSV.
 - Wartość aspektu spoza słownika eBaya → pole zostaje puste, wartość ląduje w `review.csv`.
+- Złącza w opisie idą **1:1 ze źródłem** — jeden wpis z feedu to jeden kafelek.
+  Nic się nie łączy ani nie znika. Jedyny wyjątek: gdy sprzedawca upchnął kilka
+  gniazd w jeden wpis bez przecinka (`4 x USB 3.0 2X USB 2.0`), taki wpis jest
+  rozbijany, bo inaczej stracilibyśmy wszystkie poza pierwszym.
 - Sufiks tytułu wynika z pola `Zainstalowany system`. Nigdy nie jest stały.
 - Klasa stanu (`[Klasa A-]`) nie pojawia się w opisie — służy wyłącznie do `ConditionID`.
 - Apple trafia do kategorii 111422, reszta do 177.
