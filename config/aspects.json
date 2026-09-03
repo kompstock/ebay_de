@@ -51,7 +51,32 @@
       "Mini-Ethernet": "Mini Gigabit Ethernet",
       "microSD-Kartenleser": "microSD-Card-Slot",
       "SD-Kartenleser": "SD-Card-Slot",
-      "Kartenleser": "SD-Card-Slot"
+      "Kartenleser": "SD-Card-Slot",
+      "USB 3.2 Gen 2 Typ-C": [
+        "USB-C",
+        "USB 3.2"
+      ],
+      "USB 3.2 Gen 1 Typ-C": [
+        "USB-C",
+        "USB 3.2"
+      ],
+      "USB 3.2 Typ-C": [
+        "USB-C",
+        "USB 3.2"
+      ],
+      "USB 3.1 Typ-C": [
+        "USB-C",
+        "USB 3.1"
+      ],
+      "USB 3.0 Typ-C": [
+        "USB-C",
+        "USB 3.0"
+      ],
+      "USB 2.0 Typ-C": [
+        "USB-C",
+        "USB 2.0"
+      ],
+      "_uwaga_lista": "Wartosc moze byc lista - jedno gniazdo bywa dla kupujacego kilkoma rzeczami naraz (USB 3.2 Gen 2 Typ-C to i USB-C, i USB 3.2)."
     }
   },
   "besonderheiten": {
@@ -237,6 +262,38 @@
     "_about": "Regex -> etykieta niemiecka. Pierwsze trafienie wygrywa. Brak trafienia = port pomijany + wpis do review.",
     "reguly": [
       [
+        "(?i)(?=.*usb)(?=.*3\\.2)(?=.*gen\\.?\\s*2)(?=.*typ\\s*c)",
+        "USB 3.2 Gen 2 Typ-C"
+      ],
+      [
+        "(?i)(?=.*usb)(?=.*3\\.2)(?=.*gen\\.?\\s*1)(?=.*typ\\s*c)",
+        "USB 3.2 Gen 1 Typ-C"
+      ],
+      [
+        "(?i)(?=.*usb)(?=.*3\\.2)(?=.*typ\\s*c)",
+        "USB 3.2 Typ-C"
+      ],
+      [
+        "(?i)(?=.*usb)(?=.*3\\.1)(?=.*typ\\s*c)",
+        "USB 3.1 Typ-C"
+      ],
+      [
+        "(?i)(?=.*usb)(?=.*3\\.0)(?=.*typ\\s*c)",
+        "USB 3.0 Typ-C"
+      ],
+      [
+        "(?i)(?=.*usb)(?=.*2\\.0)(?=.*typ\\s*c)",
+        "USB 2.0 Typ-C"
+      ],
+      [
+        "(?i)(?=.*usb)(?=.*3\\.2)(?=.*gen\\.?\\s*2)",
+        "USB 3.2 Gen 2"
+      ],
+      [
+        "(?i)(?=.*usb)(?=.*3\\.2)(?=.*gen\\.?\\s*1)",
+        "USB 3.2 Gen 1"
+      ],
+      [
         "(?i)thunderbolt\\s*4",
         "Thunderbolt 4"
       ],
@@ -359,8 +416,40 @@
       [
         "(?i)kensington|blokad",
         "Kensington-Schloss"
+      ],
+      [
+        "(?i)^ps\\s*/?\\s*2$|ps\\s*/\\s*2",
+        "PS/2"
+      ],
+      [
+        "(?i)^dvi",
+        "DVI"
+      ],
+      [
+        "(?i)^serial$",
+        "Serielle Schnittstelle (RS-232)"
+      ],
+      [
+        "(?i)wejscie liniowe|line[-\\s]*in",
+        "Line-In"
+      ],
+      [
+        "(?i)wyjscie liniowe|line[-\\s]*out",
+        "Line-Out"
+      ],
+      [
+        "(?i)^dp\\s*\\d",
+        "DisplayPort"
       ]
-    ]
+    ],
+    "pomijaj": [
+      "inne",
+      "brak",
+      "-",
+      "n/a",
+      "nie dotyczy"
+    ],
+    "_uwaga_pomijaj": "Wpisy, ktore nic nie mowia kupujacemu. Pomijamy je bez zglaszania do review - to nie sa braki do uzupelnienia."
   },
   "klawiatura_czesci": {
     "_about": "Rozbior wartosci pola 'Klawiatura (ISO lub ANSI)'. Nierozpoznany czlon = produkt do review.",
@@ -383,7 +472,7 @@
     "podswietlenie_nie": [
       "niepodswietlana"
     ],
-    "_uwaga_naklejki": "Feed opisuje naklejki polskie. W ofercie niemieckiej ten czlon jest pomijany - kupujacy dostaje naklejki niemieckie, informuje o tym FAQ."
+    "_uwaga_naklejki": "Feed opisuje naklejki polskie. W ofercie niemieckiej ten czlon jest pomijany - kupujacy dostaje naklejki niemieckie. Dotyczy to KAZDEGO ukladu, takze QWERTY US i Nordic, dlatego wiersz 'Tastatur-Layout' w opisie jest stala z profile_produktu.Notebook.tastatur_layout, a nie wartoscia z feedu. Mapowanie 'czesci' sluzy juz tylko do wykrycia podswietlenia (C:Besonderheiten)."
   },
   "sufiks_tytulu": {
     "_about": "Sufiks tytulu MUSI wynikac z pola 'Zainstalowany system'. Brak wpisu = brak sufiksu.",

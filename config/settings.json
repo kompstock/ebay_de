@@ -66,7 +66,14 @@
   "producent_z_modelu": {
     "_about": "Pole 'Producent' w feedzie Allegro to wybor z listy sprzedawcy i bywa nietrafiony - 11 ofert Panasonic ToughBook/ToughPad ma tam 'CLEVO' albo 'Chiny/reszta'. GPSR musi wskazywac faktycznego producenta, wiec gdy zadeklarowana marka jest na liscie 'niepewne', a model albo nazwa oferty mowia jednoznacznie co innego, wygrywa to drugie.",
     "_uwaga": "Marka SPOZA listy 'niepewne' nigdy nie jest nadpisywana. Prawdziwy laptop Clevo (model np. 'NH55') zostanie przy CLEVO i trafi na wpis w manufacturers.json.",
-    "niepewne": ["CLEVO", "Chiny/reszta", "Chiny", "Inny", "Inne", "Niezdefiniowany"],
+    "niepewne": [
+      "CLEVO",
+      "Chiny/reszta",
+      "Chiny",
+      "Inny",
+      "Inne",
+      "Niezdefiniowany"
+    ],
     "wzorce": {
       "toughbook": "Panasonic",
       "toughpad": "Panasonic",
@@ -89,7 +96,11 @@
     "Desktop-PC": {
       "pole": "Kondycja sprzętu",
       "gdy": {
-        "Desktop-PC nowy": ["Nowy", "NOWY", "nowy"]
+        "Desktop-PC nowy": [
+          "Nowy",
+          "NOWY",
+          "nowy"
+        ]
       }
     }
   },
@@ -98,7 +109,11 @@
     "_dlaczego_blokada": "Dwie rzeczy byly by nieprawda w gotowej ofercie. 1) ConditionID wynika z klasy [Klasa A/B/C]; 'Nowy' nie pasuje do wzorca, wiec leci wartosc _brak = 3000, czyli 'Gebraucht' - na nowym komputerze za kilka tysiecy. 2) Szablon opisu mowi 'gebrauchter Business-Desktop-PC aus Leasingruecklauf', ma sekcje o bezpiecznym kasowaniu danych i FAQ o pochodzeniu z leasingu. Lepiej nie wystawic, niz wystawic z takimi twierdzeniami.",
     "_jak_odblokowac": "Trzeba trzech rzeczy: wpis GPSR dla producenta (kto sklada i wprowadza do obrotu), wartosc *C:Marke ze slownika eBay (dla kategorii 179 jest tam 'Custom, Whitebox' oraz 'Markenlos') i osobny profil w profile_produktu z wlasnym szablonem opisu oraz ConditionID 1000.",
     "blokuj": true,
-    "wartosci": ["Nowy", "NOWY", "nowy"]
+    "wartosci": [
+      "Nowy",
+      "NOWY",
+      "nowy"
+    ]
   },
   "rozdziel_pliki_add": false,
   "_uwaga_rozdziel_pliki": "false = jeden ebay-add.csv z laptopami i komputerami razem. true = osobny plik na typ towaru (nazwy w profile_produktu.plik_add). Przelacz na true, jesli eBay odrzuci wiersze kategorii 179 przez pusta kolumne *C:Bildschirmgroesse z szablonu laptopow. Tryb 'aktualizacja' zawsze daje jeden ebay-revise.csv - revise nie zalezy od kategorii.",
@@ -112,17 +127,38 @@
       "aliasy_atrybutow": {},
       "scal_atrybuty": {},
       "nadpisz_tlumaczenia": {},
-      "wymagane_xml": ["Producent", "SKU", "Model", "Ilość pamięci RAM", "Dysk", "Przekątna ekranu"],
-      "wymagane_tlumaczenia": ["Kondycja sprzętu", "Stan obudowy", "Stan ekranu", "Bateria", "W zestawie"],
-      "cechy_domyslne": ["Bluetooth", "Wi-Fi", "Eingebautes Mikrofon"],
+      "wymagane_xml": [
+        "Producent",
+        "SKU",
+        "Model",
+        "Ilość pamięci RAM",
+        "Dysk",
+        "Przekątna ekranu"
+      ],
+      "wymagane_tlumaczenia": [
+        "Kondycja sprzętu",
+        "Stan obudowy",
+        "Stan ekranu",
+        "Bateria",
+        "W zestawie"
+      ],
+      "cechy_domyslne": [
+        "Bluetooth",
+        "Wi-Fi",
+        "Eingebautes Mikrofon"
+      ],
       "_uwaga_cechy": "Zalozenia bezpieczne dla laptopa. Desktop ma te liste pusta - w pececie ani Wi-Fi, ani mikrofon nie sa oczywiste.",
       "produktart": "Notebook / Laptop",
       "sekcja_opisu": "sekcja_business_notebook",
-      "ladegeraet": { "tryb": "niepuste" },
+      "ladegeraet": {
+        "tryb": "niepuste"
+      },
       "_uwaga_ladegeraet": "Zachowanie historyczne laptopow: niepuste 'W zestawie' = Ja. Nie ruszamy, zeby nie zmieniac tysiaca dzialajacych ofert.",
       "pomijaj_producentow": [],
       "pomijaj_obudowy": [],
-      "formfaktor": {}
+      "formfaktor": {},
+      "tastatur_layout": "Die Tastatur ist mit deutschen Tastaturaufklebern angepasst (Französisch, Spanisch oder Italienisch auf Anfrage).",
+      "_uwaga_tastatur_layout": "Stala, nie wartosc z feedu. Naklejki niemieckie trafiaja na kazda klawiature, wiec oryginalny uklad (QWERTY US, Nordic) nie jest tym, co dostaje kupujacy. Profile komputerow nie maja tego klucza - wiersz u nich w ogole nie wychodzi, bo klawiatura nie wchodzi w sklad zestawu."
     },
     "Desktop-PC": {
       "_zrodlo": "Wylacznie XML sklepowy (feed_url). Komputery z Allegro nie wchodza - pilnuje tego allegro.kategorie_zrodlowe plus straznik w src/allegro.py.",
@@ -131,16 +167,36 @@
       "kategoria_ebay": "desktop",
       "aliasy_atrybutow": {
         "_about": "Feed nazywa te same pola inaczej w kategorii Komputery niz w laptopach. Nazwa docelowa -> lista nazw z feedu, wygrywa pierwsza niepusta.",
-        "Kondycja sprzętu": ["Kondycja sprzętu", "Kondycja"],
-        "Zainstalowany system": ["Zainstalowany system", "Zainstalowany System"]
+        "Kondycja sprzętu": [
+          "Kondycja sprzętu",
+          "Kondycja"
+        ],
+        "Zainstalowany system": [
+          "Zainstalowany system",
+          "Zainstalowany System"
+        ]
       },
       "scal_atrybuty": {
         "_about": "Jak wyzej, ale wartosci sklejamy przecinkiem zamiast brac pierwsza - desktop opisuje zlacza osobno z tylu i z boku, a oba komplety maja trafic do opisu.",
-        "Złącza zewnętrzne": ["Złącza zewnętrzne", "Złącza z tyłu", "Złącza z boku"]
+        "Złącza zewnętrzne": [
+          "Złącza zewnętrzne",
+          "Złącza z tyłu",
+          "Złącza z boku"
+        ]
       },
-      "wymagane_xml": ["Producent", "SKU", "Model", "Ilość pamięci RAM", "Dysk"],
+      "wymagane_xml": [
+        "Producent",
+        "SKU",
+        "Model",
+        "Ilość pamięci RAM",
+        "Dysk"
+      ],
       "_uwaga_wymagane_xml": "Bez 'Przekątna ekranu' - desktop nie ma ekranu.",
-      "wymagane_tlumaczenia": ["Kondycja sprzętu", "Stan obudowy", "W zestawie"],
+      "wymagane_tlumaczenia": [
+        "Kondycja sprzętu",
+        "Stan obudowy",
+        "W zestawie"
+      ],
       "_uwaga_wymagane_tlumaczenia": "Bez 'Stan ekranu' i 'Bateria' - nie maja zastosowania, wiec nie blokuja oferty.",
       "nadpisz_tlumaczenia": {
         "_about": "translations.json jest wspolny dla calego sklepu i pisany pod laptopa - 'Zasilacz z przewodem' znaczy tam 'Notebook, Netzteil mit Kabel'. Dla peceta to nieprawda, wiec te wartosci podmieniamy tutaj. Klucz to wartosc z feedu, dokladnie jak w translations.json.",
@@ -165,9 +221,14 @@
           "Kompletne okablowanie"
         ]
       },
-      "pomijaj_producentow": ["Apple"],
+      "pomijaj_producentow": [
+        "Apple"
+      ],
       "_uwaga_apple": "Apple desktop ma osobny szablon eBay - na razie nie wystawiamy.",
-      "pomijaj_obudowy": ["all in one", "aio"],
+      "pomijaj_obudowy": [
+        "all in one",
+        "aio"
+      ],
       "_uwaga_aio": "Porownanie na znormalizowanej wartosci, jako fragment. All-in-One ma ekran i wymaga innych aspektow niz zwykly pecet.",
       "formfaktor": {
         "_about": "Atrybut 'Obudowa' z feedu -> C:Formfaktor w kategorii eBay 179. All in one nie mapujemy w ogole - te oferty odpadaja wyzej przez pomijaj_obudowy.",
@@ -191,7 +252,9 @@
       "_uwaga_condition": "1000 = Neu. Klasa [Klasa A/B/C] dotyczy wylacznie sprzetu poleasingowego i dla nowego zawsze byla by pusta, czyli ConditionID zeszlo by na 3000 'Gebraucht'.",
       "producent_zastepczy": {
         "_about": "Feed podaje 'Niezdefiniowany' - zestaw jest skladany, nie ma producenta OEM. Kto sklada i wprowadza do obrotu, ten jest producentem w rozumieniu GPSR. 'Logic' to alias prowadzacy do wpisu 'logic concept polska' w manufacturers.json.",
-        "gdy": ["Niezdefiniowany"],
+        "gdy": [
+          "Niezdefiniowany"
+        ],
         "nazwa": "Logic"
       },
       "marke_aspekt": {
@@ -208,11 +271,21 @@
         "36 miesięcy": "3 Jahre"
       },
       "aliasy_atrybutow": {
-        "Kondycja sprzętu": ["Kondycja sprzętu", "Kondycja"],
-        "Zainstalowany system": ["Zainstalowany system", "Zainstalowany System"]
+        "Kondycja sprzętu": [
+          "Kondycja sprzętu",
+          "Kondycja"
+        ],
+        "Zainstalowany system": [
+          "Zainstalowany system",
+          "Zainstalowany System"
+        ]
       },
       "scal_atrybuty": {
-        "Złącza zewnętrzne": ["Złącza zewnętrzne", "Złącza z tyłu", "Złącza z boku"]
+        "Złącza zewnętrzne": [
+          "Złącza zewnętrzne",
+          "Złącza z tyłu",
+          "Złącza z boku"
+        ]
       },
       "nadpisz_tlumaczenia": {
         "_about": "Nowy zestaw nie jest 'poleasingowy' ani 'uzywany'. Wspolny slownik tego nie wie, wiec kondycje opisujemy tutaj.",
@@ -230,19 +303,35 @@
         }
       },
       "_uwaga_stan_obudowy": "SKU 4410 ma sprzeczne dane: Kondycja 'Nowy', a Stan obudowy 'Normalne slady uzytkowania'. Skoro sprzedajemy to jako nowe, obudowa tez jest nowa - inaczej oferta przeczy sama sobie.",
-      "wymagane_xml": ["Producent", "SKU", "Ilość pamięci RAM", "Dysk"],
+      "wymagane_xml": [
+        "Producent",
+        "SKU",
+        "Ilość pamięci RAM",
+        "Dysk"
+      ],
       "_uwaga_wymagane_xml": "Bez 'Model' (patrz model_staly) i bez 'Przekątna ekranu'.",
-      "wymagane_tlumaczenia": ["Kondycja sprzętu", "Stan obudowy"],
+      "wymagane_tlumaczenia": [
+        "Kondycja sprzętu",
+        "Stan obudowy"
+      ],
       "_uwaga_wymagane_tlumaczenia": "Bez 'W zestawie' - przy nowym zestawie brak tego pola nie jest powodem, zeby nie wystawic.",
       "cechy_domyslne": [],
       "produktart": "Desktop",
       "sekcja_opisu": "",
       "ladegeraet": {
         "tryb": "lista",
-        "tak": ["Zasilacz z przewodem", "Zasilacz w zestawie", "Zasilacz", "Kompletne okablowanie"]
+        "tak": [
+          "Zasilacz z przewodem",
+          "Zasilacz w zestawie",
+          "Zasilacz",
+          "Kompletne okablowanie"
+        ]
       },
       "pomijaj_producentow": [],
-      "pomijaj_obudowy": ["all in one", "aio"],
+      "pomijaj_obudowy": [
+        "all in one",
+        "aio"
+      ],
       "formfaktor": {
         "z_atrybutu": "Obudowa",
         "mapa": {
