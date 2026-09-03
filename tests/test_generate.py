@@ -330,6 +330,106 @@ class FormatyAspektow(unittest.TestCase):
         self.assertEqual(generate.wpis_bez_wzgledu_na_wielkosc(mapa, "co innego"), "")
 
 
+class Klawiatura(unittest.TestCase):
+    """Naklejki niemieckie ida na kazda klawiature, wiec uklad z feedu nie moze
+    trafiac do opisu - inaczej tabela mowila 'QWERTY US', a FAQ obiecywalo naklejki."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.wiersze, cls.raport, cls.out = uruchom()
+
+    def opis(self, wiersz):
+        tekst = re.sub(r"(?is)<(style|script)\b.*?</\1>", " ", wiersz["*Description"])
+        return re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", tekst)))
+
+    def test_laptop_ma_staly_tekst_klawiatury(self):
+        laptopy = [w for w in self.wiersze if w["C:Produktart"] != "Desktop"]
+        self.assertTrue(laptopy)
+        for w in laptopy:
+            tekst = self.opis(w)
+            self.assertIn("Die Tastatur ist mit deutschen Tastaturaufklebern angepasst", tekst)
+            self.assertIn("QWERTY, QWERTZ oder AZERTY", tekst)
+
+    def test_uklad_z_feedu_nie_wychodzi_do_opisu(self):
+        """Zaden laptop nie moze obiecywac ukladu, ktorego kupujacy nie dostanie."""
+        for w in self.wiersze:
+            tekst = self.opis(w)
+            for uklad in ("QWERTY US", "QWERTY Nordic", "QWERTY/QWERTZ"):
+                self.assertNotIn(uklad, tekst, f"{w['CustomLabel']}: {uklad} w opisie")
+
+    def test_pecet_nie_dostaje_wiersza_o_klawiaturze(self):
+        """Do komputera klawiatura nie wchodzi w sklad zestawu."""
+        pecety = [w for w in self.wiersze if w["C:Produktart"] == "Desktop"]
+        self.assertTrue(pecety)
+        for w in pecety:
+            self.assertNotIn("Tastatur-Layout", self.opis(w))
+
+
+class Zlacza(unittest.TestCase):
+    """Jeden wpis ze zrodla = jeden kafelek. Bez laczenia i bez gubienia."""
+
+    def setUp(self):
+        sys.path.insert(0, str(ROOT / "src"))
+        import generate
+        self.generate = generate
+        self.aspects = json.loads((ROOT / "config" / "aspects.json").read_text(encoding="utf-8"))
+
+    def kafelki(self, zrodlo):
+        return self.generate.kafelki_portow(zrodlo, self.aspects, self.generate.Review())
+
+    def test_lista_po_przecinku_jeden_do_jednego(self):
+        zrodlo = "HDMI, USB 3.0, USB 3.1 typ C, RJ-45, minijack 3.5 mm (audio)"
+        self.assertEqual(len(self.kafelki(zrodlo)), 5, "piec wpisow = piec kafelkow")
+
+    def test_type_c_nie_ginie(self):
+        """Wczesniej 'USB 3.1 typ C' spadalo do 'USB 3.1' - kupujacy tracil Type-C."""
+        self.assertEqual(self.kafelki("USB 3.1 typ C"), ["USB 3.1 Typ-C"])
+        self.assertEqual(self.kafelki("USB 3.2 typ C Gen 2"), ["USB 3.2 Gen 2 Typ-C"])
+        self.assertEqual(self.kafelki("USB 3.2 typ A Gen 2"), ["USB 3.2 Gen 2"])
+
+    def test_rozne_porty_nie_lacza_sie_w_jeden(self):
+        """'8x USB 3.1 Typ A' i '2x USB 3.1 Typ-C' to nie jest '10x USB 3.1'."""
+        wynik = self.kafelki("2x USB 3.1 typ A, 2x USB 3.1 typ C")
+        self.assertEqual(wynik, ["2x USB 3.1", "2x USB 3.1 Typ-C"])
+
+    def test_brak_przecinka_ale_dwie_ilosci(self):
+        """Jedyny wyjatek od 1:1 - sprzedawca zapomnial przecinka."""
+        self.assertEqual(self.kafelki("4 x USB 3.0 2X USB 2.0"),
+                         ["4x USB 3.0", "2x USB 2.0"])
+
+    def test_zapis_ze_sztukami(self):
+        zrodlo = "USB 3.2 Gen. 1 - 3 szt. HDMI - 1 szt. RJ-45 (LAN) - 1 szt"
+        self.assertEqual(self.kafelki(zrodlo),
+                         ["3x USB 3.2 Gen 1", "1x HDMI", "1x RJ-45 (LAN)"])
+
+    def test_porty_bez_reguly_nie_znikaja(self):
+        """PS/2, DVI i Serial wypadaly wczesniej z opisu zupelnie."""
+        for zrodlo, oczekiwane in [("PS/2", "PS/2"), ("DVI", "DVI"),
+                                   ("2x PS/2", "2x PS/2")]:
+            self.assertEqual(self.kafelki(zrodlo), [oczekiwane])
+
+    def test_inne_jest_pomijane(self):
+        """'inne' nic nie mowi kupujacemu i nie jest brakiem do uzupelnienia."""
+        self.assertEqual(self.kafelki("inne"), [])
+        self.assertEqual(self.kafelki("HDMI, inne"), ["HDMI"])
+
+    def test_polski_nie_wycieka_z_nieznanego_portu(self):
+        """Nieznana etykieta idzie surowo tylko wtedy, gdy jest bezpieczna.
+
+        Polskie slowo w gotowym opisie blokuje CALY produkt, wiec taki wpis
+        wolimy pominac niz pokazac.
+        """
+        self.assertEqual(self.kafelki("wyjście specjalne producenta"), [])
+        self.assertEqual(self.kafelki("HDMI, wyjście specjalne producenta"), ["HDMI"])
+        self.assertEqual(self.kafelki("COM Express"), ["Serielle Schnittstelle (RS-232)"])
+
+    def test_jedno_gniazdo_moze_dac_dwie_wartosci_aspektu(self):
+        wynik = self.generate.connectivity_aspect(
+            [(1, "USB 3.2 typ C Gen 2")], self.aspects, self.generate.Review())
+        self.assertIn("USB-C", wynik)
+        self.assertIn("USB 3.2", wynik)
+
+
 class ProducentDoGPSR(unittest.TestCase):
     """GPSR musi wskazywac faktycznego producenta, nie wpis z listy sprzedawcy."""
 
