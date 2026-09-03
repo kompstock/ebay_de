@@ -433,8 +433,11 @@ def _rozbij_fragment(fragment: str) -> list[tuple[int, str]]:
     if not fragment:
         return []
     if len(re.findall(r"\d+\s*x\s", fragment, re.I)) > 1:      # "1 x HDMI 2 x USB"
+        # re.I jest tu konieczne: feed pisze raz "2x", raz "2X", a bez tego
+        # drugi port zostawal doklejony do etykiety pierwszego.
         return [(int(c), l.strip(" ,;."))
-                for c, l in re.findall(r"(\d+)\s*x\s*(.+?)(?=\s*\d+\s*x\s|$)", fragment)]
+                for c, l in re.findall(r"(\d+)\s*x\s*(.+?)(?=\s*\d+\s*x\s|$)",
+                                       fragment, re.I)]
     m = re.match(r"^(\d+)\s*x\s*(.+)$", fragment, re.I)          # "2x USB 3.0"
     if m:
         return [(int(m.group(1)), m.group(2).strip(" ,;."))]
@@ -463,6 +466,9 @@ def parse_ports_raw(value: str) -> list[tuple[int, str]]:
 def port_label(label: str, aspects: dict, review: Review) -> str:
     """Etykieta portu po niemiecku. Brak reguly -> pusty string (port pomijany)."""
     czysty = re.sub(r"\s*\([^)]*\)", "", label).strip(" ,;.")
+    # Wpisy typu "inne" nic nie znacza dla kupujacego i nie sa bledem do zgloszenia.
+    if norm(czysty) in {norm(w) for w in aspects["porty_reguly"].get("pomijaj", [])}:
+        return ""
     hit = aspects["konnektivitaet"]["opis_etykiety"].get(norm(czysty))
     if hit:
         return hit
@@ -480,9 +486,12 @@ def connectivity_aspect(ports, aspects: dict, review: Review) -> str:
     znalezione: list[str] = []
     for _, surowa in ports:
         etykieta = port_label(surowa, aspects, review)
-        wartosc = mapa.get(etykieta)
-        if wartosc and wartosc in dozwolone and wartosc not in znalezione:
-            znalezione.append(wartosc)
+        # Jedno zlacze moze odpowiadac kilku wartosciom aspektu: gniazdo
+        # "USB 3.2 Gen 2 Typ-C" to dla kupujacego i USB-C, i USB 3.2.
+        wartosci = mapa.get(etykieta) or []
+        for wartosc in ([wartosci] if isinstance(wartosci, str) else wartosci):
+            if wartosc in dozwolone and wartosc not in znalezione:
+                znalezione.append(wartosc)
     return "|".join(sorted(znalezione))
 def features_aspect(attrs: dict, ports, aspects: dict, podswietlenie: bool | None = None,
                     profil: dict | None = None) -> str:
@@ -763,14 +772,70 @@ def vocab_match(aspect: str, value: str, slownik: dict, review: Review,
         return bez_spacji
     review.add("aspekt", f"C:{aspect}", value)
     return value if not strict else ""
-def scal_porty(ports, aspects: dict, review: Review) -> list[tuple[str, int]]:
-    """Sumuje sztuki tego samego portu: 2x USB 3.2 + 3x USB 3.2 -> 5x USB 3.2."""
-    razem: dict[str, int] = {}
-    for count, label in ports:
-        niemiecki = port_label(label, aspects, review)
-        if niemiecki:
-            razem[niemiecki] = razem.get(niemiecki, 0) + count
-    return list(razem.items())
+def podziel_zrodlo_zlacz(value: str) -> list[str]:
+    """Fragmenty dokladnie tak, jak zapisal je sprzedawca.
+
+    Dzielimy WYLACZNIE po przecinku i sredniku - to jedyne separatory, ktore
+    w feedzie faktycznie oddzielaja porty. Zadnego domyslania sie reszty.
+    """
+    v = normalize_space(value or "").replace("×", "x")
+    v = re.sub(r"(\d),(\d)", r"\1.\2", v)          # '3,5 mm' nie moze sie rozpasc
+    # Drugi zapis stosowany w feedzie: "HDMI - 1 szt. RJ-45 (LAN) - 1 szt."
+    # To tez separator sprzedawcy, tylko inny niz przecinek.
+    if re.search(r"szt\.?", v, re.I):
+        kawalki = []
+        for chunk in re.split(r"szt\.?", v, flags=re.I):
+            m = re.match(r"^\s*(.*?)\s*-\s*(\d+)\s*$", chunk)
+            if m and m.group(1).strip():
+                kawalki.append(f"{m.group(2)}x {m.group(1).strip(' ,;.')}")
+        if kawalki:
+            return kawalki
+    return [f.strip(" ,;.") for f in re.split(r"[,;]", v) if f.strip(" ,;.")]
+def kafelek_portu(fragment: str, aspects: dict, review: Review) -> str:
+    """Jeden fragment zrodla -> jeden kafelek. Pusty string = nie da sie pokazac."""
+    ile, etykieta = "", fragment
+    m = re.match(r"^(\d+)\s*x\s*(.+)$", fragment, re.I)          # "2x USB 3.0"
+    if m:
+        ile, etykieta = m.group(1), m.group(2).strip()
+    else:
+        m = re.match(r"^(.+?)\s*x\s*(\d+)$", fragment, re.I)      # "LAN x 1"
+        if m:
+            ile, etykieta = m.group(2), m.group(1).strip()
+    # "inne" i podobne nic nie wnosza - pomijamy je swiadomie, nie pokazujemy surowo.
+    if norm(etykieta) in {norm(w) for w in aspects["porty_reguly"].get("pomijaj", [])}:
+        return ""
+    niemiecka = port_label(etykieta, aspects, review)
+    if not niemiecka:
+        # Brak reguly: pokazujemy tak, jak podal sprzedawca - ale tylko gdy to
+        # bezpieczne. Polskie slowo w niemieckiej ofercie blokuje caly produkt.
+        czysta = etykieta.strip(" -")
+        if not czysta or has_polish_leak(czysta) or len(czysta) > 40:
+            return ""
+        niemiecka = czysta
+    return f"{ile}x {niemiecka}" if ile else niemiecka
+def kafelki_portow(value: str, aspects: dict, review: Review) -> list[str]:
+    """Lista kafelkow 1:1 ze zrodlem - bez laczenia roznych portow w jeden wpis.
+
+    Wczesniej '8x USB 3.1 Typ A' i '2x USB 3.1 Typ-C' scalaly sie w '10x USB 3.1',
+    czyli kupujacy tracil informacje o Type-C, a porty bez reguly (PS/2, DVI,
+    Serial) znikaly z opisu zupelnie. Teraz kazdy wpis ze zrodla ma swoj kafelek.
+    """
+    out: list[str] = []
+    for fragment in podziel_zrodlo_zlacz(value):
+        # Jedyny wyjatek od 1:1: sprzedawca upchnal kilka portow w jeden wpis,
+        # bo zapomnial przecinka ("4 x USB 3.0 2X USB 2.0"). Poznajemy to po
+        # drugiej grupie "Nx" i dopiero wtedy wolno taki wpis rozbic.
+        if len(re.findall(r"\d+\s*x\s", fragment, re.I)) > 1:
+            rozbite = [kafelek_portu(f"{liczba}x {etykieta}", aspects, review)
+                       for liczba, etykieta in _rozbij_fragment(fragment)]
+            rozbite = [k for k in rozbite if k]
+            if rozbite:
+                out += rozbite
+                continue
+        kafelek = kafelek_portu(fragment, aspects, review)
+        if kafelek:
+            out.append(kafelek)
+    return out
 def spec_row(label: str, value: str) -> str:
     return f"<tr><th>{e(label)}</th><td>{e(value)}</td></tr>" if value else ""
 def garantie_de(attrs: dict, profil: dict) -> str:
@@ -838,8 +903,10 @@ def render_description(szablony, attrs, images, translations, aspects, settings,
          else "vorhanden" if attrs.get("Ekran dotykowy") == "Tak" else ""),
         ("Optisches Laufwerk", translations["drive"].get(attrs.get("Napęd", ""), "")),
         ("Betriebssystem", operating_system),
-        ("Tastatur-Layout", keyboard_parts(
-            attrs.get("Klawiatura (ISO lub ANSI)", ""), aspects, review)[0]),
+        # Stala z profilu, nie z feedu: naklejki niemieckie idą na kazda klawiature,
+        # wiec oryginalny uklad (QWERTY US, Nordic) nie jest tym, co dostaje kupujacy.
+        # eBay nie ma aspektu klawiatury w tych kategoriach, wiec nic nie tracimy.
+        ("Tastatur-Layout", profil.get("tastatur_layout", "")),
         ("Webcam", translations["yes_no"].get(attrs.get("Kamera", ""), "")),
         ("Akku", de["Bateria"]),
         ("Lieferumfang", de["W zestawie"]),
@@ -879,7 +946,8 @@ def render_description(szablony, attrs, images, translations, aspects, settings,
                               profil.get("zdania_wiodace", "zdania_wiodace")),
         "spec_rows": "".join(spec_row(l, v) for l, v in specs),
         "port_items": "".join(
-            f"<li>{e(str(c) + 'x ' + n)}</li>" for n, c in scal_porty(ports, aspects, review)),
+            f"<li>{e(kafelek)}</li>"
+            for kafelek in kafelki_portow(attrs.get("Złącza zewnętrzne", ""), aspects, review)),
         "faq_system": faq_system,
         "hinweis_row": (f"<tr><th>Hinweis</th><td>{e(extra_de)}</td></tr>" if extra_de else ""),
         "main_image_block": (
@@ -992,7 +1060,9 @@ def build_row(offer, attrs, cfg, headers, review):
         "C:Festplattenkapazität": vocab_match("Festplattenkapazität", disk, vocab, review, "", strict=False),
         "C:Besonderheiten": features_aspect(
             attrs, ports, aspects,
-            keyboard_parts(attrs.get("Klawiatura (ISO lub ANSI)", ""), aspects, Review())[1],
+            # Uklad klawiatury nie idzie juz do opisu, ale nadal wynika z niego
+            # podswietlenie - dlatego zgloszenia trafiaja tu do prawdziwego review.
+            keyboard_parts(attrs.get("Klawiatura (ISO lub ANSI)", ""), aspects, review)[1],
             profil=profil),
         "C:SSD-Festplattenkapazität": (vocab_match("SSD-Festplattenkapazität", disk, vocab, review, "", strict=False) if attrs.get("Typ dysku") == "SSD" else ""),
         "C:Grafikprozessor": gpu_aspect,
