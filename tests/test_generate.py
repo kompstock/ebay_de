@@ -667,11 +667,11 @@ class ListaSkuGwarancyjnych(unittest.TestCase):
         lista, blad = gw.wczytaj_liste(self.plik("SKU\n"), "SKU")
         self.assertEqual((lista, blad), ([], ""))
 
-    def test_brak_pliku_to_nazwany_blad(self):
+    def test_brak_pliku_to_nie_blad(self):
+        """Lista jest opcjonalna. Brak pliku ma znaczyc to samo co pusta lista -
+        funkcja spi. Inaczej raport wyglada na bledny, choc przebieg jest zdrowy."""
         gw = self.modul()
-        lista, blad = gw.wczytaj_liste(Path("/nie/ma/takiego.csv"), "SKU")
-        self.assertEqual(lista, [])
-        self.assertIn("nie istnieje", blad)
+        self.assertEqual(gw.wczytaj_liste(Path("/nie/ma/takiego.csv"), "SKU"), ([], ""))
 
 
 class Tryby(unittest.TestCase):
