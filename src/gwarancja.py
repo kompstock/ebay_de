@@ -36,7 +36,7 @@ def wczytaj_liste(sciezka: Path, kolumna: str) -> tuple[list[str], str]:
     przez 'Zapisz jako CSV'.
     """
     if not sciezka.is_file():
-        return [], f"{sciezka} nie istnieje"
+        return [], ""                         # brak pliku = to samo co pusta lista
     with sciezka.open(encoding="utf-8-sig", newline="") as handle:
         proba = handle.read(4096)
         handle.seek(0)
@@ -95,12 +95,16 @@ def dopnij(feed_bytes: bytes, cfg_all: dict, root_repo: Path,
     sciezka = root_repo / cfg.get("lista_sku", "config/gwarancja-24.csv")
     lista, blad = wczytaj_liste(sciezka, cfg.get("kolumna_sku", "SKU"))
     raport: dict = {"gw_lista": f"{sciezka.name} ({len(lista)} SKU)"}
-    if blad:
+    if blad:                                  # zly naglowek - to juz prawdziwy blad
         raport["gw_blad_listy"] = blad
         return feed_bytes, raport
 
     szukane = set(lista)
     if not szukane:
+        # Brak pliku albo pusta lista to normalny stan, nie awaria - funkcja spi,
+        # dopoki ktos nie wpisze SKU. Mowimy to wprost, zeby raport nie wygladal
+        # na bledny.
+        raport["gw_lista"] = f"{sciezka.name}: brak SKU, wariant gwarancyjny uspiony"
         return feed_bytes, raport
 
     settings = cfg_all["settings"]
