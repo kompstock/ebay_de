@@ -42,6 +42,46 @@ eBay, cechy zakładane z góry. W kodzie nie ma ani jednego `if kategoria == "Ko
 
 Nowy typ towaru = wpis w `typ_produktu` + blok w `profile_produktu` + szablon.
 
+### Wariant z przedłużoną gwarancją (GW24)
+
+Bliźniak oferty: ten sam sprzęt, SKU z sufiksem `GW24`, cena wyższa o mnożnik
+i opis mówiący o 24 miesiącach zamiast 12.
+
+**Sterujesz listą SKU w [config/gwarancja-24.csv](config/gwarancja-24.csv)** — jedna
+kolumna `SKU`, wpisujesz SKU **oryginału**, sufiks dokleja się sam. Excel: „Zapisz jako CSV".
+Pusta lista = funkcja śpi.
+
+| | |
+|---|---|
+| stan magazynowy | brany z oryginału (przy stanie 1 wystawiasz dwie sztuki jednej — patrz `min_sztuk`) |
+| cena | `mnoznik_ceny` działa na **cenie końcowej**, tej którą widzi kupujący — równo +20% |
+| tytuł | dopisek „24 Monate Garantie" jest **chroniony przed obcięciem** |
+| zasięg | laptopy oraz komputery: poleasingowe i nowe |
+
+**Okres gwarancji to jedna zasada dla całego asortymentu:** oferta główna zawsze
+**12 miesięcy**, bliźniak zawsze **24** — niezależnie od tego, co sklep wpisał w feedzie
+i jaki to sprzęt. Siedzi to w polu `gwarancja` każdego profilu, a szablon tylko je
+wyświetla przez `{{garantie}}`.
+
+Dlatego profile `…GW24` używają **tego samego szablonu** co bazowe — różni je wyłącznie
+ta jedna wartość. Nowy typ towaru: ustawiasz `gwarancja` w jego profilu i gotowe.
+
+> Nowe zestawy mają w feedzie 24 miesiące, ale oferta główna i tak dostaje 12.
+> Inaczej bliźniak nie miałby czym się różnić od oryginału.
+
+`C:Herstellergarantie` zostaje **puste** we wszystkich ofertach. To pole eBaya dotyczy
+gwarancji **producenta**, a nasza jest gwarancją sprzedawcy — mówi o niej opis.
+
+Bliźniak jest dopinany **do feedu** (`src/gwarancja.py`), nie dopisywany przy zapisie CSV.
+Dzięki temu zachowuje się jak zwykła oferta: tryb `aktualizacja` poprawia mu cenę i stan,
+a **usunięcie SKU z listy wygasza go do zera** przy najbliższym przebiegu.
+
+Raport pokazuje `gw_dodane`, `gw_pominieto` oraz `gw_sku_poza_feedem` — ostatnie to SKU
+z listy, których nie ma już w feedzie. Bez tego lista po cichu gnije.
+
+> To **nie jest duplikat** tylko wtedy, gdy gwarancja jest prawdziwa. 24 miesiące serwisu
+> to zobowiązanie magazynu, nie etykieta w tytule.
+
 ### Warianty w obrębie jednej kategorii
 
 Nowe komputery siedzą w tej samej kategorii XML `Komputery` co poleasingowe —
@@ -56,7 +96,6 @@ Profil nowego towaru dodatkowo:
 - podmienia `*C:Marke` na wartość ze słownika eBaya (`Custom, Whitebox`),
   bo marek zestawów składanych ten słownik nie zna,
 - ustawia stały `Model`, bo w feedzie to pole bywa puste albo zawiera nazwę obudowy,
-- mapuje `Gwarancja` na `C:Herstellergarantie` (`24 miesiące` → `2 Jahre`),
 - ma własną pulę zdań wiodących — biurowe („Ideal für Online-Unterricht")
   brzmiałyby fałszywie na komputerze do gier.
 
@@ -101,13 +140,12 @@ Jeśli eBay odrzuci wiersze kategorii 179 przez pustą kolumnę `*C:Bildschirmgr
 | `config/settings.json` | kategorie, dopłata, progi, profile eBay, `profile_produktu` |
 | `config/translations.json` | tłumaczenia całych wartości opisowych (wspólne dla obu typów) |
 | `config/aspects.json` | mapowania aspektów, porty, klawiatury, systemy |
-| `config/manufacturers.json` | dane GPSR producentów |
 | `config/ebay-vocab.json` | dozwolone wartości; 177 i 111422 z szablonu eBaya, 179 dopisane |
 | `config/manufacturers.json` | dane GPSR, w tym producent zestawów składanych |
 | `templates/_style.html` | CSS wspólny dla wszystkich szablonów opisu |
-| `templates/description-notebook.html` | opis laptopa |
-| `templates/description-desktop.html` | opis komputera poleasingowego |
-| `templates/description-desktop-nowy.html` | opis nowego zestawu |
+| `templates/description-notebook.html` | opis laptopa (także wariantu GW24) |
+| `templates/description-desktop.html` | opis komputera poleasingowego (także GW24) |
+| `templates/description-desktop-nowy.html` | opis nowego zestawu (także GW24) |
 
 Gdy tłumaczenie ze wspólnego słownika jest nieprawdą dla drugiego typu
 („Zasilacz z przewodem" to dla laptopa „Notebook, Netzteil mit Kabel"),
