@@ -37,6 +37,7 @@ import unicodedata
 import urllib.request
 import xml.etree.ElementTree as ET
 import allegro
+import gwarancja
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
@@ -103,11 +104,20 @@ def sprawdz_profile(cfg: dict) -> list[str]:
     typy: dict[str, str] = {}
     for kategoria in settings.get("xml_categories", []):
         typy.setdefault(typ_produktu(kategoria, settings), kategoria)
-    for bazowy, wariant in settings.get("typ_produktu_warianty", {}).items():
-        if bazowy not in typy:
-            continue
-        for docelowy in wariant.get("gdy", {}):
-            typy.setdefault(docelowy, f"{typy[bazowy]} / wariant '{docelowy}'")
+    # Typy osiagalne przez lancuch regul - powtarzamy, az nic nowego nie przybedzie.
+    warianty = settings.get("typ_produktu_warianty", {})
+    for _ in range(len(warianty) + 1):
+        przed = len(typy)
+        for bazowy, wariant in warianty.items():
+            if bazowy not in typy:
+                continue
+            for regula in (wariant if isinstance(wariant, list) else [wariant]):
+                if not isinstance(regula, dict):
+                    continue
+                for docelowy in regula.get("gdy", {}):
+                    typy.setdefault(docelowy, f"{typy[bazowy]} / wariant '{docelowy}'")
+        if len(typy) == przed:
+            break
     for typ, kategoria in typy.items():
         profil = settings.get("profile_produktu", {}).get(typ)
         if not profil:
@@ -118,6 +128,9 @@ def sprawdz_profile(cfg: dict) -> list[str]:
         if not szablon or not (ROOT / "templates" / szablon).is_file():
             braki.append(f"templates/{szablon or '(brak wpisu)'}: profil '{typ}' wskazuje "
                          f"na szablon opisu, ktorego nie ma")
+        if not profil.get("gwarancja"):
+            braki.append(f"config/settings.json: profil '{typ}' nie podaje 'gwarancja' "
+                         f"- opis wyszedlby bez okresu gwarancji")
         for klucz in ("kategoria_ebay", "kategoria_ebay_apple"):
             nazwa = profil.get(klucz)
             if not nazwa:
@@ -626,14 +639,30 @@ def typ_produktu(kategoria_xml: str, settings: dict, attrs: dict | None = None) 
     typ = mapa.get(kategoria_xml, mapa["_domyslnie"])
     if attrs is None:
         return typ
-    wariant = settings.get("typ_produktu_warianty", {}).get(typ)
-    if not wariant:
-        return typ
-    wartosc = norm(attrs.get(wariant["pole"], ""))
-    for docelowy, wartosci in wariant["gdy"].items():
-        if wartosc in {norm(w) for w in wartosci}:
-            return docelowy
+    # Reguly sie LANCUCHUJA: po dopasowaniu szukamy dalej, juz dla nowego typu.
+    # Pecet ma dwa niezalezne wymiary - nowy/poleasingowy ORAZ gwarancja - wiec
+    # nowy zestaw z blizniakiem musi przejsc obie reguly po kolei.
+    warianty = settings.get("typ_produktu_warianty", {})
+    for _ in range(len(warianty) + 1):        # straznik przed petla w konfiguracji
+        nastepny = _wariant_typu(typ, warianty, attrs)
+        if nastepny is None:
+            break
+        typ = nastepny
     return typ
+def _wariant_typu(typ: str, warianty: dict, attrs: dict) -> str | None:
+    """Pierwsza pasujaca regula dla tego typu albo None. Kolejnosc regul
+    w konfiguracji ustala pierwszenstwo."""
+    wariant = warianty.get(typ)
+    if not wariant:
+        return None
+    for regula in (wariant if isinstance(wariant, list) else [wariant]):
+        if not isinstance(regula, dict):
+            continue
+        wartosc = norm(attrs.get(regula["pole"], ""))
+        for docelowy, wartosci in regula["gdy"].items():
+            if wartosc in {norm(w) for w in wartosci}:
+                return docelowy
+    return None
 def profil_produktu(kategoria_xml: str, settings: dict, attrs: dict | None = None) -> dict:
     """Profil typu towaru - jedyne miejsce, ktore decyduje 'laptop, pecet czy nowy'.
 
@@ -641,6 +670,15 @@ def profil_produktu(kategoria_xml: str, settings: dict, attrs: dict | None = Non
     wiec tutaj brak wpisu byloby bledem konfiguracji, nie stanem do obsluzenia.
     """
     return settings["profile_produktu"][typ_produktu(kategoria_xml, settings, attrs)]
+def typ_z_feedu(kategoria_xml: str, settings: dict, attrs_surowe: dict) -> str:
+    """Typ towaru dla oferty prosto z feedu, jeszcze przed zbierz_produkty().
+
+    Najpierw aliasy, dopiero potem wariant - feed nazywa pole kondycji peceta
+    'Kondycja', a regula wariantu patrzy na kanoniczne 'Kondycja sprzetu'.
+    Bez tego kroku nowy komputer do gier wygladalby jak zwykly poleasingowy.
+    """
+    bazowy = profil_produktu(kategoria_xml, settings)
+    return typ_produktu(kategoria_xml, settings, zastosuj_aliasy(attrs_surowe, bazowy))
 def podstaw_dane_profilu(attrs: dict[str, str], profil: dict) -> dict[str, str]:
     """Uzupelnia pola, ktorych feed nie podaje dla danego typu towaru.
 
@@ -838,11 +876,15 @@ def kafelki_portow(value: str, aspects: dict, review: Review) -> list[str]:
     return out
 def spec_row(label: str, value: str) -> str:
     return f"<tr><th>{e(label)}</th><td>{e(value)}</td></tr>" if value else ""
-def garantie_de(attrs: dict, profil: dict) -> str:
-    """Gwarancja z feedu jako gotowa fraza do opisu ('2 Jahre Garantie').
-    Bez mapowania w profilu zostaje samo slowo - lepsze niz obietnica z sufitu."""
-    ile = profil.get("gwarancja", {}).get(attrs.get("Gwarancja", ""), "")
-    return f"{ile} Garantie" if ile else "Garantie"
+def garantie_de(profil: dict) -> str:
+    """Okres gwarancji z PROFILU, nigdy z feedu.
+
+    Zasada jest jedna dla calego asortymentu: oferta glowna ma 12 miesiecy,
+    blizniak gwarancyjny 24 - niezaleznie od tego, co sklep wpisal w polu
+    'Gwarancja' i jaki to sprzet. Feed potrafi podac 24 miesiace przy nowym
+    zestawie, ale wtedy blizniak nie mialby czym sie roznic od oryginalu.
+    """
+    return profil.get("gwarancja", "")
 def formfaktor_de(attrs: dict, profil: dict) -> str:
     """Bauform peceta wg profilu. Laptop ma tu pusty blok i dostaje pusty string."""
     cfg = profil.get("formfaktor", {})
@@ -936,7 +978,7 @@ def render_description(szablony, attrs, images, translations, aspects, settings,
         "formfaktor": formfaktor_de(attrs, profil),
         "gpu": ", ".join(x for x in [
             (gpu_clean(attrs.get("Model karty graficznej", "")) or [""])[0], gpu_type] if x),
-        "garantie": garantie_de(attrs, profil),
+        "garantie": garantie_de(profil),
         "company_since": settings["company_since"],
     }
     sekcja_business = settings.get(profil.get("sekcja_opisu", ""), "")
@@ -960,18 +1002,32 @@ def render_description(szablony, attrs, images, translations, aspects, settings,
     out = normalize_space(out)
     leak = has_polish_leak(out)
     return ("", f"opis: niedotlumaczony ({leak})") if leak else (out, "")
-def build_title(attrs: dict, settings: dict, aspects: dict) -> str:
+def build_title(attrs: dict, settings: dict, aspects: dict,
+                profil: dict | None = None) -> str:
     kandydaci = cpu_candidates(zrodlo_procesora(attrs))
     cpu = kandydaci[0] if kandydaci else ""
     parts = [brand_name(attrs.get("Producent", "")), attrs.get("Model", ""),
              cpu.replace("Intel Core ", "").replace("AMD ", ""), clean_capacity(attrs.get("Ilość pamięci RAM", "")),
              clean_capacity(attrs.get("Dysk", "")), attrs.get("Typ dysku", ""),
              screen_size_de(attrs.get("Przekątna ekranu", "")),
-             sufiks_tytulu(attrs.get("Zainstalowany system", ""), aspects)]
-    title = normalize_space(" ".join(p for p in parts if p))
-    while len(title) > 80 and " " in title:
-        title = title.rsplit(" ", 1)[0]
-    return title
+             ]
+    # Ogon tytulu jest NIEROZERWALNY i chroniony przed obcieciem:
+    #   - sufiks systemu, bo "Win11 Pro" obciete do "Win11" gubi rzecz, ktora
+    #     realnie rozni cene (Pro kontra Home),
+    #   - dopisek wariantu, bo bez niego oferta GW24 mialaby tytul identyczny
+    #     z oryginalem, czyli bylaby prawdziwym duplikatem.
+    # Skracamy wylacznie dane techniczne, od konca.
+    ogon = [sufiks_tytulu(attrs.get("Zainstalowany system", ""), aspects),
+            normalize_space((profil or {}).get("dopisek_tytulu", ""))]
+    ogon_tekst = normalize_space(" ".join(x for x in ogon if x))
+    limit = 80 - (len(ogon_tekst) + 1 if ogon_tekst else 0)
+    # Skracamy CALYMI czlonami, nie slowami. Ciecie w polowie czlonu dawalo
+    # smieci: "13,3" bez "Zoll", "256 GB" bez "SSD".
+    czlony = [normalize_space(x) for x in parts if normalize_space(x)]
+    while czlony and len(" ".join(czlony)) > limit:
+        czlony.pop()
+    title = normalize_space(" ".join(czlony))
+    return normalize_space(f"{title} {ogon_tekst}") if ogon_tekst else title
 def build_row(offer, attrs, cfg, headers, review):
     settings, translations = cfg["settings"], cfg["translations"]
     aspects, manufacturers = cfg["aspects"], cfg["manufacturers"]
@@ -1026,7 +1082,7 @@ def build_row(offer, attrs, cfg, headers, review):
     cap = int(settings.get("max_quantity", 0) or 0)
     if cap:
         quantity = min(quantity, cap)
-    price_eur = cena_eur(offer, cfg)
+    price_eur = cena_eur(offer, cfg, profil)
     # Produktart / Formfaktor / Ladegerät - wszystkie trzy z profilu.
     # Kategoria Apple nie ma aspektu Produktart, stad sprawdzenie w slowniku.
     produktart = profil.get("produktart", "") if "Produktart" in slownik["aspekty"] else ""
@@ -1043,7 +1099,7 @@ def build_row(offer, attrs, cfg, headers, review):
         headers[0]: "Add",
         "CustomLabel": attrs.get("SKU", ""),
         "*Category": kategoria,
-        "*Title": build_title(attrs, settings, aspects),
+        "*Title": build_title(attrs, settings, aspects, profil),
         # Nowy towar ma ConditionID wprost z profilu - klasa [Klasa X] dotyczy
         # wylacznie sprzetu poleasingowego i dla nowego zawsze byla by pusta.
         "*ConditionID": profil.get("condition_id") or cond_map.get(grade, cond_map["_brak"]),
@@ -1084,10 +1140,11 @@ def build_row(offer, attrs, cfg, headers, review):
         "C:Grafikprozessortyp": aspects["grafikprozessortyp"].get(
             attrs.get("Rodzaj karty graficznej", ""), ""),
         "C:Konnektivität": connectivity_aspect(ports, aspects, review),
+        # Pole eBaya dotyczy gwarancji PRODUCENTA. Nasza jest gwarancja sprzedawcy,
+        # wiec zostaje puste, chyba ze profil jawnie co innego wskaze.
         "C:Herstellergarantie": vocab_match(
             "Herstellergarantie",
-            profil.get("gwarancja", {}).get(attrs.get("Gwarancja", ""),
-                                            aspects["herstellergarantie"]["wartosc"]),
+            profil.get("herstellergarantie", aspects["herstellergarantie"]["wartosc"]),
             vocab, review),
         "C:Serie": vocab_match("Serie", series_aspect(model, aspects), vocab, review),
         "C:Passend für": "|".join(aspects["passend_fuer"]["wartosci"]),
@@ -1165,10 +1222,17 @@ def wczytaj_raport(path: Path, site: str) -> tuple[dict[str, dict], list[str]]:
     for sku in duplikaty:
         mapa.pop(sku, None)
     return mapa, sorted(duplikaty)
-def cena_eur(offer, cfg) -> int:
-    """PLN z feedu -> EUR po kursie NBP, w gore, plus ukryta doplata za wysylke."""
+def cena_eur(offer, cfg, profil: dict | None = None) -> int:
+    """PLN z feedu -> EUR po kursie NBP, w gore, plus ukryta doplata za wysylke.
+
+    Wariant moze miec mnoznik - dziala na CENIE KONCOWEJ, czyli tej, ktora widzi
+    kupujacy. Mnozenie samej ceny towaru dawalo wzrost zalezny od wartosci
+    sprzetu (od +13% do +20%), co bylo nie do wytlumaczenia.
+    """
     pln = float((offer.get("price") or "0").replace(",", "."))
-    return math.ceil(pln / cfg["rate"]) + int(cfg["settings"]["doplata_wysylka_eur"])
+    eur = math.ceil(pln / cfg["rate"]) + int(cfg["settings"]["doplata_wysylka_eur"])
+    mnoznik = float((profil or {}).get("mnoznik_ceny", 1))
+    return math.ceil(eur * mnoznik) if mnoznik != 1 else eur
 def wczytaj_szablony(settings: dict) -> dict[str, str]:
     """Jeden szablon opisu na typ towaru, z doklejonym wspolnym CSS.
 
@@ -1360,7 +1424,11 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
             if not biezaca:
                 skipped["nie_wystawione"] += 1
                 continue
-            nowa_cena = cena_eur(offer, cfg)
+            # Profil MUSI byc policzony PRZED cena: wariant gwarancyjny ma wlasny
+            # mnoznik. Bez tego blizniak dostawalby w aktualizacji cene oryginalu
+            # i kazdy przebieg cofalby mu podwyzke.
+            profil = profil_produktu(text(offer.find("./cat")), settings, attrs)
+            nowa_cena = cena_eur(offer, cfg, profil)
             nowa_ilosc = int(float(offer.get("stock", "0") or 0))
             cap = int(settings.get("max_quantity", 0) or 0)
             if cap:
@@ -1370,7 +1438,6 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
             if not (zmiana_ceny or zmiana_ilosci):
                 skipped["bez_zmian"] += 1
                 continue
-            profil = profil_produktu(text(offer.find("./cat")), settings, attrs)
             kat = kategoria_produktu(attrs.get("Producent", ""), profil, settings)
             wiersze_revise.append({
                 "Action": "Revise", "Category name": nazwy.get(kat, ""),
@@ -1439,6 +1506,8 @@ def main() -> int:
     parser.add_argument("--raport", type=Path)
     parser.add_argument("--feed-file", type=Path)
     parser.add_argument("--allegro-file", type=Path)
+    parser.add_argument("--gw-lista", type=Path,
+                        help="lista SKU do wariantu gwarancyjnego; wlacza funkcje")
     parser.add_argument("--nbp-rate", type=float)
     parser.add_argument("--output-dir", type=Path, default=ROOT / "output")
     args = parser.parse_args()
@@ -1465,6 +1534,11 @@ def main() -> int:
         feed, raport_allegro = allegro.scal(feed, surowy, cfg)
         extra.update(raport_allegro)
         extra["zrodlo_allegro"] = zrodlo
+    if args.gw_lista:
+        settings.setdefault("gwarancja_rozszerzona", {})["lista_sku"] = str(args.gw_lista)
+        settings["gwarancja_rozszerzona"]["enabled"] = True
+    feed, raport_gw = gwarancja.dopnij(feed, cfg, ROOT, typ_z_feedu)
+    extra.update(raport_gw)
     nbp = ({"currency": "euro", "code": "EUR", "table": "A", "number": "TEST",
             "effective_date": "TEST", "rate": args.nbp_rate}
            if args.nbp_rate else fetch_nbp_rate(settings["nbp_url"]))
