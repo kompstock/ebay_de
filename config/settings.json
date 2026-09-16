@@ -93,16 +93,49 @@
   "typ_produktu_warianty": {
     "_about": "Sama kategoria XML nie zawsze wystarczy. Nowe komputery do gier siedza w tej samej kategorii 'Komputery' co poleasingowe - rozni je tylko wartosc pola kondycji. Klucz to typ bazowy z 'typ_produktu', wartosc mowi, po ktorym polu i na jaki typ przelaczyc.",
     "_uwaga": "Wariant dziedziczy aliasy pol po profilu bazowym - rozpoznanie dzieje sie PO ujednoliceniu nazw, wiec pole podajemy pod nazwa kanoniczna ('Kondycja sprzętu', nie 'Kondycja').",
-    "Desktop-PC": {
-      "pole": "Kondycja sprzętu",
-      "gdy": {
-        "Desktop-PC nowy": [
-          "Nowy",
-          "NOWY",
-          "nowy"
-        ]
+    "Desktop-PC": [
+      {
+        "_uwaga": "Najpierw nowy/poleasingowy, potem gwarancja - reguly sie lancuchuja, wiec nowy zestaw tez moze dostac blizniaka GW24.",
+        "pole": "Kondycja sprzętu",
+        "gdy": {
+          "Desktop-PC nowy": [
+            "Nowy",
+            "NOWY",
+            "nowy"
+          ]
+        }
+      },
+      {
+        "pole": "Wariant gwarancyjny",
+        "gdy": {
+          "Desktop-PC GW24": [
+            "GW24"
+          ]
+        }
       }
-    }
+    ],
+    "Notebook": [
+      {
+        "pole": "Wariant gwarancyjny",
+        "gdy": {
+          "Notebook GW24": [
+            "GW24"
+          ]
+        }
+      }
+    ],
+    "Desktop-PC nowy": [
+      {
+        "_uwaga": "Drugi krok lancucha: nowy zestaw tez moze miec blizniaka gwarancyjnego.",
+        "pole": "Wariant gwarancyjny",
+        "gdy": {
+          "Desktop-PC nowy GW24": [
+            "GW24"
+          ]
+        }
+      }
+    ],
+    "_uwaga_lancuch": "Reguly sie LANCUCHUJA: po dopasowaniu szukamy dalej, juz dla nowego typu. Dzieki temu pecet przechodzi dwa niezalezne wymiary - nowy/poleasingowy ORAZ gwarancja."
   },
   "towar_nowy": {
     "_about": "Wartosci pola kondycji, ktore znacza NOWY towar (u nas: skladane komputery do gier). Caly pipeline jest napisany pod sprzet poleasingowy, wiec takie oferty sa blokowane, dopoki nie powstanie dla nich osobny profil.",
@@ -158,7 +191,10 @@
       "pomijaj_obudowy": [],
       "formfaktor": {},
       "tastatur_layout": "Die Tastatur ist mit deutschen Tastaturaufklebern angepasst (Französisch, Spanisch oder Italienisch auf Anfrage).",
-      "_uwaga_tastatur_layout": "Stala, nie wartosc z feedu. Naklejki niemieckie trafiaja na kazda klawiature, wiec oryginalny uklad (QWERTY US, Nordic) nie jest tym, co dostaje kupujacy. Profile komputerow nie maja tego klucza - wiersz u nich w ogole nie wychodzi, bo klawiatura nie wchodzi w sklad zestawu."
+      "_uwaga_tastatur_layout": "Stala, nie wartosc z feedu. Naklejki niemieckie trafiaja na kazda klawiature, wiec oryginalny uklad (QWERTY US, Nordic) nie jest tym, co dostaje kupujacy. Profile komputerow nie maja tego klucza - wiersz u nich w ogole nie wychodzi, bo klawiatura nie wchodzi w sklad zestawu.",
+      "gwarancja": "12 Monate Garantie",
+      "_uwaga_gwarancja": "Okres gwarancji bierze sie STAD, nigdy z feedu. Zasada jest jedna dla calego asortymentu: oferta glowna 12 miesiecy, blizniak GW24 dwadziescia cztery - takze wtedy, gdy sklep wpisal w feedzie co innego. Inaczej nowy sprzet z 24 miesiacami w feedzie mialby blizniaka nieodrozialnego od oryginalu. Nowy typ towaru = ustaw tu okres i gotowe, szablon go tylko wyswietla przez {{garantie}}.",
+      "_uwaga_szablon_gw24": "Profile GW24 celowo uzywaja TEGO SAMEGO szablonu co bazowe - rozni je wylacznie wartosc 'gwarancja'. Osobne pliki description-*-gw24.html byly kopiami rozniacymi sie jedna linia i zostaly usuniete."
     },
     "Desktop-PC": {
       "_zrodlo": "Wylacznie XML sklepowy (feed_url). Komputery z Allegro nie wchodza - pilnuje tego allegro.kategorie_zrodlowe plus straznik w src/allegro.py.",
@@ -240,7 +276,8 @@
           "Desktop": "Tower"
         },
         "_domyslnie": "Tower"
-      }
+      },
+      "gwarancja": "12 Monate Garantie"
     },
     "Desktop-PC nowy": {
       "_about": "Nowe komputery skladane (zestawy do gier). Ta sama kategoria XML co poleasingowe, wiec wybiera je wariant po polu kondycji - patrz typ_produktu_warianty.",
@@ -264,12 +301,7 @@
       "model_staly": "Gaming-PC",
       "zdania_wiodace": "zdania_wiodace_gaming",
       "_uwaga_model": "Pole 'Model' z feedu jest dla tych ofert bezuzyteczne: raz puste, raz nazwa obudowy ('Chieftec Obudowa GS-02B-OP Hunter 2' - w dodatku ze slowem 'Obudowa', ktore wywalilo by bramke polskich slow).",
-      "gwarancja": {
-        "_about": "Pole 'Gwarancja' z feedu -> C:Herstellergarantie. Wartosci musza byc ze slownika eBaya.",
-        "12 miesięcy": "1 Jahr",
-        "24 miesiące": "2 Jahre",
-        "36 miesięcy": "3 Jahre"
-      },
+      "gwarancja": "12 Monate Garantie",
       "aliasy_atrybutow": {
         "Kondycja sprzętu": [
           "Kondycja sprzętu",
@@ -341,7 +373,241 @@
           "Desktop": "Tower"
         },
         "_domyslnie": "Tower"
-      }
+      },
+      "_uwaga_gwarancja": "Feed podaje przy tych zestawach 24 miesiace, ale oferta glowna i tak dostaje 12 - patrz zasada w profilu Notebook. Dopiero blizniak GW24 daje 24."
+    },
+    "Notebook GW24": {
+      "szablon": "description-notebook.html",
+      "plik_add": "ebay-add-laptopy.csv",
+      "kategoria_ebay": "domyslna",
+      "kategoria_ebay_apple": "apple",
+      "aliasy_atrybutow": {},
+      "scal_atrybuty": {},
+      "nadpisz_tlumaczenia": {},
+      "wymagane_xml": [
+        "Producent",
+        "SKU",
+        "Model",
+        "Ilość pamięci RAM",
+        "Dysk",
+        "Przekątna ekranu"
+      ],
+      "wymagane_tlumaczenia": [
+        "Kondycja sprzętu",
+        "Stan obudowy",
+        "Stan ekranu",
+        "Bateria",
+        "W zestawie"
+      ],
+      "cechy_domyslne": [
+        "Bluetooth",
+        "Wi-Fi",
+        "Eingebautes Mikrofon"
+      ],
+      "_uwaga_cechy": "Zalozenia bezpieczne dla laptopa. Desktop ma te liste pusta - w pececie ani Wi-Fi, ani mikrofon nie sa oczywiste.",
+      "produktart": "Notebook / Laptop",
+      "sekcja_opisu": "sekcja_business_notebook",
+      "ladegeraet": {
+        "tryb": "niepuste"
+      },
+      "_uwaga_ladegeraet": "Zachowanie historyczne laptopow: niepuste 'W zestawie' = Ja. Nie ruszamy, zeby nie zmieniac tysiaca dzialajacych ofert.",
+      "pomijaj_producentow": [],
+      "pomijaj_obudowy": [],
+      "formfaktor": {},
+      "tastatur_layout": "Die Tastatur ist mit deutschen Tastaturaufklebern angepasst (Französisch, Spanisch oder Italienisch auf Anfrage).",
+      "_uwaga_tastatur_layout": "Stala, nie wartosc z feedu. Naklejki niemieckie trafiaja na kazda klawiature, wiec oryginalny uklad (QWERTY US, Nordic) nie jest tym, co dostaje kupujacy. Profile komputerow nie maja tego klucza - wiersz u nich w ogole nie wychodzi, bo klawiatura nie wchodzi w sklad zestawu.",
+      "_about": "Laptop z przedluzona gwarancja - blizniak zwyklej oferty. Tworzy go src/gwarancja.py, rozpoznaje wariant po polu 'Wariant gwarancyjny'.",
+      "dopisek_tytulu": "24 Monate Garantie",
+      "_uwaga_dopisek": "Chroniony przed obcieciem tytulu do 80 znakow. Gdyby wypadl, tytul bylby identyczny z oryginalem - czyli prawdziwy duplikat.",
+      "mnoznik_ceny": 1.2,
+      "_uwaga_mnoznik": "Dziala na cenie KONCOWEJ, tej ktora widzi kupujacy. 279 EUR -> 335 EUR, zawsze rowno +20%.",
+      "gwarancja": "24 Monate Garantie"
+    },
+    "Desktop-PC GW24": {
+      "_zrodlo": "Wylacznie XML sklepowy (feed_url). Komputery z Allegro nie wchodza - pilnuje tego allegro.kategorie_zrodlowe plus straznik w src/allegro.py.",
+      "szablon": "description-desktop.html",
+      "plik_add": "ebay-add-komputery.csv",
+      "kategoria_ebay": "desktop",
+      "aliasy_atrybutow": {
+        "_about": "Feed nazywa te same pola inaczej w kategorii Komputery niz w laptopach. Nazwa docelowa -> lista nazw z feedu, wygrywa pierwsza niepusta.",
+        "Kondycja sprzętu": [
+          "Kondycja sprzętu",
+          "Kondycja"
+        ],
+        "Zainstalowany system": [
+          "Zainstalowany system",
+          "Zainstalowany System"
+        ]
+      },
+      "scal_atrybuty": {
+        "_about": "Jak wyzej, ale wartosci sklejamy przecinkiem zamiast brac pierwsza - desktop opisuje zlacza osobno z tylu i z boku, a oba komplety maja trafic do opisu.",
+        "Złącza zewnętrzne": [
+          "Złącza zewnętrzne",
+          "Złącza z tyłu",
+          "Złącza z boku"
+        ]
+      },
+      "wymagane_xml": [
+        "Producent",
+        "SKU",
+        "Model",
+        "Ilość pamięci RAM",
+        "Dysk"
+      ],
+      "_uwaga_wymagane_xml": "Bez 'Przekątna ekranu' - desktop nie ma ekranu.",
+      "wymagane_tlumaczenia": [
+        "Kondycja sprzętu",
+        "Stan obudowy",
+        "W zestawie"
+      ],
+      "_uwaga_wymagane_tlumaczenia": "Bez 'Stan ekranu' i 'Bateria' - nie maja zastosowania, wiec nie blokuja oferty.",
+      "nadpisz_tlumaczenia": {
+        "_about": "translations.json jest wspolny dla calego sklepu i pisany pod laptopa - 'Zasilacz z przewodem' znaczy tam 'Notebook, Netzteil mit Kabel'. Dla peceta to nieprawda, wiec te wartosci podmieniamy tutaj. Klucz to wartosc z feedu, dokladnie jak w translations.json.",
+        "W zestawie": {
+          "Zasilacz z przewodem": "Netzteil mit Kabel.",
+          "Zasilacz w zestawie": "Netzteil."
+        }
+      },
+      "cechy_domyslne": [],
+      "produktart": "Desktop",
+      "sekcja_opisu": "",
+      "ladegeraet": {
+        "tryb": "lista",
+        "_about": "Dla desktopa liczy sie tresc pola 'W zestawie', a nie samo jego istnienie - 'Brak okablowania' to najczestsza wartosc w feedzie. Cokolwiek spoza listy = Nein.",
+        "tak": [
+          "Zasilacz z przewodem",
+          "Zasilacz w zestawie",
+          "ZASILACZ W ZESTAWIE",
+          "Zasilacz",
+          "Zasilacz z przewodem Podstawka",
+          "Zasilacz , Brak podstawki",
+          "Kompletne okablowanie"
+        ]
+      },
+      "pomijaj_producentow": [
+        "Apple"
+      ],
+      "_uwaga_apple": "Apple desktop ma osobny szablon eBay - na razie nie wystawiamy.",
+      "pomijaj_obudowy": [
+        "all in one",
+        "aio"
+      ],
+      "_uwaga_aio": "Porownanie na znormalizowanej wartosci, jako fragment. All-in-One ma ekran i wymaga innych aspektow niz zwykly pecet.",
+      "formfaktor": {
+        "_about": "Atrybut 'Obudowa' z feedu -> C:Formfaktor w kategorii eBay 179. All in one nie mapujemy w ogole - te oferty odpadaja wyzej przez pomijaj_obudowy.",
+        "z_atrybutu": "Obudowa",
+        "mapa": {
+          "SFF": "Small Form Factor (SFF)",
+          "Tower": "Tower",
+          "Micro / Mini / Tiny": "Mini Desktop",
+          "Desktop": "Tower"
+        },
+        "_domyslnie": "Tower"
+      },
+      "_about": "Komputer poleasingowy z przedluzona gwarancja - blizniak zwyklej oferty. Nowe zestawy tu nie trafiaja: maja 24 miesiace juz w feedzie.",
+      "dopisek_tytulu": "24 Monate Garantie",
+      "mnoznik_ceny": 1.2,
+      "_uwaga_gwarancja": "C:Herstellergarantie zostaje puste - to pole gwarancji PRODUCENTA, a nasza jest gwarancja sprzedawcy. Mowi o niej opis.",
+      "gwarancja": "24 Monate Garantie"
+    },
+    "Desktop-PC nowy GW24": {
+      "_about": "Nowy zestaw skladany - blizniak z wyzsza cena. Szablon i gwarancja te same co w oryginale (nowy zestaw ma 24 miesiace prosto z feedu), rozni go SKU, dopisek w tytule i cena.",
+      "towar_nowy": true,
+      "szablon": "description-desktop-nowy.html",
+      "plik_add": "ebay-add-komputery.csv",
+      "kategoria_ebay": "desktop",
+      "condition_id": "1000",
+      "_uwaga_condition": "1000 = Neu. Klasa [Klasa A/B/C] dotyczy wylacznie sprzetu poleasingowego i dla nowego zawsze byla by pusta, czyli ConditionID zeszlo by na 3000 'Gebraucht'.",
+      "producent_zastepczy": {
+        "_about": "Feed podaje 'Niezdefiniowany' - zestaw jest skladany, nie ma producenta OEM. Kto sklada i wprowadza do obrotu, ten jest producentem w rozumieniu GPSR. 'Logic' to alias prowadzacy do wpisu 'logic concept polska' w manufacturers.json.",
+        "gdy": [
+          "Niezdefiniowany"
+        ],
+        "nazwa": "Logic"
+      },
+      "marke_aspekt": {
+        "_about": "eBay nie zna marki 'Logic' w kategorii 179. 'Custom, Whitebox' to oficjalna wartosc slownikowa dla zestawow skladanych. Chcesz budowac wlasna marke? Wpisz ja tutaj i sprawdz trybem test, czy eBay ja przyjmie.",
+        "wartosc": "Custom, Whitebox"
+      },
+      "model_staly": "Gaming-PC",
+      "zdania_wiodace": "zdania_wiodace_gaming",
+      "_uwaga_model": "Pole 'Model' z feedu jest dla tych ofert bezuzyteczne: raz puste, raz nazwa obudowy ('Chieftec Obudowa GS-02B-OP Hunter 2' - w dodatku ze slowem 'Obudowa', ktore wywalilo by bramke polskich slow).",
+      "gwarancja": "24 Monate Garantie",
+      "aliasy_atrybutow": {
+        "Kondycja sprzętu": [
+          "Kondycja sprzętu",
+          "Kondycja"
+        ],
+        "Zainstalowany system": [
+          "Zainstalowany system",
+          "Zainstalowany System"
+        ]
+      },
+      "scal_atrybuty": {
+        "Złącza zewnętrzne": [
+          "Złącza zewnętrzne",
+          "Złącza z tyłu",
+          "Złącza z boku"
+        ]
+      },
+      "nadpisz_tlumaczenia": {
+        "_about": "Nowy zestaw nie jest 'poleasingowy' ani 'uzywany'. Wspolny slownik tego nie wie, wiec kondycje opisujemy tutaj.",
+        "Kondycja sprzętu": {
+          "Nowy": "Neu, originalverpackt und werkseitig getestet."
+        },
+        "Stan obudowy": {
+          "Nowy": "Neu, ohne Gebrauchsspuren.",
+          "NOWY": "Neu, ohne Gebrauchsspuren.",
+          "Normalne ślady użytkowania": "Neu, ohne Gebrauchsspuren."
+        },
+        "W zestawie": {
+          "Zasilacz z przewodem": "Netzteil mit Kabel.",
+          "Zasilacz w zestawie": "Netzteil."
+        }
+      },
+      "_uwaga_stan_obudowy": "SKU 4410 ma sprzeczne dane: Kondycja 'Nowy', a Stan obudowy 'Normalne slady uzytkowania'. Skoro sprzedajemy to jako nowe, obudowa tez jest nowa - inaczej oferta przeczy sama sobie.",
+      "wymagane_xml": [
+        "Producent",
+        "SKU",
+        "Ilość pamięci RAM",
+        "Dysk"
+      ],
+      "_uwaga_wymagane_xml": "Bez 'Model' (patrz model_staly) i bez 'Przekątna ekranu'.",
+      "wymagane_tlumaczenia": [
+        "Kondycja sprzętu",
+        "Stan obudowy"
+      ],
+      "_uwaga_wymagane_tlumaczenia": "Bez 'W zestawie' - przy nowym zestawie brak tego pola nie jest powodem, zeby nie wystawic.",
+      "cechy_domyslne": [],
+      "produktart": "Desktop",
+      "sekcja_opisu": "",
+      "ladegeraet": {
+        "tryb": "lista",
+        "tak": [
+          "Zasilacz z przewodem",
+          "Zasilacz w zestawie",
+          "Zasilacz",
+          "Kompletne okablowanie"
+        ]
+      },
+      "pomijaj_producentow": [],
+      "pomijaj_obudowy": [
+        "all in one",
+        "aio"
+      ],
+      "formfaktor": {
+        "z_atrybutu": "Obudowa",
+        "mapa": {
+          "SFF": "Small Form Factor (SFF)",
+          "Tower": "Tower",
+          "Micro / Mini / Tiny": "Mini Desktop",
+          "Desktop": "Tower"
+        },
+        "_domyslnie": "Tower"
+      },
+      "_uwaga_roznica": "UWAGA: oryginal ma juz 24 miesiace, wiec blizniak NIE oferuje wiecej gwarancji - tylko ja nazywa w tytule i kosztuje 20% wiecej. To swiadoma decyzja handlowa; jesli eBay uzna to za duplikat, usun SKU z listy.",
+      "dopisek_tytulu": "24 Monate Garantie",
+      "mnoznik_ceny": 1.2
     }
   },
   "sekcja_business_notebook": "<div class=\"kpx-sec\"><h2 class=\"kpx-h2\"><span>Warum ein Business-Notebook?</span></h2><p>Ger&auml;te aus der Business-Serie werden f&uuml;r Unternehmen gebaut, nicht f&uuml;r den Elektromarkt. Das merkt man jeden Tag.</p><ul class=\"kpx-ul\"><li>Robustes Geh&auml;use aus Magnesium oder Karbon statt d&uuml;nnem Kunststoff.</li><li>F&uuml;r den t&auml;glichen Dauereinsatz entwickelt und entsprechend getestet.</li><li>Hochwertige Tastatur mit sp&uuml;rbarem Druckpunkt.</li><li>Langlebige Komponenten und lange Ersatzteilverf&uuml;gbarkeit.</li><li>Wartungsfreundlich konstruiert &ndash; Servicearbeiten sind ohne Spezialwerkzeug m&ouml;glich.</li></ul></div>",
@@ -449,5 +715,25 @@
         "DE (qwertz)": "QWERTZ DE"
       }
     }
+  },
+  "gwarancja_rozszerzona": {
+    "_about": "Blizniak oferty z przedluzona gwarancja: ten sam sprzet, SKU z sufiksem, cena +20%, osobny szablon opisu mowiacy o 24 miesiacach. Logika w src/gwarancja.py, krok odpala sie PO scaleniu Allegro, wiec warianty mozna robic takze z ofert allegrowych.",
+    "_uwaga_duplikat": "To NIE jest duplikat tylko wtedy, gdy gwarancja jest prawdziwa - 24 miesiace serwisu to zobowiazanie magazynu, nie etykieta. Inaczej zostaje ta sama oferta dwa razy plus falszywe twierdzenie o towarze.",
+    "_uwaga_stan": "Stan blizniaka = stan oryginalu (decyzja biznesowa). Przy stanie 1 sa wiec wystawione dwie sztuki jednej. Podnies 'min_sztuk', zeby warianty powstawaly tylko przy wiekszym zapasie.",
+    "enabled": true,
+    "lista_sku": "config/gwarancja-24.csv",
+    "kolumna_sku": "SKU",
+    "_uwaga_lista": "Plik CSV z kolumna SKU - podaj SKU ORYGINALU, sufiks dokleja sie sam. Excel: 'Zapisz jako CSV'. Pusta lista = funkcja spi. SKU z listy, ktorych nie ma w feedzie, raport zglasza jako 'gw_sku_poza_feedem'.",
+    "sufiks_sku": "GW24",
+    "_uwaga_mnoznik": "Mnoznik ceny siedzi teraz w profilu wariantu (profile_produktu.*.mnoznik_ceny).",
+    "pole_wariantu": "Wariant gwarancyjny",
+    "wartosc_wariantu": "GW24",
+    "typy": [
+      "Notebook",
+      "Desktop-PC",
+      "Desktop-PC nowy"
+    ],
+    "_uwaga_typy": "Laptopy oraz komputery - poleasingowe i nowe. Kazdy typ ma swoj profil GW24; roznica wobec oryginalu to zawsze te same 12 miesiecy gwarancji wiecej.",
+    "min_sztuk": 1
   }
 }
