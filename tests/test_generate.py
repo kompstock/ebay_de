@@ -16,13 +16,17 @@ POLSKIE = set("ąćęłńóśźż")
 csv.field_size_limit(10 ** 7)
 
 
-def uruchom(tryb="pierwsze", feed=FIXTURE, raport=RAPORT):
+GW_LISTA = ROOT / "tests" / "fixtures" / "gwarancja-24.csv"
+
+
+def uruchom(tryb="pierwsze", feed=FIXTURE, raport=RAPORT, gw_lista=None):
     out = Path(tempfile.mkdtemp())
-    subprocess.run(
-        [sys.executable, str(ROOT / "src" / "generate.py"), "--tryb", tryb,
-         "--feed-file", str(feed), "--raport", str(raport), "--nbp-rate", "4.26",
-         "--min-produktow", "1", "--output-dir", str(out)],
-        check=False, capture_output=True)
+    polecenie = [sys.executable, str(ROOT / "src" / "generate.py"), "--tryb", tryb,
+                 "--feed-file", str(feed), "--raport", str(raport), "--nbp-rate", "4.26",
+                 "--min-produktow", "1", "--output-dir", str(out)]
+    if gw_lista:
+        polecenie += ["--gw-lista", str(gw_lista)]
+    subprocess.run(polecenie, check=False, capture_output=True)
     raport_json = json.loads((out / "generation-report.json").read_text(encoding="utf-8"))
     wiersze = []
     plik = out / "ebay-add.csv"
@@ -247,9 +251,14 @@ class NowyKomputer(unittest.TestCase):
         marki = vocab["kategorie"]["179"]["aspekty"]["Marke"]
         self.assertIn(self.nowy()["*C:Marke"], marki)
 
-    def test_gwarancja_z_feedu(self):
-        """Feed mowi '24 miesiace' - w ofercie ma byc '2 Jahre', nie stala z sufitu."""
-        self.assertEqual(self.nowy()["C:Herstellergarantie"], "2 Jahre")
+    def test_oferta_glowna_zawsze_12_miesiecy(self):
+        """Feed mowi przy tych zestawach '24 miesiace', ale oferta glowna i tak
+        dostaje 12. Inaczej blizniak GW24 nie mialby czym sie roznic."""
+        tekst = self.opis(self.nowy())
+        self.assertIn("12 Monate Garantie", tekst)
+        self.assertNotIn("24 Monate Garantie", tekst)
+        self.assertEqual(self.nowy()["C:Herstellergarantie"], "",
+                         "pole eBaya dotyczy gwarancji producenta, nasza jest sprzedawcy")
 
     def test_zdanie_wiodace_nie_jest_biurowe(self):
         tekst = self.opis(self.nowy())
@@ -510,6 +519,159 @@ class BramkiKonfiguracji(unittest.TestCase):
         self.assertEqual(generate.allegro.sprawdz_kategorie(cfg), [])
         cfg["settings"]["allegro"]["kategoria_docelowa"] = "Komputery"
         self.assertTrue(generate.allegro.sprawdz_kategorie(cfg))
+
+
+class WariantGwarancyjny(unittest.TestCase):
+    """Blizniak z przedluzona gwarancja: ten sam sprzet, inne SKU, cena +20%.
+
+    Fixture listy wskazuje 4220 (laptop - ma powstac), 3959 (pecet - ma zostac
+    odrzucony) i 9999999 (nie ma go w feedzie - ma trafic do raportu).
+    """
+    ORYGINAL = "4220"
+    BLIZNIAK = "4220GW24"
+
+    @classmethod
+    def setUpClass(cls):
+        cls.wiersze, cls.raport, cls.out = uruchom(gw_lista=GW_LISTA)
+        cls.wg_sku = {w["CustomLabel"]: w for w in cls.wiersze}
+
+    def opis(self, wiersz):
+        tekst = re.sub(r"(?is)<(style|script).*?</>", " ", wiersz["*Description"])
+        return re.sub(r"\s+", " ", html.unescape(re.sub(r"<[^>]+>", " ", tekst)))
+
+    def test_blizniak_powstal(self):
+        self.assertIn(self.BLIZNIAK, self.wg_sku,
+                      f"pominieto: {self.raport.get('gw_pominieto')}")
+        # laptop 4220, pecet 3959, nowy gaming 10362. 9999999 nie ma w feedzie.
+        self.assertEqual(self.raport["gw_dodane"], 3)
+
+    def test_nowy_gaming_tez_ma_blizniaka(self):
+        """Nowy zestaw ma 24 miesiace juz w oryginale, wiec blizniak NIE dodaje
+        gwarancji - nazywa ja w tytule i kosztuje 20% wiecej. Swiadoma decyzja
+        handlowa. Pilnujemy tylko, zeby faktycznie sie czyms roznil."""
+        self.assertIn("10362GW24", self.wg_sku,
+                      f"pominieto: {self.raport.get('gw_pominieto')}")
+        o, g = self.wg_sku["10362"], self.wg_sku["10362GW24"]
+        self.assertNotEqual(o["*Title"], g["*Title"], "blizniak bez roznicy w tytule")
+        self.assertIn("24 Monate Garantie", g["*Title"])
+        self.assertAlmostEqual(float(g["*StartPrice"]) / float(o["*StartPrice"]), 1.20,
+                               delta=0.01, msg="blizniak musi byc drozszy")
+        self.assertEqual(g["*ConditionID"], "1000", "nowy zestaw zostaje nowy")
+
+    def test_kazdy_blizniak_rozni_sie_od_oryginalu(self):
+        """Bramka na cala rodzine wariantow: blizniak identyczny z oryginalem
+        to czysty duplikat i nie ma prawa wyjsc."""
+        for sku, wiersz in self.wg_sku.items():
+            if not sku.endswith("GW24"):
+                continue
+            oryginal = self.wg_sku.get(sku[:-4])
+            self.assertIsNotNone(oryginal, sku)
+            self.assertNotEqual(oryginal["*Title"], wiersz["*Title"], sku)
+            self.assertGreater(float(wiersz["*StartPrice"]),
+                               float(oryginal["*StartPrice"]), sku)
+
+    def test_stan_z_oryginalu(self):
+        self.assertEqual(self.wg_sku[self.BLIZNIAK]["*Quantity"],
+                         self.wg_sku[self.ORYGINAL]["*Quantity"])
+
+    def test_opis_mowi_o_24_miesiacach(self):
+        gw = self.opis(self.wg_sku[self.BLIZNIAK])
+        org = self.opis(self.wg_sku[self.ORYGINAL])
+        self.assertIn("24 Monate Garantie", gw)
+        self.assertNotIn("12 Monate Garantie", gw)
+        self.assertIn("12 Monate Garantie", org, "oryginal zostaje przy 12")
+
+    def test_gwarancja_sprzedawcy_nie_udaje_producenta(self):
+        """C:Herstellergarantie to gwarancja PRODUCENTA. Nasza jest sprzedawcy,
+        wiec pole zostaje puste - inaczej twierdzilibysmy, ze HP daje 24 miesiace
+        na laptopa poleasingowego."""
+        self.assertEqual(self.wg_sku[self.BLIZNIAK]["C:Herstellergarantie"], "")
+        self.assertEqual(self.wg_sku[self.ORYGINAL]["C:Herstellergarantie"], "")
+        self.assertIn("24 Monate Garantie", self.opis(self.wg_sku[self.BLIZNIAK]))
+
+    def test_tytul_rozni_sie_i_trzyma_system(self):
+        """Gdyby dopisek wypadl przy obcinaniu, tytul bylby identyczny z oryginalem -
+        czyli oferta bylaby prawdziwym duplikatem."""
+        org = self.wg_sku[self.ORYGINAL]["*Title"]
+        gw = self.wg_sku[self.BLIZNIAK]["*Title"]
+        self.assertNotEqual(org, gw)
+        self.assertIn("24 Monate Garantie", gw)
+        self.assertLessEqual(len(gw), 80)
+        self.assertRegex(gw, r"Win\d+ (Pro|Home)", "edycja systemu nie moze zostac ucieta")
+
+    def test_pecet_tez_dostaje_blizniaka(self):
+        """Komputer poleasingowy ma wlasny profil GW24 i wlasny szablon."""
+        self.assertIn("3959GW24", self.wg_sku,
+                      f"pominieto: {self.raport.get('gw_pominieto')}")
+        blizniak = self.wg_sku["3959GW24"]
+        self.assertEqual(blizniak["*Category"], "179")
+        self.assertEqual(blizniak["C:Produktart"], "Desktop")
+        tekst = self.opis(blizniak)
+        self.assertIn("24 Monate Garantie", tekst)
+        self.assertNotIn("12 Monate Garantie", tekst)
+        self.assertNotIn("Tastatur-Layout", tekst, "pecet nadal bez klawiatury")
+
+    def test_cena_rosnie_rowno_o_mnoznik(self):
+        """Mnoznik dziala na cenie koncowej, wiec procent jest ten sam dla
+        kazdej oferty - niezaleznie od tego, ile kosztuje sprzet."""
+        for oryginal in (self.ORYGINAL, "3959"):
+            o = float(self.wg_sku[oryginal]["*StartPrice"])
+            g = float(self.wg_sku[oryginal + "GW24"]["*StartPrice"])
+            self.assertAlmostEqual(g / o, 1.20, delta=0.01,
+                                   msg=f"{oryginal}: {o} -> {g}")
+
+    def test_sku_spoza_feedu_jest_raportowane(self):
+        """Bez tego lista po cichu gnije - produkt wychodzi ze sprzedazy,
+        wpis zostaje, nikt tego nie widzi."""
+        self.assertIn("9999999", self.raport["gw_sku_poza_feedem"])
+
+    def test_bez_listy_nie_ma_blizniakow(self):
+        wiersze, raport, _ = uruchom()
+        self.assertNotIn("4220GW24", {w["CustomLabel"] for w in wiersze})
+
+
+class ListaSkuGwarancyjnych(unittest.TestCase):
+    """Czytanie listy SKU z pliku - Excel zapisuje CSV raz z przecinkiem, raz ze srednikiem."""
+
+    def modul(self):
+        sys.path.insert(0, str(ROOT / "src"))
+        import gwarancja
+        return gwarancja
+
+    def plik(self, tresc):
+        sciezka = Path(tempfile.mkdtemp()) / "lista.csv"
+        sciezka.write_text(tresc, encoding="utf-8")
+        return sciezka
+
+    def test_przecinek_i_srednik(self):
+        gw = self.modul()
+        for tresc in ("SKU,Uwagi\n3808,cokolwiek\n4220,\n",
+                      "SKU;Uwagi\n3808;cokolwiek\n4220;\n"):
+            lista, blad = gw.wczytaj_liste(self.plik(tresc), "SKU")
+            self.assertEqual(blad, "")
+            self.assertEqual(lista, ["3808", "4220"])
+
+    def test_duplikaty_i_puste_wiersze_pomijane(self):
+        gw = self.modul()
+        lista, _ = gw.wczytaj_liste(self.plik("SKU\n3808\n3808\n\n4220\n"), "SKU")
+        self.assertEqual(lista, ["3808", "4220"])
+
+    def test_brak_kolumny_to_nazwany_blad(self):
+        gw = self.modul()
+        lista, blad = gw.wczytaj_liste(self.plik("Numer\n3808\n"), "SKU")
+        self.assertEqual(lista, [])
+        self.assertIn("SKU", blad)
+
+    def test_pusta_lista_nie_jest_bledem(self):
+        gw = self.modul()
+        lista, blad = gw.wczytaj_liste(self.plik("SKU\n"), "SKU")
+        self.assertEqual((lista, blad), ([], ""))
+
+    def test_brak_pliku_to_nazwany_blad(self):
+        gw = self.modul()
+        lista, blad = gw.wczytaj_liste(Path("/nie/ma/takiego.csv"), "SKU")
+        self.assertEqual(lista, [])
+        self.assertIn("nie istnieje", blad)
 
 
 class Tryby(unittest.TestCase):
