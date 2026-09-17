@@ -1,8 +1,15 @@
-name: Generuj CSV eBay DE
+name: Generuj CSV eBay
 
 on:
   workflow_dispatch:
     inputs:
+      kraj:
+        description: "Rynek docelowy"
+        type: choice
+        default: de
+        options:
+          - de
+          - it
       tryb:
         description: "Co zrobić"
         type: choice
@@ -47,16 +54,18 @@ jobs:
       # przerywa z komunikatem, zamiast po cichu gubic wszystkie komputery.
       # Do odtworzenia wpisu sluzy tools/dodaj_kategorie_179.py.
 
+      # Jeden przebieg = jeden kraj. Rynki nie moga sobie nawzajem wyzerowac
+      # aukcji, bo raport aktywnych ofert filtruje sie po 'Listing site'.
       - name: Wygeneruj pliki
         continue-on-error: true
-        run: python src/generate.py --tryb "${{ inputs.tryb }}"
+        run: python src/generate.py --kraj "${{ inputs.kraj }}" --tryb "${{ inputs.tryb }}"
 
       - name: Podsumowanie
         if: always()
         run: |
           python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
-          import json, pathlib
-          p = pathlib.Path("output/generation-report.json")
+          import json, os, pathlib
+          p = pathlib.Path(f"output/{os.environ['KRAJ']}/generation-report.json")
           if not p.exists():
               print("## Generowanie nie doszlo do skutku"); raise SystemExit
           r = json.loads(p.read_text(encoding="utf-8"))
@@ -95,13 +104,15 @@ jobs:
                   for i in items[:15]:
                       print(f"- **{i['produktow']}x** — {i['wartosc'][:150]}")
           PY
+        env:
+          KRAJ: ${{ inputs.kraj }}
 
       - name: Zapisz artefakty
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: wynik-generowania
-          path: output/
+          name: wynik-generowania-${{ inputs.kraj }}
+          path: output/${{ inputs.kraj }}/
           if-no-files-found: warn
           retention-days: 30
 
@@ -109,7 +120,7 @@ jobs:
         run: |
           python - <<'PY'
           import json, os, sys
-          r = json.load(open("output/generation-report.json", encoding="utf-8"))
+          r = json.load(open(f"output/{os.environ['KRAJ']}/generation-report.json", encoding="utf-8"))
           if os.environ.get("IGNORUJ") == "true":
               print("progi pominiete na zyczenie"); raise SystemExit
           if not r["ok"]:
@@ -119,12 +130,17 @@ jobs:
           PY
         env:
           IGNORUJ: ${{ inputs.ignoruj_prog }}
+          KRAJ: ${{ inputs.kraj }}
 
       - name: Przygotuj stronę
         if: always()
         run: |
-          mkdir -p site/downloads
-          cp output/* site/downloads/ 2>/dev/null || true
+          # Dwa miejsca naraz: plasko, bo strona czyta downloads/ i ma pokazywac
+          # ostatni przebieg niezaleznie od rynku, oraz w katalogu kraju, zeby
+          # wynik DE nie przykrywal wloskiego w archiwum.
+          mkdir -p site/downloads "site/downloads/${{ inputs.kraj }}"
+          cp output/${{ inputs.kraj }}/* site/downloads/ 2>/dev/null || true
+          cp output/${{ inputs.kraj }}/* "site/downloads/${{ inputs.kraj }}/" 2>/dev/null || true
 
       - uses: actions/configure-pages@v5
         if: always()
