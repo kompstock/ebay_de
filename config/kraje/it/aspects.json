@@ -130,19 +130,20 @@
    "Beleuchtete Tastatur",
    "Fingerabdruckleser"
   ],
-  "_webcam": "Integrierte Webkamera",
+  "_webcam": "Webcam integrata",
   "_touchscreen": "Touchscreen",
-  "_podswietlenie": "Hintergrundbeleuchtete Tastatur",
+  "_podswietlenie": "Tastiera retroilluminata",
   "_uwaga_lan": "'10/100 LAN Karte' usuniete - to deklaracja predkosci, ktorej feed nie potwierdza. Obecnosc portu LAN wynika z sekcji Anschlüsse i aspektu Konnektivität."
  },
  "farbe": {
   "_about": "C:Farbe - z feedu brak pola koloru, wiec wartosc domyslna per producent/seria.",
-  "domyslnie": "Schwarz",
+  "domyslnie": "Nero",
   "z_modelu": {
-   "macbook": "Silber",
-   "elitebook": "Silber",
-   "zbook": "Silber"
-  }
+   "macbook": "Argento",
+   "elitebook": "Argento",
+   "zbook": "Argento"
+  },
+  "_do_sprawdzenia": "Kolory przetlumaczone maszynowo: Schwarz->Nero, Silber->Argento. Oba sa na liscie dozwolonych wartosci eBay.it. Do potwierdzenia przez Marka."
  },
  "serie": {
   "_about": "C:Serie - wyprowadzana z nazwy modelu. Brak dopasowania = pole puste (nie blokuje).",
@@ -168,13 +169,13 @@
   "_uwaga": "ok.csv mial 'Arbeit|Business|Homeoffice' - zadna z tych wartosci nie istnieje w slowniku eBaya."
  },
  "festplattentyp": {
-  "SSD": "SSD (Solid State Drive)",
-  "HDD": "HDD (Hard Disk Drive)",
+  "SSD": "SSD (Stato solido)",
+  "HDD": "HDD (Disco rigido)",
   "eMMC": "eMMC"
  },
  "grafikprozessortyp": {
-  "Zintegrowana": "Integrierte / On-Board-Grafik",
-  "Dedykowana": "Dedizierte Grafiken"
+  "Zintegrowana": "Grafica integrata/on-Board",
+  "Dedykowana": "Dedicata"
  },
  "betriebssystem": {
   "_about": "Wartosc z feedu -> wartosc aspektu eBay. Rozna dla kategorii 177 i 111422.",
@@ -188,9 +189,9 @@
   "Chrome OS": "Chrome OS",
   "Linux": "Linux",
   "Ubuntu": "Ubuntu",
-  "Brak": "Nicht enthalten",
-  "Bez systemu": "Nicht enthalten",
-  "Brak systemu": "Nicht enthalten",
+  "Brak": "Non incluso",
+  "Bez systemu": "Non incluso",
+  "Brak systemu": "Non incluso",
   "MacOS Mojave": "macOS 10.14, Mojave",
   "Mac OS Catalina": "Mac OS 10.15, Catalina",
   "Mac OS Big Sur": "Mac OS 11.0, Big Sur",
@@ -212,8 +213,8 @@
   "Windows 10/11 Professional": "Windows 10 Pro",
   "System Windows 10 IoT Enterprise": "Windows 10",
   "Windows Embedded Standard 10 LTSB": "Windows 10",
-  "brak": "Nicht enthalten",
-  "Brak Licencja -Windows Embedded Standard": "Nicht enthalten"
+  "brak": "Non incluso",
+  "Brak Licencja -Windows Embedded Standard": "Non incluso"
  },
  "erscheinungsjahr": {
   "_about": "C:Erscheinungsjahr - feed tego nie ma. Rocznik per model, uzupelniany recznie. Brak = pole puste.",

@@ -674,6 +674,203 @@ class ListaSkuGwarancyjnych(unittest.TestCase):
         self.assertEqual(gw.wczytaj_liste(Path("/nie/ma/takiego.csv"), "SKU"), ([], ""))
 
 
+class OsKraju(unittest.TestCase):
+    """Druga os konfiguracji: typ towaru mowi CO, kraj mowi GDZIE i po jakiemu."""
+
+    def kraj_testowy(self, **zmiany) -> str:
+        """Kopia kraju DE z podmieniona wartoscia. Sprzatana po tescie."""
+        import json
+        katalog = ROOT / "config" / "kraje"
+        dane = json.loads((katalog / "de.json").read_text(encoding="utf-8"))
+        dane.update(zmiany)
+        kod = dane["kod"].lower()
+        sciezka = katalog / f"{kod}.json"
+        sciezka.write_text(json.dumps(dane, ensure_ascii=False), encoding="utf-8")
+        self.addCleanup(sciezka.unlink)
+        return kod
+
+    def przebieg(self, kod, tryb="pierwsze", gw=True):
+        out = Path(tempfile.mkdtemp())
+        polecenie = [sys.executable, str(ROOT / "src" / "generate.py"), "--kraj", kod,
+                     "--tryb", tryb, "--feed-file", str(FIXTURE), "--raport", str(RAPORT),
+                     "--nbp-rate", "4.26", "--min-produktow", "1", "--output-dir", str(out)]
+        if gw:
+            polecenie += ["--gw-lista", str(ROOT / "tests/fixtures/gwarancja-24.csv")]
+        wynik = subprocess.run(polecenie, check=False, capture_output=True, text=True)
+        raport = json.loads((out / "generation-report.json").read_text(encoding="utf-8"))
+        return raport, out, wynik
+
+    def sku_z_pliku(self, out) -> list[str]:
+        with (out / "ebay-add.csv").open(encoding="utf-8-sig") as uchwyt:
+            rows = list(csv.reader(uchwyt, delimiter=";"))
+        return [r[1] for r in rows[2:] if r]
+
+    def test_niemcy_bez_sufiksu(self):
+        """Dzisiejsze aukcje maja gole SKU - sufiks zerwalby z nimi powiazanie."""
+        _, out, _ = self.przebieg("de")
+        self.assertTrue(all("ITT" not in s for s in self.sku_z_pliku(out)))
+
+    def test_sufiks_kraju_dochodzi_po_blizniaku_gwarancyjnym(self):
+        """Kolejnosc nie jest kosmetyczna: gwarancja-24.csv trzyma GOLE SKU.
+        Gdyby sufiks szedl wczesniej, lista przestalaby trafiac i warianty
+        gwarancyjne przepadlyby bez zadnego komunikatu."""
+        kod = self.kraj_testowy(kod="XT", sufiks_sku="ITT")
+        _, out, _ = self.przebieg(kod)
+        sku = self.sku_z_pliku(out)
+        self.assertTrue(all(s.endswith("ITT") for s in sku), sku)
+        self.assertIn("4220GW24ITT", sku, "blizniak ma zachowac oba sufiksy, w tej kolejnosci")
+
+    def test_kraj_w_budowie_jest_blokada_a_nie_wysypka(self):
+        """Brak tlumaczen ma zatrzymac przebieg z nazwanym powodem. Gdyby
+        przeszedl, eBay przyjalby plik z pustymi aspektami i nikt by nie zauwazyl."""
+        # Kraj SZTUCZNY, nie 'it': prawdziwe rynki z czasem sie uzupelniaja
+        # i test przestalby cokolwiek sprawdzac.
+        kod = self.kraj_testowy(kod="XB", pliki={
+            "naglowek": "config/kraje/xb/ebay-header.csv",
+            "slownik": "config/kraje/xb/ebay-vocab.json",
+            "aspekty": "config/kraje/xb/aspects.json",
+            "tlumaczenia": "config/kraje/xb/translations.json"})
+        raport, out, _ = self.przebieg(kod)
+        self.assertFalse(raport["ok"])
+        powod = " ".join(raport["blokady"])
+        self.assertIn("kraj nie jest gotowy", powod)
+        self.assertIn("ebay-header.csv", powod, "komunikat ma nazwac brakujacy plik")
+        self.assertFalse((out / "ebay-add.csv").exists(), "zaden CSV nie ma powstac")
+
+    def test_wlochy_sa_kompletne(self):
+        """Odwrotna strona bramki: kiedy kraj ma juz komplet, przebieg przechodzi
+        i produkuje oferty. Inaczej 'nie wysypalo sie' znaczyloby tyle samo, co
+        'nic nie powstalo'."""
+        raport, out, _ = self.przebieg("it", tryb="test")
+        self.assertEqual(raport["blokady"], [])
+        self.assertTrue(raport["ok"])
+        sku = self.sku_z_pliku(out)
+        self.assertTrue(sku, "wloski przebieg ma wystawic oferty")
+        self.assertTrue(all(s.endswith("ITT") for s in sku), sku)
+
+    def test_naglowek_musi_pasowac_do_kraju(self):
+        """Niemiecki naglowek przy wloskim rynku znaczylby porownywanie aukcji
+        jednego rynku z plikiem na drugi - czyli zerowanie wszystkiego."""
+        kod = self.kraj_testowy(kod="XN", naglowek_site_id="Italy")
+        raport, _, _ = self.przebieg(kod)
+        self.assertFalse(raport["ok"])
+        self.assertIn("SiteID", " ".join(raport["blokady"]))
+
+    def test_przekatna_w_zapisie_rynku(self):
+        """Niemcy pisza '15,6 Zoll', Wlosi '15,6\"'. Aspekt jest WYMAGANY, wiec
+        zly zapis to nie puste pole, tylko odrzucona oferta."""
+        sys.path.insert(0, str(ROOT / "src"))
+        import generate
+        self.assertEqual(generate.screen_size_de('15,6"', "{n} Zoll"), "15,6 Zoll")
+        self.assertEqual(generate.screen_size_de("15.6 cali", '{n}"'), '15,6"')
+        self.assertEqual(generate.screen_size_de("", '{n}"'), "")
+
+    def test_nazwa_kolumny_i_nazwa_aspektu_ida_z_jednego_zrodla(self):
+        """W pliku eBaya kolumna ma przedrostek i gwiazdke, a slownik dozwolonych
+        wartosci indeksuje sie sama nazwa. Trzymamy jedno i wyprowadzamy drugie,
+        zeby nie dalo sie ich rozjechac."""
+        sys.path.insert(0, str(ROOT / "src"))
+        import generate
+        kol, asp = generate.nazwy_kolumn(
+            {"kraj": {"kolumny": {"marka": "*C:Marca", "seria": "C:Serie"}}})
+        self.assertEqual((kol("marka"), asp("marka")), ("*C:Marca", "Marca"))
+        self.assertEqual((kol("seria"), asp("seria")), ("C:Serie", "Serie"))
+
+    def test_w_kodzie_nie_ma_juz_niemieckich_nazw_kolumn(self):
+        """Bramka na przyszlosc: nowa kolumna ma isc do pliku kraju, nie do kodu.
+        Jedna wpisana na sztywno i wloska oferta cicho traci ten aspekt.
+
+        Patrzymy na sam KOD - docstringi i komentarze wolno podawac przyklady
+        po niemiecku, bo one niczego nie wystawiaja.
+        """
+        import ast
+        drzewo = ast.parse((ROOT / "src" / "generate.py").read_text(encoding="utf-8"))
+        # Docstring to jeden duzy napis, wiec sam z siebie nie pasuje do wzorca
+        # pojedynczej nazwy kolumny - przyklady w dokumentacji nie zaklocaja.
+        zaszyte = sorted({
+            w.value for w in ast.walk(drzewo)
+            if isinstance(w, ast.Constant) and isinstance(w.value, str)
+            and re.fullmatch(r"\*?C:[^{]+", w.value)
+        })
+        self.assertEqual(zaszyte, ["C:Prozessor"],
+                         "jedyny dopuszczony wyjatek to etykieta w review.csv")
+
+    def test_w_kodzie_nie_ma_niemieckich_nazw_aspektow(self):
+        """Osobna bramka od poprzedniej: nazwa aspektu wystepuje tez BEZ
+        przedrostka 'C:', jako klucz slownika dozwolonych wartosci. Taki zapis
+        przeszedl poprzedni test i wywalil wloski przebieg przez KeyError."""
+        import ast
+        drzewo = ast.parse((ROOT / "src" / "generate.py").read_text(encoding="utf-8"))
+        niemieckie = {"Marke", "Bildschirmgröße", "Prozessor", "Festplattentyp",
+                      "Produktart", "Formfaktor", "Festplattenkapazität", "Grafikprozessor",
+                      "Besonderheiten", "Erscheinungsjahr", "Farbe", "Modell",
+                      "Betriebssystem", "Arbeitsspeichergröße", "Konnektivität",
+                      "Herstellergarantie", "Serie", "Grafikprozessortyp"}
+        zaszyte = sorted({
+            w.value for w in ast.walk(drzewo)
+            if isinstance(w, ast.Constant) and isinstance(w.value, str)
+            and w.value in niemieckie
+        })
+        self.assertEqual(zaszyte, [], "nazwa aspektu ma isc wylacznie z pliku kraju")
+
+    def test_kraj_nadpisuje_jezyk_w_profilu_nie_ruszajac_regul(self):
+        """Profil lezy na przecieciu dwoch osi. Kraj podmienia to, co czyta
+        kupujacy; reguly i ConditionID zostaja wspolne, zeby nowy typ towaru
+        dodawalo sie raz, a nie raz na kazdy rynek."""
+        sys.path.insert(0, str(ROOT / "src"))
+        import generate
+        settings = {
+            "profile_produktu": {"Notebook": {"gwarancja": "12 Monate Garantie",
+                                              "condition_id": "3000", "szablon": "x.html"}},
+            "profile_kraju": {"Notebook": {"gwarancja": "12 mesi di garanzia"}},
+            "typ_produktu": {"_domyslnie": "Notebook"},
+        }
+        profil = generate.profil_produktu("Laptopy", settings)
+        self.assertEqual(profil["gwarancja"], "12 mesi di garanzia")
+        self.assertEqual(profil["condition_id"], "3000", "reguly zostaja wspolne")
+
+    def test_generacja_procesora_w_zapisie_rynku(self):
+        """Zapas, gdy dokladnego modelu nie ma w slowniku eBaya. Aspekt procesora
+        jest WYMAGANY, wiec zla nazwa generacji to nie puste pole, tylko oferta
+        odrzucona w calosci. Po niemiecku '8. Gen', po wlosku '8a generazione'."""
+        sys.path.insert(0, str(ROOT / "src"))
+        import generate
+        surowy = "i5-8265U, 6MB Cache, 8 gen."
+        self.assertIn("Intel Core i5 8. Gen", generate.cpu_candidates(surowy, "{n}. Gen"))
+        self.assertIn("Intel Core i5 8a generazione",
+                      generate.cpu_candidates(surowy, "{n}a generazione"))
+
+    def test_oba_rynki_wystawiaja_tyle_samo_z_tego_samego_feedu(self):
+        """Bramka na cala os kraju: jesli Wlochy gubia oferty, ktore Niemcy
+        wystawiaja, to znaczy, ze ktorys napis albo format zostal niemiecki."""
+        de = self.przebieg("de", tryb="test")[0]
+        it = self.przebieg("it", tryb="test")[0]
+        self.assertEqual(it["do_wystawienia"], de["do_wystawienia"],
+                         f"IT pominelo: {it['pominieto']}")
+
+    def test_nieznany_kraj_konczy_sie_zrozumialym_bledem(self):
+        wynik = subprocess.run(
+            [sys.executable, str(ROOT / "src" / "generate.py"), "--kraj", "nieistnieje",
+             "--tryb", "test"], check=False, capture_output=True, text=True)
+        self.assertNotEqual(wynik.returncode, 0)
+        self.assertIn("nie znam kraju", wynik.stderr + wynik.stdout)
+
+
+class RaportOdtwarzalny(unittest.TestCase):
+    def test_do_uzupelnienia_ma_stala_kolejnosc(self):
+        """Dwa przebiegi na tym samym feedzie maja dac ten sam raport.
+
+        'top()' opieral sie na Counter.most_common(), ktore przy remisie zwraca
+        kolejnosc wstawiania - a ta idzie za iteracja po zbiorze i zmienia sie
+        miedzy procesami. Listy w 'do_uzupelnienia' to prawie same remisy po
+        jednym produkcie, wiec raport wychodzil raz tak, raz tak i nie dalo sie
+        porownac dwoch przebiegow.
+        """
+        pierwszy = uruchom()[1]["do_uzupelnienia"]
+        drugi = uruchom()[1]["do_uzupelnienia"]
+        self.assertEqual(pierwszy, drugi)
+
+
 class DuplikatWAktualizacji(unittest.TestCase):
     """Najgrozniejszy scenariusz calego modulu duplikatow.
 

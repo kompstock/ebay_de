@@ -61,7 +61,8 @@ fetch("downloads/generation-report.json?" + Date.now())
    const data = new Date(r.generated_at_utc).toLocaleString("pl-PL");
    if (r.ok) {
      pasek.className = "ok";
-     pasek.innerHTML = "<b>" + nazwy.ok + "</b>Ostatni przebieg: " + data + " · tryb <b style='display:inline'>" + r.tryb + "</b>";
+     const rynek = r.kraj ? " · rynek <b style='display:inline'>" + r.kraj + "</b>" : "";
+     pasek.innerHTML = "<b>" + nazwy.ok + "</b>Ostatni przebieg: " + data + " · tryb <b style='display:inline'>" + r.tryb + "</b>" + rynek;
    } else {
      pasek.className = "zle";
      pasek.innerHTML = "<b>" + nazwy.zle + "</b>" + (r.blokady || []).join("<br>") + "<br><small>" + data + "</small>";

@@ -60,12 +60,32 @@ KOLUMNY_RAPORTU = (
 # inaczej wygrywaja nad prawdziwymi danymi i wyciekaja do niemieckiego opisu.
 BRAK_DANYCH = {"brak", "brak danych", "nie dotyczy", "-", "n/a"}
 POLISH_CHARS = set("ąćęłńóśźżĄĆĘŁŃÓŚŹŻ")
-POLISH_WORDS = re.compile(
-    r"(?<![\wäöüß])(i|oraz|lub|albo|we|ze|na|do|dla|od|po|przy|jest|są|"
-    r"może|możliwy|możliwe|brak|bez|nowy|nowa|używany|używana|sprawny|"
-    r"klawiatura|obudowa|zasilacz|sprzęt|typu|złącze|gniazdo|czytnik|ilość)(?![\wäöüß])",
-    re.IGNORECASE,
+# Slowa, po ktorych poznajemy, ze do opisu wyciekl polski z feedu.
+POLSKIE_SLOWA = (
+    "i", "oraz", "lub", "albo", "we", "ze", "na", "do", "dla", "od", "po", "przy",
+    "jest", "są", "może", "możliwy", "możliwe", "brak", "bez", "nowy", "nowa",
+    "używany", "używana", "sprawny", "klawiatura", "obudowa", "zasilacz", "sprzęt",
+    "typu", "złącze", "gniazdo", "czytnik", "ilość",
 )
+# Granica slowa liczona razem z literami akcentowanymi calej Latin-1/Latin Extended-A.
+# Samo \w nie wystarcza: bez tego "Gerät" czy "perché" rozpadaja sie na kawalki
+# i lista trafia w srodek niemieckiego albo wloskiego wyrazu.
+GRANICA = r"[\wÀ-ſ]"
+
+
+def wzorzec_polskiego(wyjatki=()) -> re.Pattern:
+    """Detektor polszczyzny dla danego rynku.
+
+    Czesc polskich slow to zwyczajne slowa jezyka docelowego - wloskie "i" to
+    rodzajnik i wystepuje w kazdym opisie. Gdyby lista byla wspolna, Wlochy
+    odpadalyby w calosci na falszywym alarmie. Rynek moze wiec wskazac wyjatki.
+    """
+    pomijane = {w.lower() for w in wyjatki}
+    slowa = [w for w in POLSKIE_SLOWA if w.lower() not in pomijane]
+    return re.compile(rf"(?<!{GRANICA})({'|'.join(slowa)})(?!{GRANICA})", re.IGNORECASE)
+
+
+POLISH_WORDS = wzorzec_polskiego()
 WYMAGANE_KLUCZE = {
     "settings": ["zdania_wiodace", "typ_produktu", "doplata_wysylka_eur", "kategorie",
                  "sekcja_business_notebook", "min_produktow_w_feedzie", "company_since",
@@ -125,9 +145,10 @@ def sprawdz_profile(cfg: dict) -> list[str]:
             braki.append(f"config/settings.json: kategoria XML '{kategoria}' ma typ "
                          f"'{typ}', ale nie ma bloku profile_produktu['{typ}']")
             continue
+        katalog = cfg.get("kraj", {}).get("katalog_szablonow", "templates")
         szablon = profil.get("szablon", "")
-        if not szablon or not (ROOT / "templates" / szablon).is_file():
-            braki.append(f"templates/{szablon or '(brak wpisu)'}: profil '{typ}' wskazuje "
+        if not szablon or not (ROOT / katalog / szablon).is_file():
+            braki.append(f"{katalog}/{szablon or '(brak wpisu)'}: profil '{typ}' wskazuje "
                          f"na szablon opisu, ktorego nie ma")
         if not profil.get("gwarancja"):
             braki.append(f"config/settings.json: profil '{typ}' nie podaje 'gwarancja' "
@@ -213,7 +234,13 @@ class Review:
     def top(self, kind: str, by: str = "value", limit: int = 20):
         idx = 1 if by == "field" else 2
         counter = Counter(item[idx] for item in self.items if item[0] == kind)
-        return [{"wartosc": v, "produktow": n} for v, n in counter.most_common(limit)]
+        # Sortujemy po liczbie, a remisy alfabetycznie. Samo most_common() daje
+        # przy remisie kolejnosc wstawiania do Countera, czyli kolejnosc iteracji
+        # po zbiorze 'items' - a ta zmienia sie miedzy procesami. Raport dla tego
+        # samego feedu wychodzil raz tak, raz tak i nie dalo sie porownac dwoch
+        # przebiegow. Wiekszosc tych list to same remisy po 1 produkcie.
+        wg_liczby = sorted(counter.items(), key=lambda para: (-para[1], para[0]))
+        return [{"wartosc": v, "produktow": n} for v, n in wg_liczby[:limit]]
 def suggest_translation(value: str, translations: dict) -> str:
     out = value
     for source, target in sorted(
@@ -245,7 +272,7 @@ def translate_value(field: str, value: str, translations: dict, review: Review,
     review.add("tlumaczenie", field,
                f"{value}  ->  [propozycja] {suggest_translation(value, translations)}")
     return None
-def has_polish_leak(text_value: str) -> str | None:
+def has_polish_leak(text_value: str, wyjatki=()) -> str | None:
     """Sprawdza tylko tekst widoczny dla kupujacego.
     CSS musi wypasc PRZED sprawdzeniem - selektor '.kpx-key i{...}' zawiera
     samotne 'i' i bez tego wywala falszywy alarm na kazdym produkcie.
@@ -257,7 +284,7 @@ def has_polish_leak(text_value: str) -> str | None:
         if char in POLISH_CHARS:
             kontekst = normalize_space(plain[max(0, i - 45):i + 45])
             return f"znak {char!r} w: ...{kontekst}..."
-    match = POLISH_WORDS.search(plain)
+    match = (wzorzec_polskiego(wyjatki) if wyjatki else POLISH_WORDS).search(plain)
     if match:
         kontekst = normalize_space(plain[max(0, match.start() - 45):match.end() + 45])
         return f"slowo {match.group(0)!r} w: ...{kontekst}..."
@@ -297,9 +324,15 @@ def clean_capacity(value: str) -> str:
     if pelne_tb:
         v = f"{pelne_tb.group(1)} TB"
     return v
-def screen_size_de(value: str) -> str:
+def screen_size_de(value: str, format_rynku: str = "{n} Zoll") -> str:
+    """Przekatna w zapisie danego rynku: '15,6 Zoll' po niemiecku, '15,6"' po wlosku.
+
+    Format bierze sie z konfiguracji kraju. Aspekt jest WYMAGANY, wiec zly zapis
+    nie konczy sie pustym polem, tylko odrzuceniem calej oferty przez eBay.
+    Domyslna wartosc jest niemiecka, bo tak wygladalo to zanim powstaly kraje.
+    """
     number = re.search(r"\d+(?:[.,]\d+)?", value or "")
-    return f"{number.group(0).replace('.', ',')} Zoll" if number else ""
+    return format_rynku.format(n=number.group(0).replace(".", ",")) if number else ""
 def base_clock(value: str) -> str:
     """Taktowanie w formacie eBaya: ZAWSZE dwa miejsca po przecinku.
 
@@ -349,7 +382,7 @@ def procesor_opis(raw: str) -> str:
     if cache:
         dodatki.append(f"{cache.group(1)} MB Cache")
     return f"{nazwa} ({', '.join(dodatki)})" if dodatki else nazwa
-def cpu_candidates(processor: str) -> list[str]:
+def cpu_candidates(processor: str, format_generacji: str = "{n}. Gen") -> list[str]:
     """Zwraca kandydatow od najbardziej do najmniej precyzyjnego.
     Feed uzywa formatu 'i5 - 1135G7, 8MB Cache, 11 gen.' albo 'Ryzen 5 PRO 4650U'.
     """
@@ -398,7 +431,11 @@ def cpu_candidates(processor: str) -> list[str]:
             numer = int(cyfry[:2])          # 1135G7 -> 11, 1235U -> 12
         else:
             numer = int(cyfry[0])           # 8365U -> 8
-        out.append(f"Intel Core i{rodzina} {numer}. Gen")
+        # Zapas na wypadek, gdy dokladnego modelu nie ma w slowniku eBaya.
+        # Nazwa generacji jest inna na kazdym rynku - po niemiecku "8. Gen",
+        # po wlosku "8a generazione". Zaszyta na sztywno kosztowala kazda oferte,
+        # ktorej procesora nie ma na liscie wprost: aspekt jest WYMAGANY.
+        out.append(f"Intel Core i{rodzina} {format_generacji.format(n=numer)}")
         out.append(f"Intel Core i{rodzina}")
         return out
     celeron = re.search(r"CELERON\s*([A-Z]?\d{4}[A-Z]*)", p)
@@ -517,11 +554,11 @@ def features_aspect(attrs: dict, ports, aspects: dict, podswietlenie: bool | Non
     """
     out: list[str] = list((profil or {}).get("cechy_domyslne", []))
     if attrs.get("Ekran dotykowy") == "Tak":
-        out.append("Touchscreen")
+        out.append(aspects["besonderheiten"]["_touchscreen"])
     if norm(attrs.get("Kamera", "")).startswith("tak"):
         out.append(aspects["besonderheiten"]["_webcam"])
     if podswietlenie:
-        out.append("Hintergrundbeleuchtete Tastatur")
+        out.append(aspects["besonderheiten"]["_podswietlenie"])
     allowed = aspects["besonderheiten"]["_dozwolone"]
     return "|".join(v for v in out if v in allowed)
 def gpu_clean(value: str) -> list[str]:  # noqa: C901
@@ -669,8 +706,17 @@ def profil_produktu(kategoria_xml: str, settings: dict, attrs: dict | None = Non
 
     Kompletnosc profili sprawdza sprawdz_profile() zanim ruszy generowanie,
     wiec tutaj brak wpisu byloby bledem konfiguracji, nie stanem do obsluzenia.
+
+    Profil lezy na przecieciu dwoch osi: typ towaru mowi CO wystawiamy, a kraj
+    dokleja jezyk. Dlatego na wspolny blok nakladamy 'profile_kraju' z pliku
+    rynku - tam siedzi okres gwarancji slowami, rodzaj produktu ze slownika
+    eBaya i zdanie o klawiaturze. Dzieki temu nowy typ towaru dodaje sie raz,
+    a nie raz na kazdy kraj.
     """
-    return settings["profile_produktu"][typ_produktu(kategoria_xml, settings, attrs)]
+    typ = typ_produktu(kategoria_xml, settings, attrs)
+    bazowy = settings["profile_produktu"][typ]
+    nakladka = (settings.get("profile_kraju") or {}).get(typ)
+    return {**bazowy, **nakladka} if nakladka else bazowy
 def typ_z_feedu(kategoria_xml: str, settings: dict, attrs_surowe: dict) -> str:
     """Typ towaru dla oferty prosto z feedu, jeszcze przed zbierz_produkty().
 
@@ -896,6 +942,9 @@ def render_description(szablony, attrs, images, translations, aspects, settings,
                        kategoria_xml: str = ""):
     typ = typ_produktu(kategoria_xml, settings, attrs)
     profil = profil_produktu(kategoria_xml, settings, attrs)
+    format_przekatnej = settings.get("format_przekatnej", "{n} Zoll")
+    etykieta = settings["etykiety_opisu"]
+    slowa = settings["slowa"]
     template = szablony[typ]
     wymagane_pola = profil["wymagane_tlumaczenia"]
     nadpisania = profil.get("nadpisz_tlumaczenia", {})
@@ -929,44 +978,42 @@ def render_description(szablony, attrs, images, translations, aspects, settings,
         aspects["betriebssystem"], attrs.get("Zainstalowany system", ""),
         attrs.get("Zainstalowany system", ""))
     specs = [
-        ("Hersteller", manufacturer),
-        ("Modell", model),
-        ("Prozessor", procesor_opis(zrodlo_procesora(attrs))),
-        ("Prozessorkerne", (attrs.get("Ilość rdzeni", "")
-                            if attrs.get("Ilość rdzeni", "").isdigit() else "")),
-        ("Taktfrequenz", base_clock(attrs.get("Taktowanie", ""))),
-        ("Arbeitsspeicher", normalize_space(f"{ram} {attrs.get('Typ pamięci RAM', '')}")),
-        ("Festplatte", normalize_space(f"{disk} {attrs.get('Typ dysku', '')}")),
-        ("Display", ", ".join(x for x in [
-            screen_size_de(attrs.get("Przekątna ekranu", "")),
+        (etykieta["producent"], manufacturer),
+        (etykieta["model"], model),
+        (etykieta["procesor"], procesor_opis(zrodlo_procesora(attrs))),
+        (etykieta["rdzenie"], (attrs.get("Ilość rdzeni", "")
+                               if attrs.get("Ilość rdzeni", "").isdigit() else "")),
+        (etykieta["taktowanie"], base_clock(attrs.get("Taktowanie", ""))),
+        (etykieta["ram"], normalize_space(f"{ram} {attrs.get('Typ pamięci RAM', '')}")),
+        (etykieta["dysk"], normalize_space(f"{disk} {attrs.get('Typ dysku', '')}")),
+        (etykieta["ekran"], ", ".join(x for x in [
+            screen_size_de(attrs.get("Przekątna ekranu", ""), format_przekatnej),
             attrs.get("Rozdzielczość ekranu", ""), finish] if x)),
-        ("Grafik", ", ".join(x for x in [
+        (etykieta["grafika"], ", ".join(x for x in [
             (gpu_clean(attrs.get("Model karty graficznej", "")) or [""])[0], gpu_type] if x)),
-        ("Touchscreen", "nicht vorhanden" if attrs.get("Ekran dotykowy") == "Nie"
-         else "vorhanden" if attrs.get("Ekran dotykowy") == "Tak" else ""),
-        ("Optisches Laufwerk", translations["drive"].get(attrs.get("Napęd", ""), "")),
-        ("Betriebssystem", operating_system),
+        (etykieta["dotyk"], slowa["brak"] if attrs.get("Ekran dotykowy") == "Nie"
+         else slowa["jest"] if attrs.get("Ekran dotykowy") == "Tak" else ""),
+        (etykieta["naped"], translations["drive"].get(attrs.get("Napęd", ""), "")),
+        (etykieta["system"], operating_system),
         # Stala z profilu, nie z feedu: naklejki niemieckie idą na kazda klawiature,
         # wiec oryginalny uklad (QWERTY US, Nordic) nie jest tym, co dostaje kupujacy.
         # eBay nie ma aspektu klawiatury w tych kategoriach, wiec nic nie tracimy.
-        ("Tastatur-Layout", profil.get("tastatur_layout", "")),
-        ("Webcam", translations["yes_no"].get(attrs.get("Kamera", ""), "")),
-        ("Akku", de["Bateria"]),
-        ("Lieferumfang", de["W zestawie"]),
+        (etykieta["klawiatura"], profil.get("tastatur_layout", "")),
+        (etykieta["kamera"], translations["yes_no"].get(attrs.get("Kamera", ""), "")),
+        (etykieta["bateria"], de["Bateria"]),
+        (etykieta["zestaw"], de["W zestawie"]),
     ]
     system_raw = attrs.get("Zainstalowany system", "")
-    faq_system = ""
-    if system_raw.lower().startswith("windows"):
-        faq_system = (
-            "<details><summary>Ist Windows dauerhaft aktiviert?</summary>"
-            "<div class=\"kpx-a\">Ja. Die digitale Lizenz ist im Ger&auml;t hinterlegt und bleibt "
-            "auch nach einem Zur&uuml;cksetzen von Windows aktiv.</div></details>")
+    # Blok FAQ o aktywacji Windowsa - tresc siedzi w pliku kraju, bo trafia
+    # wprost do opisu i musi byc w jezyku kupujacego.
+    faq_system = (settings.get("faq_windows", "")
+                  if system_raw.lower().startswith("windows") else "")
     values = {
         "typ": typ,
         "processor": procesor_opis(zrodlo_procesora(attrs)),
         "ram": ram, "ram_type": attrs.get("Typ pamięci RAM", ""),
         "disk": disk, "disk_type": attrs.get("Typ dysku", ""),
-        "screen_size": screen_size_de(attrs.get("Przekątna ekranu", "")),
+        "screen_size": screen_size_de(attrs.get("Przekątna ekranu", ""), format_przekatnej),
         "screen_finish": finish,
         "resolution": attrs.get("Rozdzielczość ekranu", ""),
         "operating_system": operating_system,
@@ -992,7 +1039,8 @@ def render_description(szablony, attrs, images, translations, aspects, settings,
             f"<li>{e(kafelek)}</li>"
             for kafelek in kafelki_portow(attrs.get("Złącza zewnętrzne", ""), aspects, review)),
         "faq_system": faq_system,
-        "hinweis_row": (f"<tr><th>Hinweis</th><td>{e(extra_de)}</td></tr>" if extra_de else ""),
+        "hinweis_row": (f"<tr><th>{e(etykieta['uwaga'])}</th><td>{e(extra_de)}</td></tr>"
+                        if extra_de else ""),
         "main_image_block": (
             f'<div class="kpx-media"><img src="{e(images[0])}" '
             f'alt="{e(manufacturer)} {e(model)}"></div>' if images else ""),
@@ -1001,16 +1049,18 @@ def render_description(szablony, attrs, images, translations, aspects, settings,
     for key, value in {**values, **raw}.items():
         out = out.replace("{{" + key + "}}", value if key in raw else e(value))
     out = normalize_space(out)
-    leak = has_polish_leak(out)
+    leak = has_polish_leak(out, settings.get("wyjatki_polskiego", ()))
     return ("", f"opis: niedotlumaczony ({leak})") if leak else (out, "")
 def build_title(attrs: dict, settings: dict, aspects: dict,
                 profil: dict | None = None) -> str:
-    kandydaci = cpu_candidates(zrodlo_procesora(attrs))
+    kandydaci = cpu_candidates(zrodlo_procesora(attrs),
+                               settings.get("format_generacji_cpu", "{n}. Gen"))
     cpu = kandydaci[0] if kandydaci else ""
     parts = [brand_name(attrs.get("Producent", "")), attrs.get("Model", ""),
              cpu.replace("Intel Core ", "").replace("AMD ", ""), clean_capacity(attrs.get("Ilość pamięci RAM", "")),
              clean_capacity(attrs.get("Dysk", "")), attrs.get("Typ dysku", ""),
-             screen_size_de(attrs.get("Przekątna ekranu", "")),
+             screen_size_de(attrs.get("Przekątna ekranu", ""),
+                            settings.get("format_przekatnej", "{n} Zoll")),
              ]
     # Ogon tytulu jest NIEROZERWALNY i chroniony przed obcieciem:
     #   - sufiks systemu, bo "Win11 Pro" obciete do "Win11" gubi rzecz, ktora
@@ -1032,6 +1082,8 @@ def build_title(attrs: dict, settings: dict, aspects: dict,
 def build_row(offer, attrs, cfg, headers, review):
     settings, translations = cfg["settings"], cfg["translations"]
     aspects, manufacturers = cfg["aspects"], cfg["manufacturers"]
+    kol, asp = nazwy_kolumn(cfg)
+    slowa = cfg["kraj"]["slowa"]
     kategoria_xml = text(offer.find("./cat"))
     profil = profil_produktu(kategoria_xml, settings, attrs)
     if blad := blokada_nowego_towaru(attrs, settings, profil):
@@ -1062,23 +1114,24 @@ def build_row(offer, attrs, cfg, headers, review):
     slownik = cfg["vocab"]["kategorie"][kategoria]
     vocab = slownik
     cpu_aspect = ""
-    dozwolone_cpu = {norm(x): x for x in vocab["aspekty"]["Prozessor"]}
-    for option in cpu_candidates(zrodlo_procesora(attrs)):
+    dozwolone_cpu = {norm(x): x for x in vocab["aspekty"][asp("procesor")]}
+    for option in cpu_candidates(zrodlo_procesora(attrs),
+                                 settings.get("format_generacji_cpu", "{n}. Gen")):
         if norm(option) in dozwolone_cpu:
             cpu_aspect = dozwolone_cpu[norm(option)]
             break
     if not cpu_aspect:
-        review.add("aspekt", "C:Prozessor", zrodlo_procesora(attrs) or "(brak danych)")
+        review.add("aspekt", kol("procesor"), zrodlo_procesora(attrs) or "(brak danych)")
     gpu_raw = attrs.get("Model karty graficznej", "")
     gpu_aspect = aspects["grafikprozessor_alias"].get(norm(gpu_raw), "")
     if not gpu_aspect:
-        dozwolone_gpu = {norm(x): x for x in vocab["aspekty"]["Grafikprozessor"]}
+        dozwolone_gpu = {norm(x): x for x in vocab["aspekty"][asp("gpu")]}
         for option in gpu_clean(gpu_raw):
             if norm(option) in dozwolone_gpu:
                 gpu_aspect = dozwolone_gpu[norm(option)]
                 break
     if gpu_raw and not gpu_aspect:
-        review.add("aspekt", "C:Grafikprozessor", gpu_raw)
+        review.add("aspekt", kol("gpu"), gpu_raw)
     quantity = int(float(offer.get("stock", "0") or 0))
     cap = int(settings.get("max_quantity", 0) or 0)
     if cap:
@@ -1086,16 +1139,18 @@ def build_row(offer, attrs, cfg, headers, review):
     price_eur = cena_eur(offer, cfg, profil)
     # Produktart / Formfaktor / Ladegerät - wszystkie trzy z profilu.
     # Kategoria Apple nie ma aspektu Produktart, stad sprawdzenie w slowniku.
-    produktart = profil.get("produktart", "") if "Produktart" in slownik["aspekty"] else ""
+    produktart = (profil.get("produktart", "")
+                  if asp("rodzaj_produktu") in slownik["aspekty"] else "")
     formfaktor = formfaktor_de(attrs, profil)
     ladegeraet_cfg = profil.get("ladegeraet", {})
     if ladegeraet_cfg.get("tryb") == "lista":
         # Dla peceta liczy sie TRESC pola "W zestawie", nie samo jego istnienie -
         # najczestsza wartosc w feedzie to "Brak okablowania".
-        ladegerat = "Ja" if attrs.get("W zestawie", "") in ladegeraet_cfg.get("tak", []) else "Nein"
+        ladegerat = (slowa["tak"] if attrs.get("W zestawie", "") in ladegeraet_cfg.get("tak", [])
+                     else slowa["nie"])
     else:
         # Zachowanie historyczne laptopow: niepuste pole znaczy Ja.
-        ladegerat = "Ja" if attrs.get("W zestawie") else ""
+        ladegerat = slowa["tak"] if attrs.get("W zestawie") else ""
     values: dict[str, str] = {
         headers[0]: "Add",
         "CustomLabel": attrs.get("SKU", ""),
@@ -1107,48 +1162,52 @@ def build_row(offer, attrs, cfg, headers, review):
         "VAT%": settings["vat_percent"],
         # Zestawy skladane nie maja marki w slowniku eBaya - profil podaje wartosc,
         # ktora ten slownik zna ("Custom, Whitebox").
-        "*C:Marke": (profil.get("marke_aspekt", {}).get("wartosc")
+        kol("marka"): (profil.get("marke_aspekt", {}).get("wartosc")
                      or brand_name(attrs.get("Producent", ""))),
-        "*C:Bildschirmgröße": vocab_match("Bildschirmgröße", screen_size_de(attrs.get("Przekątna ekranu", "")), vocab, review, ""),
-        "*C:Prozessor": cpu_aspect,
-        "C:Festplattentyp": aspects["festplattentyp"].get(attrs.get("Typ dysku", ""), ""),
-        "C:Produktart": produktart,
-        "C:Formfaktor": formfaktor,
-        "C:Festplattenkapazität": vocab_match("Festplattenkapazität", disk, vocab, review, "", strict=False),
-        "C:Besonderheiten": features_aspect(
+        kol("przekatna"): vocab_match(
+            asp("przekatna"),
+            screen_size_de(attrs.get("Przekątna ekranu", ""),
+                           settings.get("format_przekatnej", "{n} Zoll")),
+            vocab, review, ""),
+        kol("procesor"): cpu_aspect,
+        kol("typ_dysku"): aspects["festplattentyp"].get(attrs.get("Typ dysku", ""), ""),
+        kol("rodzaj_produktu"): produktart,
+        kol("formfaktor"): formfaktor,
+        kol("pojemnosc_dysku"): vocab_match(asp("pojemnosc_dysku"), disk, vocab, review, "", strict=False),
+        kol("cechy"): features_aspect(
             attrs, ports, aspects,
             # Uklad klawiatury nie idzie juz do opisu, ale nadal wynika z niego
             # podswietlenie - dlatego zgloszenia trafiaja tu do prawdziwego review.
             keyboard_parts(attrs.get("Klawiatura (ISO lub ANSI)", ""), aspects, review)[1],
             profil=profil),
-        "C:SSD-Festplattenkapazität": (vocab_match("SSD-Festplattenkapazität", disk, vocab, review, "", strict=False) if attrs.get("Typ dysku") == "SSD" else ""),
-        "C:Grafikprozessor": gpu_aspect,
-        "C:Erscheinungsjahr": vocab_match("Erscheinungsjahr", year_aspect(model, aspects), vocab, review),
-        "C:Farbe": vocab_match("Farbe", colour_aspect(model, aspects), vocab, review),
-        "C:Prozessorgeschwindigkeit": vocab_match("Prozessorgeschwindigkeit", base_clock(attrs.get("Taktowanie", "")), vocab, review, ""),
-        "C:Maximale Auflösung": vocab_match("Maximale Auflösung", attrs.get("Rozdzielczość ekranu", ""), vocab, review, "", strict=False),
-        "C:Herstellernummer": "Nicht zutreffend",
-        "C:Modell": vocab_match("Modell", nazwa_modelu(attrs), vocab, review, "", strict=False),
-        "C:Betriebssystem": vocab_match(
-            "Betriebssystem",
+        kol("pojemnosc_ssd"): (vocab_match(asp("pojemnosc_ssd"), disk, vocab, review, "", strict=False) if attrs.get("Typ dysku") == "SSD" else ""),
+        kol("gpu"): gpu_aspect,
+        kol("rok"): vocab_match(asp("rok"), year_aspect(model, aspects), vocab, review),
+        kol("kolor"): vocab_match(asp("kolor"), colour_aspect(model, aspects), vocab, review),
+        kol("taktowanie"): vocab_match(asp("taktowanie"), base_clock(attrs.get("Taktowanie", "")), vocab, review, ""),
+        kol("rozdzielczosc"): vocab_match(asp("rozdzielczosc"), attrs.get("Rozdzielczość ekranu", ""), vocab, review, "", strict=False),
+        kol("numer_producenta"): slowa["nie_dotyczy"],
+        kol("model"): vocab_match(asp("model"), nazwa_modelu(attrs), vocab, review, "", strict=False),
+        kol("system"): vocab_match(
+            asp("system"),
             wpis_bez_wzgledu_na_wielkosc(
                 aspects["betriebssystem"], attrs.get("Zainstalowany system", "")),
             slownik, review),
-        "C:Anzahl der Einheiten": "1",
-        "C:Maßeinheit": "Einheit",
-        "C:Inklusive Ladegerät": ladegerat,
-        "C:Arbeitsspeichergröße": vocab_match("Arbeitsspeichergröße", ram, vocab, review, "", strict=False),
-        "C:Grafikprozessortyp": aspects["grafikprozessortyp"].get(
+        kol("liczba_sztuk"): slowa["jedna_sztuka"],
+        kol("jednostka_miary"): slowa["jednostka"],
+        kol("ladowarka"): ladegerat,
+        kol("ram"): vocab_match(asp("ram"), ram, vocab, review, "", strict=False),
+        kol("typ_gpu"): aspects["grafikprozessortyp"].get(
             attrs.get("Rodzaj karty graficznej", ""), ""),
-        "C:Konnektivität": connectivity_aspect(ports, aspects, review),
+        kol("zlacza"): connectivity_aspect(ports, aspects, review),
         # Pole eBaya dotyczy gwarancji PRODUCENTA. Nasza jest gwarancja sprzedawcy,
         # wiec zostaje puste, chyba ze profil jawnie co innego wskaze.
-        "C:Herstellergarantie": vocab_match(
-            "Herstellergarantie",
+        kol("gwarancja_producenta"): vocab_match(
+            asp("gwarancja_producenta"),
             profil.get("herstellergarantie", aspects["herstellergarantie"]["wartosc"]),
             vocab, review),
-        "C:Serie": vocab_match("Serie", series_aspect(model, aspects), vocab, review),
-        "C:Passend für": "|".join(aspects["passend_fuer"]["wartosci"]),
+        kol("seria"): vocab_match(asp("seria"), series_aspect(model, aspects), vocab, review),
+        kol("przeznaczenie"): "|".join(aspects["passend_fuer"]["wartosci"]),
         "PicURL": "|".join(images),
         "GalleryType": settings["gallery_type"],
         "*Description": description,
@@ -1234,28 +1293,106 @@ def cena_eur(offer, cfg, profil: dict | None = None) -> int:
     eur = math.ceil(pln / cfg["rate"]) + int(cfg["settings"]["doplata_wysylka_eur"])
     mnoznik = float((profil or {}).get("mnoznik_ceny", 1))
     return math.ceil(eur * mnoznik) if mnoznik != 1 else eur
-def wczytaj_szablony(settings: dict) -> dict[str, str]:
+def wczytaj_szablony(settings: dict, katalog: Path | None = None) -> dict[str, str]:
     """Jeden szablon opisu na typ towaru, z doklejonym wspolnym CSS.
 
-    CSS siedzi osobno w templates/_style.html, bo jest identyczny dla laptopa
-    i peceta - inaczej kazda poprawka stylu wymagalaby dwoch edycji i predzej
-    czy pozniej szablony rozjechalyby sie wygladem.
+    CSS siedzi osobno w _style.html, bo jest identyczny dla laptopa i peceta -
+    inaczej kazda poprawka stylu wymagalaby dwoch edycji i predzej czy pozniej
+    szablony rozjechalyby sie wygladem.
+
+    'katalog' wskazuje jezyk: kazdy kraj ma wlasny komplet opisow. Domyslnie
+    templates/, czyli dotychczasowe - niemieckie.
     """
-    styl = (ROOT / "templates" / "_style.html").read_text(encoding="utf-8")
+    katalog = katalog or (ROOT / "templates")
+    styl = (katalog / "_style.html").read_text(encoding="utf-8")
     out: dict[str, str] = {}
     for typ, profil in settings["profile_produktu"].items():
         if not isinstance(profil, dict) or not profil.get("szablon"):
             continue                        # klucze '_about' i im podobne
-        sciezka = ROOT / "templates" / profil["szablon"]
+        sciezka = katalog / profil["szablon"]
         if sciezka.is_file():               # brak pliku zglasza sprawdz_profile()
             out[typ] = styl + sciezka.read_text(encoding="utf-8")
     return out
+def nazwy_kolumn(cfg: dict):
+    """(kol, asp) dla rynku: nazwa kolumny w pliku eBaya i nazwa aspektu w slowniku.
+
+    Kolumna to napis z ebay-header.csv razem z gwiazdka wymagalnosci ("*C:Marke"),
+    a slownik dozwolonych wartosci indeksuje sie ta sama nazwa bez przedrostka
+    ("Marke"). Trzymamy w konfiguracji jedno i wyprowadzamy drugie, zeby nie dalo
+    sie ich rozjechac.
+    """
+    mapa = cfg["kraj"]["kolumny"]
+
+    def kol(klucz: str) -> str:
+        return mapa[klucz]
+
+    def asp(klucz: str) -> str:
+        return mapa[klucz].lstrip("*").removeprefix("C:")
+
+    return kol, asp
 def read_headers(path: Path) -> list[str]:
     with path.open(encoding="utf-8-sig", newline="") as handle:
         for row in csv.reader(handle, delimiter=";"):
             if row and row[0].startswith("*Action("):
                 return row
     raise ValueError(f"brak wiersza naglowka w {path}")
+def wczytaj_kraj(kod: str) -> dict:
+    """Konfiguracja rynku z config/kraje/<kod>.json.
+
+    Druga os konfiguracji obok 'profile_produktu': typ towaru mowi CO wystawiamy,
+    kraj mowi GDZIE i w jakim jezyku. Wartosci stad nadpisuja settings.json, wiec
+    reszta kodu dalej czyta settings[...] i nie musi wiedziec, ze kraje istnieja.
+    """
+    sciezka = ROOT / "config" / "kraje" / f"{kod.lower()}.json"
+    if not sciezka.is_file():
+        dostepne = sorted(p.stem for p in (ROOT / "config" / "kraje").glob("*.json"))
+        raise SystemExit(f"nie znam kraju '{kod}' - brak {sciezka.relative_to(ROOT)}. "
+                         f"Dostepne: {', '.join(dostepne) or '(zadnego)'}")
+    return load_json(sciezka)
+def sprawdz_kraj(kraj: dict, cfg: dict) -> list[str]:
+    """Czy kraj ma komplet tego, czego potrzebuje, zanim cokolwiek powstanie.
+
+    Brak tlumaczenia albo literowka w nazwie kolumny nie daje bledu - daje puste
+    pole w ofercie, ktorego nikt nie zauwazy, bo eBay plik przyjmie. Dlatego
+    sprawdzamy to z gory i przerywamy przebieg z nazwanym powodem.
+    """
+    braki = []
+    for klucz in ("kod", "listing_site", "naglowek_site_id", "vat_percent",
+                  "shipping_profile_name", "return_profile_name", "payment_profile_name"):
+        if not kraj.get(klucz):
+            braki.append(f"config/kraje/{kraj.get('kod', '?').lower()}.json: brak '{klucz}'")
+    for nazwa, wzgledna in (kraj.get("pliki") or {}).items():
+        if not (ROOT / wzgledna).is_file():
+            braki.append(f"kraj {kraj.get('kod')}: brak pliku '{wzgledna}' ({nazwa})")
+    katalog = ROOT / kraj.get("katalog_szablonow", "templates")
+    if not (katalog / "_style.html").is_file():
+        braki.append(f"kraj {kraj.get('kod')}: brak {katalog.name}/_style.html")
+    # Nagłówek niesie w sobie rynek: "*Action(SiteID=Germany|...)". Gdyby sie
+    # rozjechal z 'listing_site', przebieg porownywalby aukcje jednego rynku
+    # z plikiem na drugi - i wyzerowalby wszystko, czego "nie ma w feedzie".
+    naglowek = (cfg.get("headers") or [""])[0]
+    oczekiwane = f"SiteID={kraj.get('naglowek_site_id')}"
+    if naglowek and oczekiwane not in naglowek:
+        braki.append(f"kraj {kraj.get('kod')}: naglowek mowi '{naglowek.split('|')[0]}', "
+                     f"a kraj deklaruje '{oczekiwane}'")
+    return braki
+def dopnij_sufiks_sku(feed_bytes: bytes, sufiks: str) -> bytes:
+    """Dokleja sufiks rynku do kazdego SKU w feedzie.
+
+    OSTATNI krok budowania feedu - po scaleniu Allegro i po bliznakach GW24.
+    Kolejnosc nie jest kosmetyczna: gwarancja-24.csv trzyma GOLE SKU oryginalow,
+    wiec gdyby sufiks szedl wczesniej, lista przestalaby trafiac i warianty
+    przepadlyby bez slowa. Tak samo jak GW24 robimy to na FEEDZIE, a nie przy
+    zapisie CSV - inaczej SKU nie byloby w 'w_feedzie' i pierwsza 'aktualizacja'
+    wyzerowalaby cala oferte rynku.
+    """
+    if not sufiks:
+        return feed_bytes
+    root = ET.fromstring(feed_bytes)
+    for element in root.findall("./o/attrs/a"):
+        if element.get("name") == "SKU":
+            element.text = f"{(element.text or '').strip()}{sufiks}"
+    return ET.tostring(root, encoding="utf-8")
 def zbierz_produkty(root, cfg, review, skipped):
     """Produkty z naszych kategorii, z zapasem, z kompletem pol wymaganych.
 
@@ -1350,6 +1487,8 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
                        ". Wgraj komplet plikow z ostatniej paczki.")
     braki_profili = sprawdz_profile(cfg) if not braki_konfiguracji else []
     braki_profili += allegro.sprawdz_kategorie(cfg) if not braki_konfiguracji else []
+    # Rynek zadeklarowany w kraju kontra rynek zaszyty w naglowku pliku eBaya.
+    braki_profili += sprawdz_kraj(cfg.get("kraj", {}), cfg) if cfg.get("kraj") else []
     if braki_profili:
         blokady.append("niekompletny profil produktu - " + "; ".join(braki_profili))
     if blokady:                       # bez profili nie ma jak czytac ofert
@@ -1535,19 +1674,42 @@ def main() -> int:
     parser.add_argument("--gw-lista", type=Path,
                         help="lista SKU do wariantu gwarancyjnego; wlacza funkcje")
     parser.add_argument("--nbp-rate", type=float)
-    parser.add_argument("--output-dir", type=Path, default=ROOT / "output")
+    parser.add_argument("--kraj", default="de",
+                        help="rynek docelowy; plik config/kraje/<kod>.json")
+    parser.add_argument("--output-dir", type=Path)
     args = parser.parse_args()
     settings = load_json(ROOT / "config" / "settings.json")
+    kraj = wczytaj_kraj(args.kraj)
+    # Kraj nadpisuje settings, a nie odwrotnie: to rynek decyduje o VAT, profilach
+    # handlowych i serwisie. Klucze zaczynajace sie od '_' to komentarze.
+    settings.update({k: v for k, v in kraj.items()
+                     if not k.startswith("_") and k not in ("pliki", "katalog_szablonow")})
     if args.min_produktow is not None:
         settings["min_produktow_w_feedzie"] = args.min_produktow
+    pliki = kraj.get("pliki") or {}
+    output_dir = args.output_dir or (ROOT / "output" / kraj["kod"].lower())
+    # Kraj w budowie sprawdzamy ZANIM cokolwiek wczytamy - inaczej zamiast
+    # zrozumialego powodu dostalibysmy FileNotFoundError ze srodka loadera.
+    # Raport powstaje mimo to, bo bramka w Actions czyta wlasnie jego.
+    braki_kraju = sprawdz_kraj(kraj, {})
+    if braki_kraju:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        raport_blad = {"generated_at_utc": datetime.now(timezone.utc).isoformat(),
+                       "tryb": args.tryb, "kraj": kraj.get("kod"), "ok": False,
+                       "blokady": ["kraj nie jest gotowy - " + "; ".join(braki_kraju)]}
+        (output_dir / "generation-report.json").write_text(
+            json.dumps(raport_blad, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        print(json.dumps(raport_blad, ensure_ascii=False, indent=2))
+        return 2
     cfg = {
         "settings": settings,
-        "translations": load_json(ROOT / "config" / "translations.json"),
-        "aspects": load_json(ROOT / "config" / "aspects.json"),
+        "kraj": kraj,
+        "translations": load_json(ROOT / pliki["tlumaczenia"]),
+        "aspects": load_json(ROOT / pliki["aspekty"]),
         "manufacturers": load_json(ROOT / "config" / "manufacturers.json"),
-        "szablony": wczytaj_szablony(settings),
-        "headers": read_headers(ROOT / "config" / "ebay-header.csv"),
-        "vocab": load_json(ROOT / "config" / "ebay-vocab.json"),
+        "szablony": wczytaj_szablony(settings, ROOT / kraj.get("katalog_szablonow", "templates")),
+        "headers": read_headers(ROOT / pliki["naglowek"]),
+        "vocab": load_json(ROOT / pliki["slownik"]),
     }
     feed = args.feed_file.read_bytes() if args.feed_file else fetch_bytes(settings["feed_url"])
     raport, zrodlo_raportu = wskaz_raport(settings, args.raport)
@@ -1565,10 +1727,15 @@ def main() -> int:
         settings["gwarancja_rozszerzona"]["enabled"] = True
     feed, raport_gw = gwarancja.dopnij(feed, cfg, ROOT, typ_z_feedu)
     extra.update(raport_gw)
+    # Sufiks rynku na samym koncu - po Allegro i po GW24. Patrz dopnij_sufiks_sku().
+    feed = dopnij_sufiks_sku(feed, kraj.get("sufiks_sku", ""))
+    extra["kraj"] = kraj["kod"]
+    if kraj.get("sufiks_sku"):
+        extra["sufiks_sku"] = kraj["sufiks_sku"]
     nbp = ({"currency": "euro", "code": "EUR", "table": "A", "number": "TEST",
             "effective_date": "TEST", "rate": args.nbp_rate}
            if args.nbp_rate else fetch_nbp_rate(settings["nbp_url"]))
-    report = generate(feed, nbp, cfg, args.output_dir, args.tryb, raport, extra)
+    report = generate(feed, nbp, cfg, output_dir, args.tryb, raport, extra)
     print(json.dumps(report, ensure_ascii=False, indent=2))
     return 0 if report["ok"] else 2
 if __name__ == "__main__":

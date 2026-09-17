@@ -35,7 +35,12 @@ for line in raw.split("\n"):
     m = re.match(r'Info;"?>>> The recommended value\(s\) for aspect ([^:]+): (.*?)"?$', line)
     if m:
         kategorie[biezaca]["aspekty"][m.group(1).strip()] = [
-            v.strip() for v in m.group(2).split(";") if v.strip()]
+            # Cala lista stoi w polu CSV w cudzyslowie, wiec cudzyslowy WEWNATRZ
+            # wartosci sa podwojone. Wloska przekatna to '14"' i bez odkodowania
+            # wpada do slownika jako '14""' - aspekt WYMAGANY przestaje sie
+            # dopasowywac i odpada kazda oferta. Po niemiecku nie bylo tego
+            # widac, bo '14 Zoll' nie zawiera cudzyslowu.
+            v.strip().replace('""', '"') for v in m.group(2).split(";") if v.strip()]
     m = re.match(r'Info;"?>>> The required aspects are (.*?)"?$', line)
     if m:
         kategorie[biezaca]["_wymagane"] = [v.strip() for v in m.group(1).split(";") if v.strip()]

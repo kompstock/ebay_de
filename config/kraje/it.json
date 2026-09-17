@@ -1,0 +1,120 @@
+{
+  "_about": "Wlochy. WARIANT W BUDOWIE - plikow, na ktore wskazuje 'pliki', jeszcze nie ma. Bramka przerwie przebieg z nazwanym bledem, zamiast wypuscic wybrakowany CSV. To celowe: brak tlumaczenia ma zatrzymac robote, a nie wyjsc pusta oferta.",
+  "kod": "IT",
+  "nazwa": "Wlochy",
+  "listing_site": "IT",
+  "naglowek_site_id": "Italy",
+  "vat_percent": "22",
+  "doplata_wysylka_eur": 20,
+  "_doplata": "Na razie tyle samo co Niemcy. Jesli wysylka do Wloch kosztuje inaczej, to jest miejsce na zmiane.",
+  "sufiks_sku": "ITT",
+  "_sufiks_sku": "Decyzja Marka. Doklejany po bliznakach GW24, wiec 4220 -> 4220ITT, a 4220GW24 -> 4220GW24ITT. Przy wracaniu do numeru magazynowego obcina sie od konca: najpierw ITT, potem GW24.",
+  "shipping_profile_name": "9B27: Free / 2-10d / 30d return - (ID: 263690824019)",
+  "return_profile_name": "9B27: Free / 2-10d / 30d return - (ID: 263690828019)",
+  "payment_profile_name": "lap / 167E / PL / 8431B0F9 / PL - (ID: 254129534019)",
+  "_profile_handlowe": "Nazwy ze zrzutu 'Gestore delle Regole di vendita' po przelaczeniu zwrotu na 30 dni; ID z linkow /bp/*/edit/ sprzed zmiany nazwy - jesli Marek tworzyl nowe profile zamiast zmieniac istniejace, ID sa inne i VerifyAdd to zglosi. Wysylka i zwrot maja teraz te sama nazwe, to nie pomylka - to dwa rozne typy profilu. 30 dni zgadza sie z szablonami opisu, ktore mowia '1 mese di diritto di reso'.",
+  "_kolumny": "Nazwy wyjete wprost z pobranego szablonu eBay.it, nie tlumaczone na oko. UWAGA: 'Tipo' jest po wlosku WYMAGANE (gwiazdka), a niemiecki odpowiednik 'Produktart' nie byl - pusty rodzaj produktu bedzie tu odrzucany.",
+  "kolumny": {
+    "marka": "*C:Marca",
+    "przekatna": "*C:Dimensioni schermo",
+    "procesor": "*C:Processore",
+    "typ_dysku": "C:Tipo di memorizzazione",
+    "rodzaj_produktu": "*C:Tipo",
+    "formfaktor": "C:Fattore di forma",
+    "pojemnosc_dysku": "C:Capacità hard drive",
+    "cechy": "C:Caratteristiche",
+    "pojemnosc_ssd": "C:Capacità SSD",
+    "gpu": "C:GPU",
+    "rok": "C:Anno di rilascio",
+    "kolor": "C:Colore",
+    "taktowanie": "C:Velocità processore",
+    "rozdzielczosc": "C:Risoluzione massima",
+    "numer_producenta": "C:MPN",
+    "model": "C:Modello",
+    "system": "C:Sistema operativo",
+    "liczba_sztuk": "C:Quantità",
+    "jednostka_miary": "C:Unità di misura",
+    "ladowarka": "C:Caricabatterie incluso",
+    "ram": "C:Memoria RAM",
+    "typ_gpu": "C:Scheda grafica",
+    "zlacza": "C:Connettività",
+    "gwarancja_producenta": "C:Garanzia produttore",
+    "seria": "C:Serie",
+    "przeznaczenie": "C:Adatto soprattutto per"
+  },
+  "slowa": {
+    "tak": "Sì",
+    "nie": "No",
+    "nie_dotyczy": "Non applicabile",
+    "jedna_sztuka": "1",
+    "jednostka": "Unità",
+    "jest": "Presente",
+    "brak": "Non presente"
+  },
+  "_slowa": "'Sì' i 'No' oraz 'Unità' sa z listy dozwolonych wartosci w szablonie IT. 'Non applicabile' to pole tekstowe (MPN), wiec eBay nie sprawdza go slownikiem - potwierdzi je dopiero VerifyAdd.",
+  "format_przekatnej": "{n}\"",
+  "_format_przekatnej": "Wlosi zapisuja przekatna jako '15,6\"', Niemcy jako '15,6 Zoll'. Aspekt WYMAGANY - zly format to odrzucona oferta.",
+  "_profile_kraju": "Nakladka jezykowa na 'profile_produktu' z settings.json. Klucze musza sie zgadzac z nazwami profili. Tu wchodzi tylko to, co czyta kupujacy albo slownik eBaya - reszta profilu (reguly, ConditionID, kategorie) zostaje wspolna. PUSTE: czeka na tlumaczenia od Marka.",
+  "profile_kraju": {
+    "Notebook": {
+      "gwarancja": "12 mesi di garanzia",
+      "produktart": "Notebook/Laptop",
+      "tastatur_layout": "La tastiera è dotata di adesivi con layout italiano."
+    },
+    "Desktop-PC": {
+      "gwarancja": "12 mesi di garanzia",
+      "produktart": "Scrivania"
+    },
+    "Desktop-PC nowy": {
+      "gwarancja": "12 mesi di garanzia",
+      "produktart": "Scrivania"
+    },
+    "Notebook GW24": {
+      "gwarancja": "24 mesi di garanzia",
+      "produktart": "Notebook/Laptop",
+      "tastatur_layout": "La tastiera è dotata di adesivi con layout italiano."
+    },
+    "Desktop-PC GW24": {
+      "gwarancja": "24 mesi di garanzia",
+      "produktart": "Scrivania"
+    },
+    "Desktop-PC nowy GW24": {
+      "gwarancja": "24 mesi di garanzia",
+      "produktart": "Scrivania"
+    }
+  },
+  "pliki": {
+    "naglowek": "config/kraje/it/ebay-header.csv",
+    "slownik": "config/kraje/it/ebay-vocab.json",
+    "aspekty": "config/kraje/it/aspects.json",
+    "tlumaczenia": "config/kraje/it/translations.json"
+  },
+  "katalog_szablonow": "templates/it",
+  "etykiety_opisu": {
+    "producent": "Produttore",
+    "model": "Modello",
+    "procesor": "Processore",
+    "rdzenie": "Core del processore",
+    "taktowanie": "Frequenza di clock",
+    "ram": "Memoria RAM",
+    "dysk": "Unità di archiviazione",
+    "ekran": "Schermo",
+    "grafika": "Scheda grafica",
+    "dotyk": "Touchscreen",
+    "naped": "Unità ottica",
+    "system": "Sistema operativo",
+    "klawiatura": "Layout della tastiera",
+    "kamera": "Webcam",
+    "bateria": "Batteria",
+    "zestaw": "Contenuto della confezione",
+    "uwaga": "Nota"
+  },
+  "faq_windows": "<details><summary>Windows &egrave; attivato in modo permanente?</summary><div class=\"kpx-a\">S&igrave;. La licenza digitale &egrave; memorizzata nel dispositivo e rimane attiva anche dopo il ripristino di Windows.</div></details>",
+  "sekcja_business_notebook": "<div class=\"kpx-sec\"><h2 class=\"kpx-h2\"><span>Perché scegliere un notebook business?</span></h2><p>I dispositivi della serie business sono progettati per le aziende, non per la grande distribuzione di elettronica. Una differenza che si nota ogni giorno.</p><ul class=\"kpx-ul\"><li>Scocca robusta in magnesio o fibra di carbonio, anziché in plastica sottile.</li><li>Progettati e testati per un utilizzo quotidiano intensivo.</li><li>Tastiera di alta qualità con una risposta dei tasti ben definita.</li><li>Componenti durevoli e ricambi disponibili a lungo.</li><li>Progettazione che facilita la manutenzione: gli interventi di assistenza sono possibili senza utensili speciali.</li></ul></div>",
+  "wyjatki_polskiego": [
+    "i"
+  ],
+  "_wyjatki_polskiego": "Slowa z listy 'wyciekl polski', ktore po wlosku sa zwyczajnymi slowami. 'i' to rodzajnik okreslony liczby mnogiej i stoi w kazdym opisie - bez tego wyjatku KAZDA wloska oferta odpadala na falszywym alarmie.",
+  "format_generacji_cpu": "{n}a generazione",
+  "_format_generacji_cpu": "Zapas, gdy dokladnego modelu procesora nie ma w slowniku eBaya. Aspekt procesora jest WYMAGANY, wiec bez trafienia odpada cala oferta. Wloskie 'Intel Core i5 8a generazione'."
+}

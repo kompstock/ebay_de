@@ -1,11 +1,13 @@
-# KOMPRE → eBay.de
+# KOMPRE → eBay
 
-Generator plików CSV do eBay File Exchange z feedu XML.
+Generator plików CSV do eBay File Exchange z feedu XML. Obsługuje **wiele rynków**:
+dziś Niemcy (`de`) i Włochy (`it`).
 
 ## Jak używać
 
-Wszystko dzieje się w zakładce **Actions → Generuj CSV eBay DE → Run workflow**.
-Wybierasz tryb, po przebiegu pobierasz plik ze strony Pages albo z artefaktu.
+Wszystko dzieje się w zakładce **Actions → Generuj CSV eBay → Run workflow**.
+Wybierasz **kraj** i **tryb**, po przebiegu pobierasz plik ze strony Pages
+albo z artefaktu `wynik-generowania-<kraj>`.
 
 | tryb | co potrzebne | co dostajesz |
 |---|---|---|
@@ -19,6 +21,40 @@ Przeciągasz go do folderu `input/` przez przeglądarkę i commitujesz.
 
 **Po każdym wgraniu `Add` pobierz raport ponownie.** Numery aukcji nadaje eBay
 i bez świeżego raportu narzędzie nie wie, że te oferty już istnieją.
+
+## Dwie osie: typ towaru i kraj
+
+Typ towaru mówi **co** wystawiamy, kraj mówi **gdzie i w jakim języku**. To dwie
+niezależne osie i żadna nie jest zaszyta w kodzie.
+
+- `config/settings.json` — logika wspólna dla wszystkich rynków plus wartości
+  domyślne: profile produktu, kategorie, reguły Allegro, duplikaty, GW24.
+- `config/kraje/<kod>.json` — wszystko, co zależy od rynku: `listing_site`, VAT,
+  sufiks SKU, profile handlowe, **nazwy kolumn aspektów**, słowa generatora,
+  etykiety opisu, format przekątnej i nazwy generacji procesora.
+- `config/kraje/<kod>/` — nagłówek eBaya, słownik dozwolonych wartości, aspekty
+  i tłumaczenia tego rynku.
+- `templates/<kod>/` — szablony opisu w języku rynku.
+
+Wartości z pliku kraju **nadpisują** `settings.json`, więc reszta kodu dalej czyta
+`settings[...]` i nie musi wiedzieć, że kraje istnieją.
+
+**Jeden przebieg = jeden kraj.** To bezpieczne, bo raport aktywnych ofert filtruje
+się po kolumnie `Listing site` — przebieg włoski fizycznie nie widzi aukcji
+niemieckich i nie ma jak ich wyzerować. Jeden eksport z eBaya obsłuży oba rynki.
+
+### Dołożenie kolejnego kraju
+
+1. `config/kraje/<kod>.json` — najproście z kopii `de.json`,
+2. szablon kategorii pobrany z eBaya tego rynku → `tools/build_vocab.py`,
+3. `tools/eksport_do_tlumaczenia.py <kod>` daje **jeden CSV ze wszystkimi napisami**,
+   jakie widzi kupujący; kolumna `wybierz_z_listy` podaje wartości, które eBay przyjmie,
+4. wypełniony plik wraca przez `tools/wczytaj_tlumaczenia.py <kod> <plik.csv>`,
+5. szablony opisu do `templates/<kod>/`.
+
+Dopóki czegoś brakuje, przebieg **staje z nazwanym powodem** i nie tworzy żadnego
+CSV. Sprawdzane jest też, czy `SiteID` w nagłówku zgadza się z `listing_site` —
+bez tego dałoby się porównać aukcje jednego rynku z plikiem na drugi.
 
 ## Laptopy i komputery
 
