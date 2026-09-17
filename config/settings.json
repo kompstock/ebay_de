@@ -714,7 +714,9 @@
         "NORDIC (qwerty)": "QWERTY Nordic",
         "DE (qwertz)": "QWERTZ DE"
       }
-    }
+    },
+    "pole_zrodla": "Źródło",
+    "nazwa_zrodla": "Allegro"
   },
   "gwarancja_rozszerzona": {
     "_about": "Blizniak oferty z przedluzona gwarancja: ten sam sprzet, SKU z sufiksem, cena +20%, osobny szablon opisu mowiacy o 24 miesiacach. Logika w src/gwarancja.py, krok odpala sie PO scaleniu Allegro, wiec warianty mozna robic takze z ofert allegrowych.",
@@ -735,5 +737,19 @@
     ],
     "_uwaga_typy": "Laptopy oraz komputery - poleasingowe i nowe. Kazdy typ ma swoj profil GW24; roznica wobec oryginalu to zawsze te same 12 miesiecy gwarancji wiecej.",
     "min_sztuk": 1
+  },
+  "duplikaty": {
+    "_about": "Wykrywanie tej samej rzeczy wystawionej dwa razy. Duplikat = identyczna specyfikacja ORAZ identyczna cena w PLN. Sama specyfikacja nie wystarcza - sprzedawca ma po kilka ofert tego samego modelu w roznych cenach i to sa rozne produkty.",
+    "_tylko_miedzy_zrodlami": "Porownujemy WYLACZNIE Shoper z Allegro. Dwie oferty z tego samego zrodla nigdy nie sa duplikatem - to dwie partie wystawione swiadomie osobno, a sklejenie ich zgubiloby towar. Raport liczy je w polu powtorzenia_w_jednym_zrodle, ale do duplikaty.csv nie trafiaja.",
+    "_tryb": "Dzialamy TYLKO na wejsciu. 'odrzucaj' wstrzymuje wystawienie nowej oferty, ktora ma juz blizniaka. Aktywnej aukcji nie zdejmujemy nigdy - wstrzymac mozna wylacznie oferte, ktorej na eBayu jeszcze nie ma.",
+    "_kolizja_aktywnych": "Gdy duplikat stoi na eBayu obiema polowami, zostawiamy obie i pokazujemy je w duplikaty.csv jako 'zostaje - kolizja aktywnych'. To jedyne miejsce na reczna decyzje. Raport JSON liczy takie grupy w 'kolizje_aktywnych'.",
+    "_kto_zostaje": "Ile sztuk naprawde jest: tyle, ile liczy najliczniejsze zrodlo w grupie. Nadwyzka nie ma odpowiednika po drugiej stronie i zostaje. Sposrod ofert jeszcze niewystawionych wstrzymujemy najpierw Allegro - Shoper ma prawdziwe dane o kondycji, Allegro domyslne; dalej wg SKU dla powtarzalnosci.",
+    "_stan": "Nic nie jest scalane. Kazda oferta, ktora zostaje, idzie ze swoim wlasnym stanem.",
+    "_odcisk_a_gwarancja": "Blizniak GW24 ma w feedzie te sama cene co oryginal - podnosi ja dopiero mnoznik profilu. Dlatego do odcisku wchodzi tez pole wariantu z 'gwarancja_rozszerzona.pole_wariantu', inaczej blizniak wygladalby na duplikat samego siebie.",
+    "enabled": true,
+    "odrzucaj": true,
+    "pole_zrodla": "Źródło",
+    "domyslne_zrodlo": "Shoper",
+    "preferowane_zrodlo": "Shoper"
   }
 }

@@ -674,6 +674,74 @@ class ListaSkuGwarancyjnych(unittest.TestCase):
         self.assertEqual(gw.wczytaj_liste(Path("/nie/ma/takiego.csv"), "SKU"), ([], ""))
 
 
+class DuplikatWAktualizacji(unittest.TestCase):
+    """Najgrozniejszy scenariusz calego modulu duplikatow.
+
+    Tryb 'aktualizacja' zeruje kazde aktywne SKU, ktorego nie ma w feedzie,
+    a liste 'w_feedzie' buduje z produktow JUZ po odsianiu duplikatow. Gdyby
+    odsianie objelo oferte aktywna, nastepny przebieg wystawilby jej Revise
+    z iloscia 0 - czyli zdjalby zywa aukcje. Te testy ida cala droga przez
+    generate.py i sprawdzaja plik wynikowy, nie sama funkcje.
+    """
+
+    NAGLOWEK = ("Item number,Title,Variation details,Custom label (SKU),Available quantity,"
+                "Format,Currency,Start price,Auction Buy It Now price,Reserve price,"
+                "Current price,Sold quantity,Watchers,Bids,Start date,End date,"
+                "eBay category 1 name,eBay category 1 number,eBay category 2 name,"
+                "eBay category 2 number,Condition,Listing site")
+
+    def przygotuj(self, aktywne_sku):
+        """Feed z blizniaczą parą Shoper/Allegro plus eksport aktywnych ofert."""
+        import xml.etree.ElementTree as ET
+        katalog = Path(tempfile.mkdtemp())
+        drzewo = ET.parse(FIXTURE)
+        root = drzewo.getroot()
+        wzor = next(o for o in root.findall("./o")
+                    if {a.get("name"): a.text for a in o.findall("./attrs/a")}.get("SKU") == "4220")
+        blizniak = ET.fromstring(ET.tostring(wzor))
+        for element in blizniak.findall("./attrs/a"):
+            if element.get("name") == "SKU":
+                element.text = "ALG1"
+        ET.SubElement(blizniak.find("./attrs"), "a", {"name": "Źródło"}).text = "Allegro"
+        root.append(blizniak)
+        feed = katalog / "feed.xml"
+        drzewo.write(feed, encoding="utf-8")
+
+        wiersze = [self.NAGLOWEK]
+        for numer, sku in enumerate(aktywne_sku, start=307000000000):
+            wiersze.append(f"{numer},Testowa oferta,,{sku},5,FIXED_PRICE,EUR,100.0,,,"
+                           f"100.0,0,,,,,PC Laptops,177,,,Used,DE")
+        raport = katalog / "aktywne.csv"
+        raport.write_text("\n".join(wiersze) + "\n", encoding="utf-8")
+        return feed, raport
+
+    def revise(self, out):
+        with (out / "ebay-revise.csv").open(encoding="utf-8-sig") as uchwyt:
+            rows = list(csv.reader(uchwyt))
+        return [dict(zip(rows[1], r)) for r in rows[2:] if r]
+
+    def test_obie_polowki_aktywne_nie_daja_zerowania(self):
+        feed, raport = self.przygotuj(["4220", "ALG1"])
+        _, wynik, out = uruchom("aktualizacja", feed=feed, raport=raport)
+        self.assertEqual(wynik["duplikaty"]["kolizje_aktywnych"], 1)
+        self.assertEqual(wynik["duplikaty"]["wstrzymanych"], 0)
+        self.assertEqual(wynik["w_tym_zerowanych"], 0, "zadna z aukcji nie moze byc zerowana")
+        zerowane = [w["Custom label (SKU)"] for w in self.revise(out)
+                    if w["Available quantity"] == "0"]
+        self.assertEqual(zerowane, [])
+
+    def test_wstrzymana_polowka_nie_zeruje_aktywnej(self):
+        """Allegro jeszcze nie na eBayu: wstrzymujemy je, a aktywny Shoper
+        dostaje zwykla aktualizacje, nie zerowanie."""
+        feed, raport = self.przygotuj(["4220"])
+        _, wynik, out = uruchom("aktualizacja", feed=feed, raport=raport)
+        self.assertEqual(wynik["duplikaty"]["wstrzymane_sku"], ["ALG1"])
+        self.assertEqual(wynik["w_tym_zerowanych"], 0)
+        zerowane = [w["Custom label (SKU)"] for w in self.revise(out)
+                    if w["Available quantity"] == "0"]
+        self.assertEqual(zerowane, [])
+
+
 class Tryby(unittest.TestCase):
     def test_nowe_pomija_juz_wystawione(self):
         wiersze, raport, _ = uruchom("nowe")
@@ -713,3 +781,182 @@ class Tryby(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RaportDuplikatow(unittest.TestCase):
+    """Duplikat = ta sama specyfikacja ORAZ ta sama cena. Sama specyfikacja nie
+    wystarcza, bo ten sam model w innej cenie to inny produkt."""
+
+    def modul(self):
+        sys.path.insert(0, str(ROOT / "src"))
+        import duplikaty
+        import generate
+        return duplikaty, {
+            "norm": generate.norm, "brand_name": generate.brand_name,
+            "cpu_candidates": generate.cpu_candidates,
+            "zrodlo_procesora": generate.zrodlo_procesora,
+            "clean_capacity": generate.clean_capacity,
+            "screen_size_de": generate.screen_size_de,
+        }
+
+    def oferta(self, sku, cena, stan, zrodlo="Shoper", model="ThinkPad T490"):
+        import xml.etree.ElementTree as ET
+        el = ET.Element("o", {"price": str(cena), "stock": str(stan)})
+        attrs = {"SKU": sku, "Producent": "Lenovo", "Model": model,
+                 "Procesor": "i5-8265U, 6MB Cache, 8 gen.", "Ilość pamięci RAM": "8GB",
+                 "Dysk": "256GB", "Typ dysku": "SSD", "Przekątna ekranu": '14"',
+                 "Źródło": zrodlo}
+        return (el, attrs)
+
+    def znajdz(self, produkty, aktywne=(), odrzucaj=True):
+        duplikaty, funkcje = self.modul()
+        settings = {"duplikaty": {"enabled": True, "pole_zrodla": "Źródło",
+                                  "domyslne_zrodlo": "Shoper", "preferowane_zrodlo": "Shoper",
+                                  "odrzucaj": odrzucaj}}
+        return duplikaty.znajdz(produkty, set(aktywne), settings, funkcje)
+
+    def decyzje(self, wynik) -> dict:
+        return {w["SKU"]: w["decyzja"] for w in wynik["wiersze"]}
+
+    def test_ta_sama_cena_to_duplikat(self):
+        wynik = self.znajdz([self.oferta("A", 1100, 10),
+                             self.oferta("B", 1100, 20, "Allegro")])
+        self.assertEqual(wynik["grup"], 1)
+        self.assertEqual(wynik["ofert"], 2)
+
+    def test_inna_cena_to_inny_produkt(self):
+        """Sprzedawca ma po kilka ofert tego samego modelu w roznych cenach."""
+        wynik = self.znajdz([self.oferta("A", 1100, 10),
+                             self.oferta("B", 1049, 20, "Allegro")])
+        self.assertEqual(wynik["grup"], 0)
+
+    def test_inna_specyfikacja_to_inny_produkt(self):
+        wynik = self.znajdz([self.oferta("A", 1100, 10),
+                             self.oferta("B", 1100, 20, "Allegro", model="ThinkPad T480")])
+        self.assertEqual(wynik["grup"], 0)
+
+    def test_shoper_wygrywa_nad_allegro(self):
+        """Gdy zadna nie jest jeszcze na eBayu: zostaje Shoper, bo ma prawdziwe
+        dane o kondycji, Allegro wstawia domyslne."""
+        wynik = self.znajdz([self.oferta("ALG", 1100, 99, "Allegro"),
+                             self.oferta("SHP", 1100, 5, "Shoper")])
+        self.assertEqual(self.decyzje(wynik), {"SHP": "zostaje", "ALG": "NIE WYSTAWIAMY"})
+        self.assertEqual(wynik["wstrzymane_sku"], ["ALG"])
+
+    def test_aktywnej_aukcji_nigdy_nie_zdejmujemy(self):
+        """Nawet gdy aktywne jest Allegro, a czekajacy Shoper ma lepsze dane:
+        aukcja z historia jest warta wiecej niz czystosc katalogu."""
+        wynik = self.znajdz([self.oferta("ALG", 1100, 99, "Allegro"),
+                             self.oferta("SHP", 1100, 5, "Shoper")], aktywne={"ALG"})
+        self.assertEqual(self.decyzje(wynik), {"ALG": "zostaje", "SHP": "NIE WYSTAWIAMY"})
+
+    def test_obie_aktywne_zostawiamy_do_decyzji(self):
+        """Duplikat, ktory obiema polowami stoi juz na eBayu. Nic nie ruszamy,
+        raport go pokazuje - reszte robi czlowiek."""
+        wynik = self.znajdz([self.oferta("ALG", 1100, 99, "Allegro"),
+                             self.oferta("SHP", 1100, 5, "Shoper")], aktywne={"ALG", "SHP"})
+        self.assertEqual(wynik["wstrzymanych"], 0)
+        self.assertEqual(wynik["kolizje_aktywnych"], 1)
+        self.assertEqual(set(self.decyzje(wynik).values()), {"zostaje - kolizja aktywnych"})
+
+    def test_raport_mowi_z_czym_kolidowala_wstrzymana(self):
+        wynik = self.znajdz([self.oferta("ALG", 1100, 99, "Allegro"),
+                             self.oferta("SHP", 1100, 5, "Shoper")])
+        wstrzymana = [w for w in wynik["wiersze"] if w["decyzja"] == "NIE WYSTAWIAMY"][0]
+        self.assertEqual(wstrzymana["koliduje_z"], "SHP")
+
+    def test_bez_odrzucania_raport_nie_wskazuje_nikogo_do_odsiania(self):
+        """Wylaczony przelacznik zostawia sam raport - feed idzie w calosci."""
+        wynik = self.znajdz([self.oferta("ALG", 1100, 99, "Allegro"),
+                             self.oferta("SHP", 1100, 5, "Shoper")], odrzucaj=False)
+        self.assertEqual(wynik["wstrzymane_sku"], [])
+        self.assertEqual(wynik["grup"], 1, "ale grupe nadal widac w raporcie")
+
+    def test_dwie_oferty_z_tego_samego_zrodla_to_nie_duplikat(self):
+        """Ten sam model w tej samej cenie dwa razy w Shoperze to dwie partie.
+        Sklejenie ich zgubiloby towar, ktory naprawde stoi w magazynie."""
+        wynik = self.znajdz([self.oferta("A", 1100, 10), self.oferta("B", 1100, 20)])
+        self.assertEqual(wynik["grup"], 0)
+        self.assertEqual(wynik["powtorzenia_w_jednym_zrodle"], 1, "ale liczymy je w raporcie")
+
+    def test_dwie_oferty_z_allegro_tez_nie_sa_duplikatem(self):
+        wynik = self.znajdz([self.oferta("A", 1100, 10, "Allegro"),
+                             self.oferta("B", 1100, 20, "Allegro")])
+        self.assertEqual(wynik["grup"], 0)
+
+    def test_zostaje_cale_zrodlo_zwycieskie(self):
+        """Trzy oferty w Shoperze to trzy partie. Dwie z Allegro sa ich
+        odpowiednikami i nie ida na eBay, ale zadnej oferty Shopera nie ruszaja."""
+        wynik = self.znajdz([self.oferta("S1", 1100, 10), self.oferta("S2", 1100, 11),
+                             self.oferta("S3", 1100, 12),
+                             self.oferta("A1", 1100, 10, "Allegro"),
+                             self.oferta("A2", 1100, 11, "Allegro")])
+        self.assertEqual(sorted(wynik["wstrzymane_sku"]), ["A1", "A2"])
+
+    def test_nadwyzka_w_drugim_zrodle_zostaje(self):
+        """Trzy oferty na Allegro przy jednej w Shoperze: tylko jedna ma tam
+        odpowiednik, pozostale dwie to partie, ktorych w sklepie nie ma."""
+        wynik = self.znajdz([self.oferta("SHP", 1100, 10),
+                             self.oferta("A1", 1100, 10, "Allegro"),
+                             self.oferta("A2", 1100, 11, "Allegro"),
+                             self.oferta("A3", 1100, 12, "Allegro")])
+        self.assertEqual(wynik["wstrzymanych"], 1)
+        zostaje = {w["SKU"] for w in wynik["wiersze"] if w["decyzja"] == "zostaje"}
+        self.assertIn("SHP", zostaje)
+        self.assertEqual(len(zostaje), 3)
+
+    def test_wstrzymujemy_tylko_to_czego_na_ebayu_jeszcze_nie_ma(self):
+        """Gdy jedna oferta Allegro juz wisi, wstrzymujemy te druga."""
+        wynik = self.znajdz([self.oferta("SHP", 1100, 10),
+                             self.oferta("A1", 1100, 10, "Allegro"),
+                             self.oferta("A2", 1100, 11, "Allegro")],
+                            aktywne={"A1"})
+        self.assertEqual(wynik["wstrzymane_sku"], ["A2"])
+
+    def test_stan_zostaje_wlasny(self):
+        """Nic nie jest scalane: kazda oferta, ktora zostaje, ma swoj stan."""
+        wynik = self.znajdz([self.oferta("SHP", 1100, 5, "Shoper"),
+                             self.oferta("ALG", 1100, 99, "Allegro")])
+        zostaje = [w for w in wynik["wiersze"] if w["decyzja"] == "zostaje"][0]
+        self.assertEqual(zostaje["SKU"], "SHP")
+        self.assertEqual(zostaje["stan"], 5)
+        self.assertNotIn("stan_po_scaleniu", zostaje)
+
+    def test_blizniak_gwarancyjny_to_nie_duplikat_oryginalu(self):
+        """W feedzie ma te sama cene - podnosi ja dopiero mnoznik profilu.
+        Rozni go 12 miesiecy serwisu, wiec odcisk musi to widziec."""
+        duplikaty, funkcje = self.modul()
+        oryginal = {"Producent": "Lenovo", "Model": "ThinkPad T490",
+                    "Procesor": "i5-8265U, 6MB Cache, 8 gen."}
+        blizniak = dict(oryginal, **{"Wariant gwarancyjny": "GW24"})
+        self.assertNotEqual(duplikaty.odcisk(oryginal, funkcje),
+                            duplikaty.odcisk(blizniak, funkcje))
+
+    def test_niepelna_specyfikacja_nie_jest_porownywana(self):
+        """Bez marki, modelu i procesora odcisk zlepilby przypadkowe oferty."""
+        duplikaty, funkcje = self.modul()
+        self.assertEqual(duplikaty.odcisk({"Producent": "Lenovo"}, funkcje), "")
+        self.assertEqual(duplikaty.odcisk({}, funkcje), "")
+
+    def test_modul_sam_niczego_nie_usuwa(self):
+        """Odsiewaniem zajmuje sie generate.py - modul tylko wskazuje SKU."""
+        produkty = [self.oferta("A", 1100, 10), self.oferta("B", 1100, 20, "Allegro")]
+        przed = len(produkty)
+        self.znajdz(produkty)
+        self.assertEqual(len(produkty), przed)
+
+    def test_nigdy_nie_wstrzymujemy_sku_aktywnego_na_ebay(self):
+        """Bramka na cala rodzine: cokolwiek wyjdzie z rozstrzygania, zadne
+        aktywne SKU nie moze trafic na liste do odsiania - odsianie aktywnego
+        znaczy wyzerowanie go w trybie 'aktualizacja', czyli zdjecie aukcji."""
+        warianty = [
+            ([self.oferta("S", 1100, 5), self.oferta("A", 1100, 9, "Allegro")], {"S"}),
+            ([self.oferta("S", 1100, 5), self.oferta("A", 1100, 9, "Allegro")], {"A"}),
+            ([self.oferta("S", 1100, 5), self.oferta("A", 1100, 9, "Allegro")], {"S", "A"}),
+            ([self.oferta("S1", 1100, 5), self.oferta("S2", 1100, 6),
+              self.oferta("A", 1100, 9, "Allegro")], {"S1", "A"}),
+        ]
+        for produkty, aktywne in warianty:
+            with self.subTest(aktywne=sorted(aktywne)):
+                wynik = self.znajdz(produkty, aktywne=aktywne)
+                self.assertFalse(set(wynik["wstrzymane_sku"]) & aktywne)

@@ -111,6 +111,66 @@ Jeśli eBay odrzuci wiersze kategorii 179 przez pustą kolumnę `*C:Bildschirmgr
 (pochodzi z szablonu laptopów), ustaw `rozdziel_pliki_add: true` — dostaniesz
 `ebay-add-laptopy.csv` i `ebay-add-komputery.csv` osobno.
 
+## Duplikaty: ta sama rzecz wystawiona dwa razy
+
+Ten sam laptop trafia do Shopera i na Allegro, a stamtąd do nas — więc na eBay
+idzie dwa razy, pod różnymi SKU. Zdarzają się też pary w obrębie jednego źródła.
+
+**Duplikat = identyczna specyfikacja ORAZ identyczna cena w PLN.** Sama specyfikacja
+nie wystarcza: sprzedawca ma po kilka ofert tego samego modelu w różnych cenach
+i to są różne produkty. Dopiero ta sama cena co do grosza mówi, że to ten sam towar.
+
+Odcisk powstaje z: marka, model, procesor, RAM, dysk, typ dysku, przekątna.
+Marka, model i procesor **muszą** być znane — bez nich oferta nie jest porównywana,
+bo odcisk zlepiłby przypadkowe pozycje.
+
+**Porównujemy wyłącznie Shoper z Allegro.** Dwie oferty z tego samego źródła nigdy
+nie są duplikatem — to dwie partie tego samego modelu, wystawione świadomie osobno.
+Sklejenie ich zgubiłoby towar, który naprawdę stoi w magazynie. Takie powtórzenia
+nie trafiają do `duplikaty.csv`; raport JSON liczy je w `powtorzenia_w_jednym_zrodle`.
+
+### Działamy tylko na wejściu
+
+**Aktywnej aukcji nie zdejmujemy nigdy.** Duplikat rozstrzygamy przy wystawianiu:
+oferta, która ma już swojego bliźniaka, po prostu nie idzie na eBay. Aukcja z historią,
+obserwującymi i pozycją w wyszukiwarce jest warta więcej niż czystość katalogu,
+a błąd w odcisku kosztowałby wtedy żywą ofertę.
+
+Kandydatem do wstrzymania jest więc zawsze oferta, której na eBayu **jeszcze nie ma**.
+Między dwiema takimi zostaje Shoper — ma prawdziwe dane o kondycji, Allegro wstawia
+domyślne; to ta sama zasada, która działa przy kolizji SKU w `allegro.py`.
+
+Ile sztuk naprawdę jest: tyle, ile liczy najliczniejsze źródło w grupie. Przy trzech
+ofertach w Shoperze i dwóch na Allegro są trzy sztuki — dwie widziane podwójnie i jedna
+tylko w sklepie. **Nadwyżka zostaje**, bo nie ma po drugiej stronie odpowiednika.
+
+Stany **nie są scalane** — każda oferta, która zostaje, idzie ze swoim własnym.
+
+Wyłącznik: `duplikaty.odrzucaj`. Na `false` nic nie jest odsiewane, powstaje sam raport.
+
+### Gdy duplikat już wisi obiema połowami
+
+Wtedy nie ma czego wstrzymywać — obie aukcje żyją. Zostawiamy obie i pokazujemy je
+w raporcie jako `zostaje - kolizja aktywnych`. To jedyne miejsce, gdzie potrzebna jest
+ręczna decyzja; raport JSON liczy takie grupy w `kolizje_aktywnych`.
+
+### Raport
+
+`output/duplikaty.csv`, kolumna `decyzja`:
+
+| wartość | znaczenie |
+|---|---|
+| `zostaje` | idzie na eBay normalnie |
+| `NIE WYSTAWIAMY` | wstrzymana, bo bliźniak już idzie albo już wisi |
+| `zostaje - kolizja aktywnych` | obie połowy są na eBayu, decyzja należy do człowieka |
+
+Kolumna `koliduje_z` mówi **z czym** — podaje SKU drugiej oferty. Przy większej grupie
+każda wstrzymana wskazuje inną, żeby raport nie sugerował, że trzy sztuki są duplikatem
+jednej.
+
+Zwycięzca dostaje **najwyższy stan z grupy**, nie sumę — te same sztuki są policzone
+w obu źródłach, więc suma zawyżałaby magazyn.
+
 ## Zasady, których pilnuje kod
 
 - Brak kompletnych danych GPSR → produkt nie trafia do CSV.

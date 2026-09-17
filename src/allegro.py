@@ -89,6 +89,10 @@ def przerob_oferte(offer, acfg: dict, sku_zajete: set[str],
         nowe["Model"] = nowe["Model"].split("|")[0].strip()
 
     nowe.update(acfg["domyslna_kondycja"])       # piec pol, ktorych Allegro nie ma
+    # Znacznik zrodla. Potrzebny dalej, zeby raport duplikatow mogl powiedziec,
+    # ktora oferta skad przyszla - po samym SKU tego nie widac, bo w feedzie
+    # Shopera tez siedza numery wygladajace jak ID z Allegro.
+    nowe[acfg.get("pole_zrodla", "Źródło")] = acfg.get("nazwa_zrodla", "Allegro")
 
     nowa = ET.Element("o", {
         "id": sku,

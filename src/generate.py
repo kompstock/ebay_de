@@ -37,6 +37,7 @@ import unicodedata
 import urllib.request
 import xml.etree.ElementTree as ET
 import allegro
+import duplikaty
 import gwarancja
 from collections import Counter
 from datetime import datetime, timezone
@@ -1201,7 +1202,7 @@ def wczytaj_raport(path: Path, site: str) -> tuple[dict[str, dict], list[str]]:
     Zdublowany SKU jest pomijany - nie zgadujemy, ktora aukcje ruszyc.
     """
     mapa: dict[str, dict] = {}
-    duplikaty: set[str] = set()
+    sku_zdublowane: set[str] = set()
     with path.open(encoding="utf-8-sig", newline="") as handle:
         for wiersz in csv.DictReader(handle):
             if (wiersz.get("Listing site") or "").strip().upper() != site.upper():
@@ -1210,7 +1211,7 @@ def wczytaj_raport(path: Path, site: str) -> tuple[dict[str, dict], list[str]]:
             if not sku:
                 continue
             if sku in mapa:
-                duplikaty.add(sku)
+                sku_zdublowane.add(sku)
                 continue
             mapa[sku] = {
                 "item": (wiersz.get("Item number") or "").strip(),
@@ -1219,9 +1220,9 @@ def wczytaj_raport(path: Path, site: str) -> tuple[dict[str, dict], list[str]]:
                 "cena": float((wiersz.get("Start price") or "0").replace(",", ".")),
                 "waluta": (wiersz.get("Currency") or "EUR").strip(),
             }
-    for sku in duplikaty:
+    for sku in sku_zdublowane:
         mapa.pop(sku, None)
-    return mapa, sorted(duplikaty)
+    return mapa, sorted(sku_zdublowane)
 def cena_eur(offer, cfg, profil: dict | None = None) -> int:
     """PLN z feedu -> EUR po kursie NBP, w gore, plus ukryta doplata za wysylke.
 
@@ -1360,7 +1361,7 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
                        f"minimum to {settings['min_produktow_w_feedzie']} - "
                        "wyglada na niepelne pobranie, przerywam")
     aktywne: dict[str, dict] = {}
-    duplikaty: list[str] = []
+    sku_zdublowane: list[str] = []
     if tryb in ("nowe", "aktualizacja"):
         if not raport or not raport.is_file():
             blokady.append(f"tryb '{tryb}' wymaga eksportu aktywnych ofert z eBaya - "
@@ -1370,12 +1371,28 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
                            f"z eBaya - brak kolumn: "
                            f"{', '.join(brakujace_kolumny_raportu(raport))}")
         else:
-            aktywne, duplikaty = wczytaj_raport(raport, settings["listing_site"])
+            aktywne, sku_zdublowane = wczytaj_raport(raport, settings["listing_site"])
             if not aktywne:
                 blokady.append(f"plik {raport.name} nie ma ani jednej oferty dla serwisu "
                                f"'{settings['listing_site']}' - zly eksport albo zly serwis")
-            for sku in duplikaty:
+            for sku in sku_zdublowane:
                 review.add("konflikt", sku, "ten sam SKU ma kilka aktywnych aukcji - pomijam")
+    # Duplikaty rozstrzygamy TU, przed budowaniem wierszy: wstrzymana oferta
+    # ma w ogole nie trafic na eBay. Krok nie zabiera zadnej aukcji - modul
+    # nigdy nie wstrzymuje SKU aktywnego, a nieaktywne nie podlega zerowaniu
+    # w trybie 'aktualizacja'. Warunek na aktywnosc pilnujemy jeszcze raz tutaj,
+    # bo koszt bledu to zdjeta aukcja.
+    dupl = duplikaty.znajdz(produkty, set(aktywne), settings, {
+        "norm": norm, "brand_name": brand_name, "cpu_candidates": cpu_candidates,
+        "zrodlo_procesora": zrodlo_procesora, "clean_capacity": clean_capacity,
+        "screen_size_de": screen_size_de,
+    })
+    wstrzymane = {s for s in (dupl.get("wstrzymane_sku") or []) if s not in aktywne}
+    if wstrzymane:
+        produkty = [(o, a) for o, a in produkty if a.get("SKU", "") not in wstrzymane]
+        # Do review.csv tego nie wpisujemy: tam sa braki do uzupelnienia
+        # w kartotece, a komplet duplikatow stoi w osobnym duplikaty.csv.
+        skipped["duplikat: nie wystawiamy"] += len(wstrzymane)
     output_dir.mkdir(parents=True, exist_ok=True)
     wiersze_add: list[dict] = []
     wiersze_revise: list[dict] = []
@@ -1463,6 +1480,14 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
             wiersze_revise = []
         else:
             zapisz_revise(output_dir / "ebay-revise.csv", wiersze_revise)
+    # Raport duplikatow powstal wyzej, przed budowaniem wierszy. Tu tylko zapis:
+    # co poszlo na eBay, co wstrzymalismy i z czym kolidowalo.
+    if dupl:
+        with (output_dir / "duplikaty.csv").open("w", encoding="utf-8-sig", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=duplikaty.KOLUMNY,
+                                    delimiter=";", lineterminator="\n")
+            writer.writeheader()
+            writer.writerows(dupl.pop("wiersze"))
     with (output_dir / "review.csv").open("w", encoding="utf-8-sig", newline="") as handle:
         writer = csv.writer(handle, delimiter=";", lineterminator="\n")
         writer.writerow(["Rodzaj", "Pole / SKU", "Wartość"])
@@ -1475,7 +1500,7 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
         "produktow_w_kategorii": skipped["w_kategorii"],
         "produktow_z_zapasem": len(produkty),
         "aktywnych_na_ebay": len(aktywne),
-        "sku_zdublowane": duplikaty,
+        "sku_zdublowane": sku_zdublowane,
         "do_wystawienia": len(wiersze_add),
         "produktow_z_zapasem_wg_typu": licz_wg_typu(produkty, settings),
         "do_wystawienia_wg_kategorii": licz_wg_kategorii(wiersze_add, settings),
@@ -1484,6 +1509,7 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
         "w_tym_zerowanych": zerowane,
         "pominieto": dict(skipped),
         "review_items": len(review.rows()),
+        "duplikaty": dupl or "wylaczone",
         "nbp": nbp,
         "kurs_z_doplata_eur": settings["doplata_wysylka_eur"],
         "do_uzupelnienia": {
