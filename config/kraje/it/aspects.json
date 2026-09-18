@@ -232,7 +232,7 @@
  },
  "condition_id": {
   "_about": "Mapowanie klasy z feedu na ConditionID eBay. Do czasu wejscia do programu eBay Refurbished wszystko na 3000.",
-  "_tryb": "refurbished",
+  "_tryb": "gebraucht",
   "gebraucht": {
    "A": "3000",
    "A-": "3000",
@@ -246,7 +246,7 @@
    "B": "2030",
    "_brak": "3000"
   },
-  "_uwaga_test": "PROBNIE WLACZONE 18.09.2026 - sprawdzamy, czy konto jest przyjete do programu eBay Refurbished. Jesli VerifyAdd odrzuci, wrocic na 'gebraucht'."
+  "_uwaga_test": "SPRAWDZONE 18.09.2026 na VerifyAdd: eBay.it odrzuca, blad 21920311 'Il venditore non e idoneo all'utilizzo della condizione Ricondizionato in questa categoria' dla kategorii 177. Konto NIE jest przyjete do programu eBay Refurbished. Mapa 'refurbished' zostaje gotowa - wystarczy zmienic '_tryb', gdy eBay zaakceptuje zgloszenie. Blad wskazuje kategorie, wiec zgoda jest per kategoria, nie na cale konto."
  },
  "herstellergarantie": {
   "_uwaga": "'Keine' nie istnieje w slowniku eBaya. Pole zostaje puste.",
