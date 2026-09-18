@@ -1151,6 +1151,7 @@ def build_row(offer, attrs, cfg, headers, review):
     else:
         # Zachowanie historyczne laptopow: niepuste pole znaczy Ja.
         ladegerat = slowa["tak"] if attrs.get("W zestawie") else ""
+    values_condition = profil.get("condition_id") or cond_map.get(grade, cond_map["_brak"])
     values: dict[str, str] = {
         headers[0]: "Add",
         "CustomLabel": attrs.get("SKU", ""),
@@ -1158,7 +1159,7 @@ def build_row(offer, attrs, cfg, headers, review):
         "*Title": build_title(attrs, settings, aspects, profil),
         # Nowy towar ma ConditionID wprost z profilu - klasa [Klasa X] dotyczy
         # wylacznie sprzetu poleasingowego i dla nowego zawsze byla by pusta.
-        "*ConditionID": profil.get("condition_id") or cond_map.get(grade, cond_map["_brak"]),
+        "*ConditionID": values_condition,
         "VAT%": settings["vat_percent"],
         # Zestawy skladane nie maja marki w slowniku eBaya - profil podaje wartosc,
         # ktora ten slownik zna ("Custom, Whitebox").
@@ -1187,6 +1188,13 @@ def build_row(offer, attrs, cfg, headers, review):
         kol("taktowanie"): vocab_match(asp("taktowanie"), base_clock(attrs.get("Taktowanie", "")), vocab, review, ""),
         kol("rozdzielczosc"): vocab_match(asp("rozdzielczosc"), attrs.get("Rozdzielczość ekranu", ""), vocab, review, "", strict=False),
         kol("numer_producenta"): slowa["nie_dotyczy"],
+        # eBay wymaga identyfikatora produktu przy niektorych stanach towaru.
+        # Zestawy skladane u nas nie maja EAN-u fabrycznego i wymyslic go nie
+        # wolno - jedyna prawdziwa odpowiedz to "nie dotyczy". Sprawdzone na
+        # VerifyAdd: kolumna nazywa sie 'Product:EAN', nie 'C:EAN', a wartosc
+        # musi byc w jezyku rynku ('Does not apply' zostalo odrzucone).
+        "Product:EAN": (slowa["nie_dotyczy"]
+                        if str(values_condition) in settings.get("ean_dla_stanow", []) else ""),
         kol("model"): vocab_match(asp("model"), nazwa_modelu(attrs), vocab, review, "", strict=False),
         kol("system"): vocab_match(
             asp("system"),
