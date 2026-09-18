@@ -1222,6 +1222,18 @@ def build_row(offer, attrs, cfg, headers, review):
         "Product Safety Pictograms": settings["product_safety_pictograms"],
         **gpsr,
     }
+    # Wartosc spoza listy eBaya nie wywala pliku - eBay ja przyjmie, tylko nie
+    # podepnie pod filtr wyszukiwania. Efekt: oferta jest, ale kupujacy jej nie
+    # znajdzie po parametrze. Tak wlasnie niemieckie "Eingebautes Mikrofon"
+    # przeszlo na wloski rynek i widac je bylo dopiero w gotowej ofercie.
+    for klucz, kolumna in cfg["kraj"]["kolumny"].items():
+        dozwolone = slownik["aspekty"].get(asp(klucz))
+        if not dozwolone:
+            continue                        # aspekt bez zamknietej listy
+        znane = {norm(x) for x in dozwolone}
+        for wartosc in (values.get(kolumna) or "").split("|"):
+            if wartosc.strip() and norm(wartosc) not in znane:
+                review.add("poza slownikiem", kolumna, wartosc.strip())
     for aspect in slownik["_wymagane"]:
         for column in (f"*C:{aspect}", f"C:{aspect}"):
             if column in values and not values[column]:

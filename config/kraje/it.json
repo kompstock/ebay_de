@@ -59,7 +59,12 @@
     "Notebook": {
       "gwarancja": "12 mesi di garanzia",
       "produktart": "Notebook/Laptop",
-      "tastatur_layout": "La tastiera è dotata di adesivi con layout italiano."
+      "tastatur_layout": "La tastiera è dotata di adesivi con layout italiano.",
+      "cechy_domyslne": [
+        "Bluetooth",
+        "Wi-Fi",
+        "Microfono incorporato"
+      ]
     },
     "Desktop-PC": {
       "gwarancja": "12 mesi di garanzia",
@@ -72,7 +77,12 @@
     "Notebook GW24": {
       "gwarancja": "24 mesi di garanzia",
       "produktart": "Notebook/Laptop",
-      "tastatur_layout": "La tastiera è dotata di adesivi con layout italiano."
+      "tastatur_layout": "La tastiera è dotata di adesivi con layout italiano.",
+      "cechy_domyslne": [
+        "Bluetooth",
+        "Wi-Fi",
+        "Microfono incorporato"
+      ]
     },
     "Desktop-PC GW24": {
       "gwarancja": "24 mesi di garanzia",
@@ -116,5 +126,6 @@
   ],
   "_wyjatki_polskiego": "Slowa z listy 'wyciekl polski', ktore po wlosku sa zwyczajnymi slowami. 'i' to rodzajnik okreslony liczby mnogiej i stoi w kazdym opisie - bez tego wyjatku KAZDA wloska oferta odpadala na falszywym alarmie.",
   "format_generacji_cpu": "{n}a generazione",
-  "_format_generacji_cpu": "Zapas, gdy dokladnego modelu procesora nie ma w slowniku eBaya. Aspekt procesora jest WYMAGANY, wiec bez trafienia odpada cala oferta. Wloskie 'Intel Core i5 8a generazione'."
+  "_format_generacji_cpu": "Zapas, gdy dokladnego modelu procesora nie ma w slowniku eBaya. Aspekt procesora jest WYMAGANY, wiec bez trafienia odpada cala oferta. Wloskie 'Intel Core i5 8a generazione'.",
+  "_cechy_domyslne": "Cechy zakladane z gory dla laptopa. W settings.json sa po niemiecku ('Eingebautes Mikrofon'), bo to wartosci widoczne w ofercie - kraj musi je nadpisac."
 }

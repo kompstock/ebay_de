@@ -848,6 +848,30 @@ class OsKraju(unittest.TestCase):
         self.assertEqual(it["do_wystawienia"], de["do_wystawienia"],
                          f"IT pominelo: {it['pominieto']}")
 
+    def test_kazdy_blok_aspektow_jest_rozstrzygniety(self):
+        """Bramka na dokladanie kolejnych rynkow.
+
+        Wloskie oferty wyszly z niemieckimi wartosciami ('Eingebautes Mikrofon',
+        'Arbeitsstation', 'microSD-Card-Slot') nie dlatego, ze ktos zle
+        przetlumaczyl, tylko dlatego, ze tych blokow NIE BYLO w arkuszu do
+        tlumaczenia. Skopiowaly sie z niemieckiego i nikt ich nie zobaczyl.
+
+        Dlatego kazdy blok aspects.json musi byc albo eksportowany, albo jawnie
+        wpisany jako nietlumaczony - z powodem. Nowy blok bez decyzji wywala ten
+        test, zamiast po cichu wyjsc po niemiecku na obcym rynku.
+        """
+        sys.path.insert(0, str(ROOT / "tools"))
+        import importlib
+        eksport = importlib.import_module("eksport_do_tlumaczenia")
+        aspekty = json.loads(
+            (ROOT / "config" / "aspects.json").read_text(encoding="utf-8"))
+        rozstrzygniete = (set(eksport.BLOK_DO_ASPEKTU) | set(eksport.ZAGNIEZDZONE)
+                          | {b for b, *_ in eksport.LISTY} | set(eksport.NIE_TLUMACZYMY)
+                          | {"porty_reguly"})
+        bloki = {k for k in aspekty if not k.startswith("_")}
+        self.assertEqual(bloki - rozstrzygniete, set(),
+                         "blok bez decyzji: dopisz go do eksportu albo do NIE_TLUMACZYMY")
+
     def test_nieznany_kraj_konczy_sie_zrozumialym_bledem(self):
         wynik = subprocess.run(
             [sys.executable, str(ROOT / "src" / "generate.py"), "--kraj", "nieistnieje",

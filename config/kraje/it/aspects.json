@@ -14,11 +14,11 @@
    "USB-C",
    "Gigabit Ethernet",
    "Micro-HDMI",
-   "microSD-Card-Slot",
+   "Slot per scheda microSD",
    "Micro-USB",
-   "Mini-DisplayPort",
+   "Mini DisplayPort",
    "Mini Gigabit Ethernet",
-   "SD-Card-Slot",
+   "Slot per scheda SD",
    "USB 3.2",
    "USB 4.0",
    "VGA"
@@ -35,7 +35,7 @@
    "HDMI 1.4b": "HDMI",
    "HDMI 2.0": "HDMI",
    "USB-C": "USB-C",
-   "USB4 Typ-C": "USB 4.0",
+   "USB4 Type-C": "USB 4.0",
    "Thunderbolt 3": "USB-C",
    "Thunderbolt 4": "USB-C",
    "USB 3.2 Gen 1": "USB 3.2",
@@ -45,58 +45,59 @@
    "USB 2.0": "USB 2.0",
    "USB": "USB 2.0",
    "DisplayPort": "DisplayPort",
-   "Mini-DisplayPort": "Mini-DisplayPort",
+   "Mini DisplayPort": "Mini DisplayPort",
    "VGA": "VGA",
    "RJ-45 (LAN)": "Gigabit Ethernet",
-   "Mini-Ethernet": "Mini Gigabit Ethernet",
-   "microSD-Kartenleser": "microSD-Card-Slot",
-   "SD-Kartenleser": "SD-Card-Slot",
-   "Kartenleser": "SD-Card-Slot",
-   "USB 3.2 Gen 2 Typ-C": [
+   "Mini Ethernet": "Mini Gigabit Ethernet",
+   "Lettore di schede microSD": "Slot per scheda microSD",
+   "Lettore di schede SD": "Slot per scheda SD",
+   "Lettore di schede": "Slot per scheda SD",
+   "USB 3.2 Gen 2 Type-C": [
     "USB-C",
     "USB 3.2"
    ],
-   "USB 3.2 Gen 1 Typ-C": [
+   "USB 3.2 Gen 1 Type-C": [
     "USB-C",
     "USB 3.2"
    ],
-   "USB 3.2 Typ-C": [
+   "USB 3.2 Type-C": [
     "USB-C",
     "USB 3.2"
    ],
-   "USB 3.1 Typ-C": [
+   "USB 3.1 Type-C": [
     "USB-C",
     "USB 3.1"
    ],
-   "USB 3.0 Typ-C": [
+   "USB 3.0 Type-C": [
     "USB-C",
     "USB 3.0"
    ],
-   "USB 2.0 Typ-C": [
+   "USB 2.0 Type-C": [
     "USB-C",
     "USB 2.0"
    ],
    "_uwaga_lista": "Wartosc moze byc lista - jedno gniazdo bywa dla kupujacego kilkoma rzeczami naraz (USB 3.2 Gen 2 Typ-C to i USB-C, i USB 3.2)."
-  }
+  },
+  "_uwaga_179": "UWAGA: 'Gigabit Ethernet' jest na liscie eBay.it dla laptopow (177), ale kategoria komputerow (179) ma tam 'RJ-45'. Mapa jest wspolna dla obu kategorii, wiec pecety dostaja wartosc spoza listy - eBay ja przyjmuje, lecz nie podepnie pod filtr."
  },
  "besonderheiten": {
   "_about": "C:Besonderheiten - wartosci z ok.csv.",
   "_dozwolone": [
-   "10/100 LAN Karte",
+   "Scheda LAN 10/100",
    "Bluetooth",
-   "Eingebautes Mikrofon",
+   "Microfono incorporato",
    "Wi-Fi",
-   "Integrierte Webkamera",
+   "Webcam integrata",
    "Touchscreen",
-   "Hintergrundbeleuchtete Tastatur",
-   "Multi-Touch-Trackpad",
-   "Robust",
+   "Tastiera retroilluminata",
+   "Trackpad Multi-Touch",
+   "Antiurto",
    "LTE",
    "5G",
    "NFC",
-   "Konvertierbarer 2-in-1-Laptop/Tablet",
-   "Optical Drive",
-   "USB-PD (schnelles Laden)"
+   "Convertibili 2 in 1",
+   "Unità ottica",
+   "USB-PD (ricarica rapida)"
   ],
   "reguly": [
    {
@@ -133,7 +134,8 @@
   "_webcam": "Webcam integrata",
   "_touchscreen": "Touchscreen",
   "_podswietlenie": "Tastiera retroilluminata",
-  "_uwaga_lan": "'10/100 LAN Karte' usuniete - to deklaracja predkosci, ktorej feed nie potwierdza. Obecnosc portu LAN wynika z sekcji Anschlüsse i aspektu Konnektivität."
+  "_uwaga_lan": "'10/100 LAN Karte' usuniete - to deklaracja predkosci, ktorej feed nie potwierdza. Obecnosc portu LAN wynika z sekcji Anschlüsse i aspektu Konnektivität.",
+  "_uwaga_zrodlo": "Wartosci przepisane z listy dozwolonych eBay.it (kategoria 177), nie tlumaczone na oko."
  },
  "farbe": {
   "_about": "C:Farbe - z feedu brak pola koloru, wiec wartosc domyslna per producent/seria.",
@@ -163,10 +165,10 @@
  "passend_fuer": {
   "_about": "C:Passend für - stale dla kategorii laptopow biznesowych.",
   "wartosci": [
-   "Arbeitsstation",
-   "Gelegentliche Computerarbeiten"
+   "Postazione di lavoro",
+   "Informatica occasionale"
   ],
-  "_uwaga": "ok.csv mial 'Arbeit|Business|Homeoffice' - zadna z tych wartosci nie istnieje w slowniku eBaya."
+  "_uwaga": "Wartosci z listy eBay.it: 'Postazione di lavoro' i 'Informatica occasionale'. Odpowiedniki niemieckich 'Arbeitsstation' i 'Gelegentliche Computerarbeiten'."
  },
  "festplattentyp": {
   "SSD": "SSD (Stato solido)",
@@ -230,7 +232,7 @@
  },
  "condition_id": {
   "_about": "Mapowanie klasy z feedu na ConditionID eBay. Do czasu wejscia do programu eBay Refurbished wszystko na 3000.",
-  "_tryb": "gebraucht",
+  "_tryb": "refurbished",
   "gebraucht": {
    "A": "3000",
    "A-": "3000",
@@ -243,7 +245,8 @@
    "A-": "2020",
    "B": "2030",
    "_brak": "3000"
-  }
+  },
+  "_uwaga_test": "PROBNIE WLACZONE 18.09.2026 - sprawdzamy, czy konto jest przyjete do programu eBay Refurbished. Jesli VerifyAdd odrzuci, wrocic na 'gebraucht'."
  },
  "herstellergarantie": {
   "_uwaga": "'Keine' nie istnieje w slowniku eBaya. Pole zostaje puste.",
@@ -266,27 +269,27 @@
   "reguly": [
    [
     "(?i)(?=.*usb)(?=.*3\\.2)(?=.*gen\\.?\\s*2)(?=.*typ\\s*c)",
-    "USB 3.2 Gen 2 Typ-C"
+    "USB 3.2 Gen 2 Type-C"
    ],
    [
     "(?i)(?=.*usb)(?=.*3\\.2)(?=.*gen\\.?\\s*1)(?=.*typ\\s*c)",
-    "USB 3.2 Gen 1 Typ-C"
+    "USB 3.2 Gen 1 Type-C"
    ],
    [
     "(?i)(?=.*usb)(?=.*3\\.2)(?=.*typ\\s*c)",
-    "USB 3.2 Typ-C"
+    "USB 3.2 Type-C"
    ],
    [
     "(?i)(?=.*usb)(?=.*3\\.1)(?=.*typ\\s*c)",
-    "USB 3.1 Typ-C"
+    "USB 3.1 Type-C"
    ],
    [
     "(?i)(?=.*usb)(?=.*3\\.0)(?=.*typ\\s*c)",
-    "USB 3.0 Typ-C"
+    "USB 3.0 Type-C"
    ],
    [
     "(?i)(?=.*usb)(?=.*2\\.0)(?=.*typ\\s*c)",
-    "USB 2.0 Typ-C"
+    "USB 2.0 Type-C"
    ],
    [
     "(?i)(?=.*usb)(?=.*3\\.2)(?=.*gen\\.?\\s*2)",
@@ -310,7 +313,7 @@
    ],
    [
     "(?i)usb\\s*4",
-    "USB4 Typ-C"
+    "USB4 Type-C"
    ],
    [
     "(?i)usb[-\\s]*(typ[eu]?[-\\s]*c|c)\\b",
@@ -342,7 +345,7 @@
    ],
    [
     "(?i)mini[-\\s]*display[-\\s]*port",
-    "Mini-DisplayPort"
+    "Mini DisplayPort"
    ],
    [
     "(?i)display[-\\s]*port",
@@ -370,7 +373,7 @@
    ],
    [
     "(?i)mini\\s*ethernet",
-    "Mini-Ethernet"
+    "Mini Ethernet"
    ],
    [
     "(?i)rj-?45|ethernet|^lan\\b",
@@ -378,47 +381,47 @@
    ],
    [
     "(?i)rs-?232|^com\\b",
-    "Serielle Schnittstelle (RS-232)"
+    "Porta seriale (RS-232)"
    ],
    [
     "(?i)smart\\s*card|^sc$",
-    "Smartcard-Leser"
+    "Lettore smart card"
    ],
    [
     "(?i)micro\\s*sd",
-    "microSD-Kartenleser"
+    "Lettore di schede microSD"
    ],
    [
     "(?i)czytnik kart pamieci sd|czytnik kart sd|^sd$",
-    "SD-Kartenleser"
+    "Lettore di schede SD"
    ],
    [
     "(?i)czytnik kart|kartenleser",
-    "Kartenleser"
+    "Lettore di schede"
    ],
    [
     "(?i)mini\\s*jack|jack|combo|sluchawkow|mikrofon|headphone|audio|^3\\.5\\s*mm",
-    "Audio-Kombibuchse"
+    "Jack audio combo"
    ],
    [
     "(?i)dc-?in|zasil|netzanschluss",
-    "Netzanschluss"
+    "Alimentazione"
    ],
    [
     "(?i)dok",
-    "Docking-Anschluss"
+    "Connettore dock"
    ],
    [
     "(?i)sim",
-    "SIM-Kartensteckplatz"
+    "Slot per scheda SIM"
    ],
    [
     "(?i)express\\s*card",
-    "ExpressCard-Steckplatz"
+    "Slot ExpressCard"
    ],
    [
     "(?i)kensington|blokad",
-    "Kensington-Schloss"
+    "Attacco Kensington"
    ],
    [
     "(?i)^ps\\s*/?\\s*2$|ps\\s*/\\s*2",
@@ -430,7 +433,7 @@
    ],
    [
     "(?i)^serial$",
-    "Serielle Schnittstelle (RS-232)"
+    "Porta seriale (RS-232)"
    ],
    [
     "(?i)wejscie liniowe|line[-\\s]*in",
@@ -452,7 +455,8 @@
    "n/a",
    "nie dotyczy"
   ],
-  "_uwaga_pomijaj": "Wpisy, ktore nic nie mowia kupujacemu. Pomijamy je bez zglaszania do review - to nie sa braki do uzupelnienia."
+  "_uwaga_pomijaj": "Wpisy, ktore nic nie mowia kupujacemu. Pomijamy je bez zglaszania do review - to nie sa braki do uzupelnienia.",
+  "_uwaga_jezyk": "Etykiety trafiaja WPROST do opisu oferty, w sekcji zlacz. Musza byc w jezyku rynku - same regexy zostaja, bo dopasowuja tekst z polskiego feedu."
  },
  "klawiatura_czesci": {
   "_about": "Rozbior wartosci pola 'Klawiatura (ISO lub ANSI)'. Nierozpoznany czlon = produkt do review.",

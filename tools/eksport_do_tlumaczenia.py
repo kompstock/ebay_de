@@ -46,6 +46,33 @@ BLOK_DO_ASPEKTU = {
 # 'z_modelu'). Bez tego kolory nie trafialy do arkusza i wychodzily po niemiecku.
 ZAGNIEZDZONE = {"farbe": ("domyslnie", "z_modelu")}
 
+# Listy wartosci, ktore kupujacy widzi, a ktore nie sa zwyklymi parami klucz->napis.
+# Kazda pozycja: (blok, sciezka w bloku, klucz aspektu, opis kontekstu).
+LISTY = (
+    ("besonderheiten", ("_dozwolone",), "cechy",
+     "lista cech, ktore wolno wypuscic - wartosc spoza niej jest po cichu odrzucana"),
+    ("passend_fuer", ("wartosci",), "przeznaczenie",
+     "stala wartosc aspektu, ta sama w kazdej ofercie"),
+    ("konnektivitaet", ("_dozwolone",), "zlacza",
+     "lista wartosci, ktore wolno wypuscic do aspektu zlacz"),
+)
+
+# Bloki aspects.json, ktorych NIE tlumaczymy - kazdy z powodem. Test pilnuje, zeby
+# nowy blok trafil tu albo do eksportu, a nie zostal po cichu po niemiecku.
+NIE_TLUMACZYMY = {
+    "serie": "nazwy serii producenta (ThinkPad, Latitude) - marki sie nie tlumaczy",
+    "erscheinungsjahr": "roczniki modeli, same liczby",
+    "condition_id": "numery stanow eBaya, nie tekst",
+    "grafikprozessor_alias": "nazwy ukladow graficznych, miedzynarodowe",
+    "klawiatura_czesci": "nie trafia do oferty - kod czyta stad tylko podswietlenie",
+    "sufiks_tytulu": "skroty systemu w tytule (Win11 Pro) - miedzynarodowe",
+    "herstellergarantie": "pole zostaje puste, gwarancja sprzedawcy idzie w opisie",
+    "betriebssystem": "nazwy systemow, miedzynarodowe",
+    "grafikprozessortyp": "eksportowane osobno przez BLOK_DO_ASPEKTU",
+    "festplattentyp": "eksportowane osobno przez BLOK_DO_ASPEKTU",
+    "farbe": "eksportowane osobno przez ZAGNIEZDZONE",
+}
+
 
 def dozwolone(kraj_cel: dict, vocab: dict, klucz_aspektu: str) -> str:
     """Wartosci, ktore eBay danego rynku przyjmie dla tego aspektu.
@@ -109,6 +136,15 @@ def wiersze(kraj_zrodlo: dict, kraj_cel: dict, settings: dict, tlumaczenia: dict
     for typ, profil in settings.get("profile_produktu", {}).items():
         if not isinstance(profil, dict):
             continue
+        # Cechy zakladane z gory siedza w settings.json, czyli w pliku wspolnym -
+        # dlatego przez dlugi czas nie trafialy do arkusza i szly na wloski rynek
+        # po niemiecku. Dopasowujemy po pozycji na liscie, bo to lista, nie mapa.
+        cel_cechy = cel_profile.get(typ, {}).get("cechy_domyslne") or []
+        for i, cecha in enumerate(profil.get("cechy_domyslne", [])):
+            dodaj(f"profil/{typ}/cechy_domyslne", cecha, cecha,
+                  cel_cechy[i] if i < len(cel_cechy) else None,
+                  "cecha zakladana z gory dla tego typu towaru - pole oferty",
+                  aspekt="cechy")
         for pole in ("gwarancja", "produktart", "tastatur_layout"):
             dodaj(f"profil/{typ}", pole, profil.get(pole),
                   cel_profile.get(typ, {}).get(pole),
@@ -138,6 +174,29 @@ def wiersze(kraj_zrodlo: dict, kraj_cel: dict, settings: dict, tlumaczenia: dict
                 dodaj(f"translations/{blok}", klucz, wartosc,
                       gotowe(tlumaczenia_cel, [blok], klucz),
                       f"tresc z opisu; w feedzie sklepowym stoi tam \"{klucz}\"")
+
+    # Etykiety zlacz - ida WPROST do sekcji zlacz w opisie oferty.
+    cel_reguly = (aspekty_cel.get("porty_reguly") or {}).get("reguly", [])
+    for i, regula in enumerate((aspekty.get("porty_reguly") or {}).get("reguly", [])):
+        if isinstance(regula, list) and len(regula) == 2:
+            # Reguly stoja w tej samej kolejnosci w obu krajach - podmienialismy
+            # w miejscu, wiec dopasowanie po pozycji jest pewniejsze niz po tresci.
+            juz = (cel_reguly[i][1] if i < len(cel_reguly)
+                   and isinstance(cel_reguly[i], list) and len(cel_reguly[i]) == 2 else None)
+            dodaj("porty_reguly", regula[1], regula[1], juz,
+                  "nazwa zlacza widoczna w opisie oferty, w sekcji zlacz")
+
+    for blok, sciezka, klucz_aspektu, kontekst in LISTY:
+        def wejdz(zrodlo):
+            cel = zrodlo.get(blok, {})
+            for czesc in sciezka:
+                cel = cel.get(czesc, []) if isinstance(cel, dict) else []
+            return cel if isinstance(cel, list) else []
+        lista_cel = wejdz(aspekty_cel)
+        for i, wartosc in enumerate(wejdz(aspekty)):
+            dodaj(f"aspects/{blok}/{sciezka[0]}", wartosc, wartosc,
+                  lista_cel[i] if i < len(lista_cel) else None,
+                  kontekst, aspekt=klucz_aspektu)
 
     for blok, klucz_aspektu in BLOK_DO_ASPEKTU.items():
         for klucz, wartosc in (aspekty.get(blok) or {}).items():
