@@ -85,5 +85,13 @@
   },
   "katalog_szablonow": "templates",
   "format_generacji_cpu": "{n}. Gen",
-  "_format_generacji_cpu": "Zapas, gdy dokladnego modelu procesora nie ma w slowniku eBaya. Aspekt procesora jest WYMAGANY, wiec bez trafienia odpada cala oferta. Niemieckie 'Intel Core i5 8. Gen'."
+  "_format_generacji_cpu": "Zapas, gdy dokladnego modelu procesora nie ma w slowniku eBaya. Aspekt procesora jest WYMAGANY, wiec bez trafienia odpada cala oferta. Niemieckie 'Intel Core i5 8. Gen'.",
+  "ean_dla_stanow": [
+    "1000",
+    "2000",
+    "2010",
+    "2020",
+    "2030"
+  ],
+  "_ean_dla_stanow": "ConditionID, przy ktorych eBay zada identyfikatora produktu: nowy i cala rodzina odnowionych. Uzywany (3000) go nie potrzebuje i celowo zostaje pusty - 948 dzialajacych ofert niemieckich nie ruszamy bez powodu. Wartosc bierze sie z slowa.nie_dotyczy, wiec jest w jezyku rynku."
 }
