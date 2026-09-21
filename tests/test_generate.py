@@ -396,6 +396,20 @@ class Zlacza(unittest.TestCase):
         self.assertEqual(self.kafelki("USB 3.2 typ C Gen 2"), ["USB 3.2 Gen 2 Typ-C"])
         self.assertEqual(self.kafelki("USB 3.2 typ A Gen 2"), ["USB 3.2 Gen 2"])
 
+    def test_identyczne_kafelki_sie_sumuja(self):
+        """Dwa wpisy z feedu daly ten sam napis koncowy - kupujacy widzial
+        '2x USB 3.1' dwa razy i nie wiedzial, czy to blad. Rozne etykiety
+        dalej zostaja osobno, bo to chroni informacje o Type-C."""
+        sys.path.insert(0, str(ROOT / "src"))
+        import generate
+        self.assertEqual(generate.scal_identyczne_kafelki(["2x USB 3.1", "2x USB 3.1"]),
+                         ["4x USB 3.1"])
+        self.assertEqual(
+            generate.scal_identyczne_kafelki(["8x USB 3.1 Typ A", "2x USB 3.1 Typ-C"]),
+            ["8x USB 3.1 Typ A", "2x USB 3.1 Typ-C"])
+        self.assertEqual(generate.scal_identyczne_kafelki(["1x HDMI", "PS/2", "1x HDMI"]),
+                         ["2x HDMI", "PS/2"])
+
     def test_rozne_porty_nie_lacza_sie_w_jeden(self):
         """'8x USB 3.1 Typ A' i '2x USB 3.1 Typ-C' to nie jest '10x USB 3.1'."""
         wynik = self.kafelki("2x USB 3.1 typ A, 2x USB 3.1 typ C")
