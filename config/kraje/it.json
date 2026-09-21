@@ -84,7 +84,18 @@
           "Zasilacz w zestawie": "Alimentatore."
         }
       },
-      "dopisek_tytulu": "Garanzia"
+      "dopisek_tytulu": "Garanzia",
+      "formfaktor": {
+        "z_atrybutu": "Obudowa",
+        "mapa": {
+          "SFF": "Piccolo fattore di forma (SFF)",
+          "Tower": "Torre",
+          "Micro / Mini / Tiny": "Mini desktop",
+          "Desktop": "Torre"
+        },
+        "_domyslnie": "Torre",
+        "_about": "Wartosci z listy dozwolonych eBay.it dla 'Fattore di forma'. UWAGA na pisownie: 'Mini desktop' mala litera, inaczej niz niemieckie 'Mini Desktop'."
+      }
     },
     "Desktop-PC nowy": {
       "gwarancja": "12 mesi di garanzia",
@@ -103,7 +114,18 @@
           "Zasilacz w zestawie": "Alimentatore."
         }
       },
-      "dopisek_tytulu": "Garanzia"
+      "dopisek_tytulu": "Garanzia",
+      "formfaktor": {
+        "z_atrybutu": "Obudowa",
+        "mapa": {
+          "SFF": "Piccolo fattore di forma (SFF)",
+          "Tower": "Torre",
+          "Micro / Mini / Tiny": "Mini desktop",
+          "Desktop": "Torre"
+        },
+        "_domyslnie": "Torre",
+        "_about": "Wartosci z listy dozwolonych eBay.it dla 'Fattore di forma'. UWAGA na pisownie: 'Mini desktop' mala litera, inaczej niz niemieckie 'Mini Desktop'."
+      }
     },
     "Notebook GW24": {
       "gwarancja": "24 mesi di garanzia",
@@ -133,7 +155,18 @@
           "Zasilacz w zestawie": "Alimentatore."
         }
       },
-      "dopisek_tytulu": "Garanzia 24 mesi"
+      "dopisek_tytulu": "Garanzia 24 mesi",
+      "formfaktor": {
+        "z_atrybutu": "Obudowa",
+        "mapa": {
+          "SFF": "Piccolo fattore di forma (SFF)",
+          "Tower": "Torre",
+          "Micro / Mini / Tiny": "Mini desktop",
+          "Desktop": "Torre"
+        },
+        "_domyslnie": "Torre",
+        "_about": "Wartosci z listy dozwolonych eBay.it dla 'Fattore di forma'. UWAGA na pisownie: 'Mini desktop' mala litera, inaczej niz niemieckie 'Mini Desktop'."
+      }
     },
     "Desktop-PC nowy GW24": {
       "gwarancja": "24 mesi di garanzia",
@@ -152,7 +185,18 @@
           "Zasilacz w zestawie": "Alimentatore."
         }
       },
-      "dopisek_tytulu": "Garanzia 24 mesi"
+      "dopisek_tytulu": "Garanzia 24 mesi",
+      "formfaktor": {
+        "z_atrybutu": "Obudowa",
+        "mapa": {
+          "SFF": "Piccolo fattore di forma (SFF)",
+          "Tower": "Torre",
+          "Micro / Mini / Tiny": "Mini desktop",
+          "Desktop": "Torre"
+        },
+        "_domyslnie": "Torre",
+        "_about": "Wartosci z listy dozwolonych eBay.it dla 'Fattore di forma'. UWAGA na pisownie: 'Mini desktop' mala litera, inaczej niz niemieckie 'Mini Desktop'."
+      }
     }
   },
   "pliki": {
