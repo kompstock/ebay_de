@@ -1,132 +1,142 @@
-<div class="kpx-wrap">
+<div class="kpx">
 
-  <div class="kpx-bar"><b>KOMPRE</b> &nbsp;|&nbsp; Business Hardware</div>
-
-  <div class="kpx-top">
-    <ul class="kpx-benefits">
+  <header class="kpx-hd">
+    <div class="kpx-hd-brand"><b>KOMPRE</b> Business Hardware &middot; dal {{company_since}}</div>
+    <h1>{{manufacturer}} {{model}} &mdash; {{processor}}, {{ram}} RAM, {{disk}} {{disk_type}}, {{operating_system}}</h1>
+    <p class="kpx-hd-sub">Notebook professionale testato in 6 fasi e pronto all&rsquo;uso.</p>
+    <ul class="kpx-pills">
       <li>Hardware testato</li>
       <li>Fattura con IVA esposta</li>
       <li>{{garantie}}</li>
-      <li>1 mese di diritto di reso</li>
+      <li>30 giorni per il reso</li>
     </ul>
-  </div>
+  </header>
 
+  <section class="kpx-hero">
+    <div class="kpx-hero-fig">
 {{main_image_block}}
+    </div>
+    <div class="kpx-hero-specs">
+      <p class="kpx-eyebrow">Configurazione di questo esemplare</p>
+      <div class="kpx-spec"><i>Processore</i><b>{{processor}}</b></div>
+      <div class="kpx-spec"><i>Memoria RAM</i><b>{{ram}} {{ram_type}}</b></div>
+      <div class="kpx-spec"><i>Archiviazione</i><b>{{disk}} {{disk_type}}</b></div>
+      <div class="kpx-spec"><i>Schermo</i><b>{{screen_size}} {{screen_finish}}</b></div>
+      <div class="kpx-spec"><i>Sistema operativo</i><b>{{operating_system}}</b></div>
+    </div>
+  </section>
 
-  <div class="kpx-keys">
-    <div class="kpx-key"><i>Processore</i><b>{{processor}}</b></div>
-    <div class="kpx-key"><i>RAM</i><b>{{ram}}</b></div>
-    <div class="kpx-key"><i>Archiviazione</i><b>{{disk}} {{disk_type}}</b></div>
-    <div class="kpx-key"><i>Schermo</i><b>{{screen_size}} {{screen_finish}}</b></div>
-    <div class="kpx-key"><i>Sistema</i><b>{{operating_system}}</b></div>
-  </div>
+  <section class="kpx-trust">
+    <div><b>Testato in 6 fasi</b><span>Ogni funzione verificata singolarmente prima della spedizione.</span></div>
+    <div><b>Dati eliminati in modo sicuro</b><span>SSD cancellato in modo sicuro, BIOS ripristinato e sistema operativo reinstallato.</span></div>
+    <div><b>{{garantie}}</b><span>Assistenza diretta, senza intermediari.</span></div>
+    <div><b>Fattura con IVA</b><span>Valida per aziende e liberi professionisti.</span></div>
+  </section>
 
+  <section class="kpx-sec">
+    <h2 class="kpx-h2"><i>01</i>Perch&eacute; conviene</h2>
+    <div class="kpx-cards">
+      <div class="kpx-card"><b>Qualit&agrave; professionale</b><span>Scocca rinforzata, tastiera comoda e componenti progettati per l&rsquo;uso quotidiano in ufficio &mdash; non per la fascia consumer.</span></div>
+      <div class="kpx-card"><b>Stesso lavoro, meno spesa</b><span>Un dispositivo ex leasing costa una frazione del nuovo e affronta senza problemi Office, browser e videoconferenze.</span></div>
+      <div class="kpx-card"><b>Scelta sostenibile</b><span>Ogni notebook rimesso in servizio &egrave; un dispositivo in meno da smaltire e da produrre.</span></div>
+    </div>
+  </section>
 
-  <div class="kpx-sec">
-    <h2 class="kpx-h2"><span>Condizione</span></h2>
-    <div class="kpx-badge">Testato e ricondizionato</div>
-    <p>{{condition_summary}}</p>
-    <table class="kpx-zt">
-      <tbody>
-        <tr><th>Tecnica</th><td>Perfettamente funzionante. Tutte le funzioni verificate singolarmente.</td></tr>
-        <tr><th>Scocca</th><td>{{case_condition}}</td></tr>
-        <tr><th>Schermo</th><td>{{screen_condition}}</td></tr>
-        <tr><th>Batteria</th><td>{{battery}}</td></tr>
+  <section class="kpx-sec">
+    <h2 class="kpx-h2"><i>02</i>Condizione</h2>
+    <div class="kpx-badge">Testato e preparato</div>
+    <p class="kpx-lead">{{condition_summary}}</p>
+    <table class="kpx-table"><tbody>
+      <tr><th>Tecnica</th><td>Perfettamente funzionante. Tutte le funzioni verificate singolarmente.</td></tr>
+      <tr><th>Scocca</th><td>{{case_condition}}</td></tr>
+      <tr><th>Schermo</th><td>{{screen_condition}}</td></tr>
+      <tr><th>Batteria</th><td>{{battery}}</td></tr>
 {{hinweis_row}}
-      </tbody>
-    </table>
-  </div>
+    </tbody></table>
+    <div class="kpx-box">
+      <b>Contenuto della confezione</b>
+      <span>{{included}}</span>
+    </div>
+  </section>
 
-
-  <div class="kpx-sec">
-    <h2 class="kpx-h2"><span>Il dispositivo</span></h2>
+  <section class="kpx-sec">
+    <h2 class="kpx-h2"><i>03</i>Il dispositivo</h2>
     <p>{{lead}}</p>
-    <p>{{manufacturer}} {{model}} &egrave; un {{typ}} business usato, proveniente da restituzione a fine leasing. Questa classe di dispositivi &egrave; costruita per l'uso quotidiano in ufficio: scocca robusta, tastiera comoda e componenti affidabili per molti anni.</p>
+    <p>{{manufacturer}} {{model}} &egrave; un {{typ}} professionale usato, proveniente da restituzione a fine leasing. Questa classe di dispositivi &egrave; costruita per l&rsquo;uso quotidiano in ufficio: scocca robusta, tastiera comoda e componenti affidabili per molti anni.</p>
     <p>Questo esemplare &egrave; equipaggiato con {{processor}}, {{ram}} di memoria RAM e {{disk}} {{disk_type}}. Lo schermo misura {{screen_size}} con risoluzione {{resolution}}. Il sistema operativo installato e attivato &egrave; {{operating_system}}.</p>
-  </div>
+  </section>
 
-  <div class="kpx-sec">
-    <h2 class="kpx-h2"><span>Scheda tecnica</span></h2>
-    <table class="kpx-table">
-      <tbody>
+  <section class="kpx-sec">
+    <h2 class="kpx-h2"><i>04</i>Scheda tecnica</h2>
+    <table class="kpx-table"><tbody>
 {{spec_rows}}
-      </tbody>
-    </table>
-  </div>
+    </tbody></table>
+  </section>
 
-  <div class="kpx-sec">
-    <h2 class="kpx-h2"><span>Collegamenti</span></h2>
+  <section class="kpx-sec">
+    <h2 class="kpx-h2"><i>05</i>Collegamenti</h2>
     <ul class="kpx-ports">{{port_items}}</ul>
-  </div>
+  </section>
 
-  <div class="kpx-sec">
-    <h2 class="kpx-h2"><span>Come prepariamo ogni dispositivo</span></h2>
-    <p>Prima di lasciare il nostro magazzino, ogni dispositivo passa per sei fasi fisse. Viene messo in vendita solo quando tutte sono state completate.</p>
+  <section class="kpx-sec">
+    <h2 class="kpx-h2"><i>06</i>Come prepariamo ogni dispositivo</h2>
+    <p class="kpx-lead">Prima di lasciare il nostro magazzino ogni dispositivo passa per sei fasi fisse. Viene messo in vendita solo quando tutte sono state completate.</p>
     <ol class="kpx-steps">
       <li><div><b>Controllo in ingresso</b><span>Ogni dispositivo viene registrato singolarmente, verificato nella sua completezza e assegnato a una classe di condizione.</span></div></li>
-      <li><div><b>Verifica tecnica di funzionamento</b><span>Processore, memoria RAM e unit&agrave; di archiviazione vengono testati sotto carico e vengono letti i valori SMART del disco.</span></div></li>
-      <li><div><b>Cancellazione sicura dei dati</b><span>L'unit&agrave; di archiviazione viene cancellata completamente, il BIOS viene ripristinato e liberato dalle policy aziendali.</span></div></li>
+      <li><div><b>Verifica tecnica</b><span>Processore, RAM e unit&agrave; di archiviazione vengono testati sotto carico e vengono letti i valori SMART del disco.</span></div></li>
+      <li><div><b>Cancellazione dei dati</b><span>L&rsquo;unit&agrave; di archiviazione viene cancellata completamente, il BIOS viene ripristinato e liberato dalle policy aziendali.</span></div></li>
       <li><div><b>Pulizia</b><span>Scocca, tastiera, touchpad e schermo vengono puliti a fondo; ventole e connettori vengono liberati dalla polvere.</span></div></li>
       <li><div><b>Installazione del sistema</b><span>Il sistema operativo viene reinstallato, attivato e configurato con i driver aggiornati.</span></div></li>
       <li><div><b>Test finale</b><span>Schermo, tastiera, touchpad, fotocamera, altoparlanti, Wi-Fi e tutti i connettori vengono verificati singolarmente.</span></div></li>
     </ol>
-  </div>
+  </section>
 
-  <div class="kpx-sec kpx-faq">
-    <h2 class="kpx-h2"><span>Acquisti senza rischi</span></h2>
-    <details>
+  <section class="kpx-sec kpx-faq">
+    <h2 class="kpx-h2"><i>07</i>Acquisti senza rischi</h2>
+    <details open>
       <summary>{{garantie}} su ogni dispositivo</summary>
-      <div class="kpx-a">La garanzia decorre dal ricevimento della merce. In caso di difetto, gestiamo rapidamente la pratica di garanzia e vi assistiamo nella risoluzione del problema.</div>
+      <div class="kpx-a">La garanzia decorre dal ricevimento della merce. In caso di difetto gestiamo rapidamente la pratica e vi assistiamo nella risoluzione del problema.</div>
     </details>
     <details>
-      <summary>1 mese di diritto di reso</summary>
-      <div class="kpx-a">Potete restituire l'articolo entro un mese senza indicarne il motivo, tramite la procedura di reso di eBay. Al ricevimento della restituzione rimborsiamo l'intero valore dell'articolo.</div>
+      <summary>30 giorni per il reso</summary>
+      <div class="kpx-a">Potete restituire l&rsquo;articolo entro 30 giorni senza indicarne il motivo, tramite la procedura di reso di eBay. Al ricevimento della restituzione rimborsiamo l&rsquo;intero valore dell&rsquo;articolo.</div>
     </details>
     <details>
       <summary>Fattura con IVA esposta</summary>
-      <div class="kpx-a">Il prezzo indicato comprende l'IVA italiana del 22&nbsp;%. Ogni spedizione &egrave; accompagnata da una fattura con IVA esposta. Le aziende con partita IVA intracomunitaria valida possono ricevere la merce come cessione intracomunitaria senza IVA.</div>
+      <div class="kpx-a">Il prezzo indicato comprende l&rsquo;IVA italiana del 22&nbsp;%. Ogni spedizione &egrave; accompagnata da una fattura con IVA esposta. Le aziende con partita IVA intracomunitaria valida possono ricevere la merce come cessione intracomunitaria senza IVA.</div>
     </details>
-  </div>
+  </section>
 
-  <div class="kpx-sec kpx-faq">
-    <h2 class="kpx-h2"><span>Domande frequenti</span></h2>
+  <section class="kpx-sec kpx-faq">
+    <h2 class="kpx-h2"><i>08</i>Domande frequenti</h2>
 {{faq_system}}
-    <details>
-      <summary>Che layout ha la tastiera?</summary>
-      <div class="kpx-a">La tastiera &egrave; QWERTY, QWERTZ o AZERTY ed &egrave; adattata al mercato italiano con adesivi con layout italiano.</div>
-    </details>
-    <details>
-      <summary>Posso ampliare in seguito la memoria RAM o l'SSD?</summary>
-      <div class="kpx-a">Le possibilit&agrave; di espansione dipendono dal modello specifico e dalla sua configurazione.</div>
-    </details>
-    <details>
-      <summary>Sul dispositivo erano presenti dati del precedente proprietario?</summary>
-      <div class="kpx-a">No. L'unit&agrave; di archiviazione &egrave; stata cancellata completamente e il sistema operativo reinstallato. Sul dispositivo non restano dati, account o policy aziendali del precedente proprietario e il BIOS non ha blocchi con password.</div>
-    </details>
-    <details>
-      <summary>Da dove provengono i dispositivi?</summary>
-      <div class="kpx-a">Si tratta di restituzioni a fine leasing, articoli da esposizione e resi che acquistiamo da distributori autorizzati. Ogni dispositivo viene da noi controllato, testato e offerto con garanzia.</div>
-    </details>
-  </div>
+    <details><summary>Che layout ha la tastiera?</summary><div class="kpx-a">La tastiera &egrave; QWERTY, QWERTZ o AZERTY ed &egrave; adattata al mercato italiano con adesivi con layout italiano.</div></details>
+    <details><summary>Posso ampliare in seguito la RAM o l&rsquo;SSD?</summary><div class="kpx-a">Le possibilit&agrave; di espansione dipendono dal modello specifico e dalla sua configurazione.</div></details>
+    <details><summary>Sul dispositivo erano presenti dati del precedente proprietario?</summary><div class="kpx-a">No. L&rsquo;unit&agrave; di archiviazione &egrave; stata cancellata completamente e il sistema operativo reinstallato. Non restano dati, account o policy aziendali e il BIOS non ha blocchi con password.</div></details>
+    <details><summary>Da dove provengono i dispositivi?</summary><div class="kpx-a">Si tratta di restituzioni a fine leasing, articoli da esposizione e resi che acquistiamo da distributori autorizzati. Ogni dispositivo viene da noi controllato, testato e offerto con garanzia.</div></details>
+  </section>
 
-  <div class="kpx-sec">
-    <h2 class="kpx-h2"><span>Chi siamo</span></h2>
+  <section class="kpx-sec">
+    <h2 class="kpx-h2"><i>09</i>Chi siamo</h2>
     <div class="kpx-row">
-      <div>
-        <p>Dal {{company_since}} KOMPRE &egrave; specializzata in hardware business proveniente da restituzioni a fine leasing. Nei nostri magazzini in Polonia controlliamo, puliamo e configuriamo notebook, computer desktop e monitor per una nuova vita operativa.</p>
-      </div>
-      <div>
-        <img src="https://kompre.pl/userdata/public/assets//kompre_sklep.jpg" alt="Punto vendita KOMPRE">
-      </div>
+      <div><p>Dal {{company_since}} KOMPRE &egrave; specializzata in hardware professionale proveniente da flotte aziendali e contratti di leasing conclusi. Nei nostri magazzini in Polonia controlliamo, puliamo e configuriamo notebook, computer desktop e monitor per una nuova vita operativa.</p></div>
+      <div><img src="https://kompre.pl/userdata/public/assets//kompre_sklep.jpg" alt="Punto vendita KOMPRE"></div>
     </div>
     <div class="kpx-row">
-      <div>
-        <img src="https://kompre.pl/userdata/public/assets//kompre%20magazyn.jpg" alt="Magazzino KOMPRE">
-      </div>
-      <div>
-        <p>Ogni giorno passano per le nostre mani migliaia di dispositivi. Tra i nostri clienti figurano scuole, enti pubblici, medie e grandi imprese e privati di tutta Europa.</p>
-      </div>
+      <div><img src="https://kompre.pl/userdata/public/assets//kompre%20magazyn.jpg" alt="Magazzino KOMPRE"></div>
+      <div><p>Ogni giorno passano per le nostre mani migliaia di dispositivi. Tra i nostri clienti figurano scuole, enti pubblici, medie e grandi imprese e privati di tutta Europa.</p></div>
     </div>
+  </section>
+
+  <div class="kpx-cta">
+    <b>Pronto all&rsquo;uso, dalla prima accensione</b>
+    <p>Sistema installato e attivato, dati del precedente proprietario rimossi, ogni funzione verificata. Vi basta accendere il notebook.</p>
+    <ul>
+      <li>{{garantie}}</li>
+      <li>30 giorni per il reso</li>
+      <li>Fattura con IVA</li>
+      <li>Hardware testato</li>
+    </ul>
   </div>
 
 </div>

@@ -1,118 +1,117 @@
-<div class="kpx-wrap">
+<div class="kpx">
 
-  <div class="kpx-bar"><b>KOMPRE</b> &nbsp;|&nbsp; Prodotto nuovo</div>
-
-  <div class="kpx-top">
-    <ul class="kpx-benefits">
+  <header class="kpx-hd">
+    <div class="kpx-hd-brand"><b>KOMPRE</b> Prodotto nuovo &middot; dal {{company_since}}</div>
+    <h1>{{manufacturer}} {{model}} &mdash; {{processor}}, {{gpu}}, {{ram}} RAM, {{disk}} {{disk_type}}</h1>
+    <p class="kpx-hd-sub">Computer desktop assemblato nuovo, con componenti nuovi di fabbrica.</p>
+    <ul class="kpx-pills">
       <li>Nuovo e mai usato</li>
       <li>Fattura con IVA esposta</li>
       <li>{{garantie}}</li>
-      <li>1 mese di diritto di reso</li>
+      <li>30 giorni per il reso</li>
     </ul>
-  </div>
+  </header>
 
+  <section class="kpx-hero">
+    <div class="kpx-hero-fig">
 {{main_image_block}}
+    </div>
+    <div class="kpx-hero-specs">
+      <p class="kpx-eyebrow">Configurazione di questo esemplare</p>
+      <div class="kpx-spec"><i>Processore</i><b>{{processor}}</b></div>
+      <div class="kpx-spec"><i>Scheda grafica</i><b>{{gpu}}</b></div>
+      <div class="kpx-spec"><i>Memoria RAM</i><b>{{ram}} {{ram_type}}</b></div>
+      <div class="kpx-spec"><i>Archiviazione</i><b>{{disk}} {{disk_type}}</b></div>
+      <div class="kpx-spec"><i>Sistema operativo</i><b>{{operating_system}}</b></div>
+    </div>
+  </section>
 
-  <div class="kpx-keys">
-    <div class="kpx-key"><i>Processore</i><b>{{processor}}</b></div>
-    <div class="kpx-key"><i>Scheda grafica</i><b>{{gpu}}</b></div>
-    <div class="kpx-key"><i>RAM</i><b>{{ram}}</b></div>
-    <div class="kpx-key"><i>Archiviazione</i><b>{{disk}} {{disk_type}}</b></div>
-    <div class="kpx-key"><i>Sistema</i><b>{{operating_system}}</b></div>
-  </div>
+  <section class="kpx-trust">
+    <div><b>Componenti nuovi</b><span>Assemblato da parti nuove di fabbrica, non ricondizionato.</span></div>
+    <div><b>Pronto all&rsquo;uso</b><span>Sistema installato e attivato, driver aggiornati.</span></div>
+    <div><b>{{garantie}}</b><span>Assistenza diretta, senza intermediari.</span></div>
+    <div><b>Fattura con IVA</b><span>Valida per aziende e liberi professionisti.</span></div>
+  </section>
 
-
-  <div class="kpx-sec">
-    <h2 class="kpx-h2"><span>Condizione</span></h2>
+  <section class="kpx-sec">
+    <h2 class="kpx-h2"><i>01</i>Condizione</h2>
     <div class="kpx-badge">Prodotto nuovo</div>
-    <p>{{condition_summary}}</p>
-    <table class="kpx-zt">
-      <tbody>
-        <tr><th>Scocca</th><td>{{case_condition}}</td></tr>
-        <tr><th>Formato</th><td>{{formfaktor}}</td></tr>
-        <tr><th>Contenuto della confezione</th><td>{{included}}</td></tr>
+    <p class="kpx-lead">{{condition_summary}}</p>
+    <table class="kpx-table"><tbody>
+      <tr><th>Scocca</th><td>{{case_condition}}</td></tr>
+      <tr><th>Formato</th><td>{{formfaktor}}</td></tr>
 {{hinweis_row}}
-      </tbody>
-    </table>
-  </div>
+    </tbody></table>
+    <div class="kpx-box">
+      <b>Contenuto della confezione</b>
+      <span>{{included}}</span>
+    </div>
+  </section>
 
-
-  <div class="kpx-sec">
-    <h2 class="kpx-h2"><span>Il dispositivo</span></h2>
+  <section class="kpx-sec">
+    <h2 class="kpx-h2"><i>02</i>Il dispositivo</h2>
     <p>{{lead}}</p>
-    <p>Questo computer &egrave; un desktop assemblato nuovo. &Egrave; stato composto con
-    componenti nuovi di fabbrica: non &egrave; una restituzione a fine leasing
-    n&eacute; un apparecchio ricondizionato.</p>
-    <p>&Egrave; equipaggiato con {{processor}}, {{gpu}}, {{ram}} di memoria RAM e
-    {{disk}} {{disk_type}}. Il sistema operativo installato e attivato &egrave;
-    {{operating_system}}.</p>
-  </div>
+    <p>Questo computer &egrave; un desktop assemblato nuovo. &Egrave; stato composto con componenti nuovi di fabbrica: non &egrave; una restituzione a fine leasing n&eacute; un apparecchio rimesso a nuovo.</p>
+    <p>&Egrave; equipaggiato con {{processor}}, {{gpu}}, {{ram}} di memoria RAM e {{disk}} {{disk_type}}. Il sistema operativo installato e attivato &egrave; {{operating_system}}.</p>
+  </section>
 
-  <div class="kpx-sec">
-    <h2 class="kpx-h2"><span>Scheda tecnica</span></h2>
-    <table class="kpx-table">
-      <tbody>
+  <section class="kpx-sec">
+    <h2 class="kpx-h2"><i>03</i>Scheda tecnica</h2>
+    <table class="kpx-table"><tbody>
 {{spec_rows}}
-      </tbody>
-    </table>
-  </div>
+    </tbody></table>
+  </section>
 
-  <div class="kpx-sec">
-    <h2 class="kpx-h2"><span>Collegamenti</span></h2>
+  <section class="kpx-sec">
+    <h2 class="kpx-h2"><i>04</i>Collegamenti</h2>
     <ul class="kpx-ports">{{port_items}}</ul>
-  </div>
+  </section>
 
-  <div class="kpx-sec kpx-faq">
-    <h2 class="kpx-h2"><span>Acquisti senza rischi</span></h2>
-    <details>
+  <section class="kpx-sec kpx-faq">
+    <h2 class="kpx-h2"><i>05</i>Acquisti senza rischi</h2>
+    <details open>
       <summary>{{garantie}} su ogni dispositivo</summary>
-      <div class="kpx-a">La garanzia decorre dal ricevimento della merce. In caso di difetto, gestiamo rapidamente la pratica di garanzia e vi assistiamo nella risoluzione del problema.</div>
+      <div class="kpx-a">La garanzia decorre dal ricevimento della merce. In caso di difetto gestiamo rapidamente la pratica e vi assistiamo nella risoluzione del problema.</div>
     </details>
     <details>
-      <summary>1 mese di diritto di reso</summary>
-      <div class="kpx-a">Potete restituire l'articolo entro un mese senza indicarne il motivo, tramite la procedura di reso di eBay. Al ricevimento della restituzione rimborsiamo l'intero valore dell'articolo.</div>
+      <summary>30 giorni per il reso</summary>
+      <div class="kpx-a">Potete restituire l&rsquo;articolo entro 30 giorni senza indicarne il motivo, tramite la procedura di reso di eBay. Al ricevimento della restituzione rimborsiamo l&rsquo;intero valore dell&rsquo;articolo.</div>
     </details>
     <details>
       <summary>Fattura con IVA esposta</summary>
-      <div class="kpx-a">Il prezzo indicato comprende l'IVA italiana del 22&nbsp;%. Ogni spedizione &egrave; accompagnata da una fattura con IVA esposta. Le aziende con partita IVA intracomunitaria valida possono ricevere la merce come cessione intracomunitaria senza IVA.</div>
+      <div class="kpx-a">Il prezzo indicato comprende l&rsquo;IVA italiana del 22&nbsp;%. Ogni spedizione &egrave; accompagnata da una fattura con IVA esposta. Le aziende con partita IVA intracomunitaria valida possono ricevere la merce come cessione intracomunitaria senza IVA.</div>
     </details>
-  </div>
+  </section>
 
-  <div class="kpx-sec kpx-faq">
-    <h2 class="kpx-h2"><span>Domande frequenti</span></h2>
+  <section class="kpx-sec kpx-faq">
+    <h2 class="kpx-h2"><i>06</i>Domande frequenti</h2>
 {{faq_system}}
-    <details>
-      <summary>Monitor, tastiera e mouse sono inclusi?</summary>
-      <div class="kpx-a">No. Viene spedito esclusivamente il computer. Quanto altro accompagna il dispositivo &egrave; indicato sopra, alla riga Contenuto della confezione.</div>
-    </details>
-    <details>
-      <summary>Posso ampliare in seguito la memoria RAM, l'unit&agrave; di archiviazione o la scheda grafica?</summary>
-      <div class="kpx-a">Di norma s&igrave;. Il computer &egrave; assemblato in una scocca standard e gli slot sono accessibili. Lo spazio disponibile e i margini dell'alimentatore dipendono dalla configurazione specifica. Se per voi &egrave; un punto importante, chiedeteci prima dell'acquisto.</div>
-    </details>
-    <details>
-      <summary>Il computer &egrave; pronto all'uso?</summary>
-      <div class="kpx-a">S&igrave;. Il sistema operativo &egrave; installato e attivato. Collegate monitor, tastiera e mouse e potete iniziare subito.</div>
-    </details>
-  </div>
+    <details><summary>Monitor, tastiera e mouse sono inclusi?</summary><div class="kpx-a">No. Viene spedito esclusivamente il computer. Quanto altro accompagna il dispositivo &egrave; indicato sopra, alla voce Contenuto della confezione.</div></details>
+    <details><summary>Posso ampliare in seguito la RAM, l&rsquo;unit&agrave; di archiviazione o la scheda grafica?</summary><div class="kpx-a">Di norma s&igrave;. Il computer &egrave; assemblato in una scocca standard e gli slot sono accessibili. Lo spazio disponibile e i margini dell&rsquo;alimentatore dipendono dalla configurazione specifica. Se per voi &egrave; un punto importante, chiedeteci prima dell&rsquo;acquisto.</div></details>
+    <details><summary>Il computer &egrave; pronto all&rsquo;uso?</summary><div class="kpx-a">S&igrave;. Il sistema operativo &egrave; installato e attivato. Collegate monitor, tastiera e mouse e potete iniziare subito.</div></details>
+  </section>
 
-  <div class="kpx-sec">
-    <h2 class="kpx-h2"><span>Chi siamo</span></h2>
+  <section class="kpx-sec">
+    <h2 class="kpx-h2"><i>07</i>Chi siamo</h2>
     <div class="kpx-row">
-      <div>
-        <p>Dal {{company_since}} KOMPRE &egrave; specializzata in hardware business. Nei nostri magazzini in Polonia controlliamo, configuriamo e spediamo notebook, computer desktop e monitor &ndash; sia apparecchi nuovi sia usato testato.</p>
-      </div>
-      <div>
-        <img src="https://kompre.pl/userdata/public/assets//kompre_sklep.jpg" alt="Punto vendita KOMPRE">
-      </div>
+      <div><p>Dal {{company_since}} KOMPRE &egrave; specializzata in hardware professionale. Nei nostri magazzini in Polonia controlliamo, configuriamo e spediamo notebook, computer desktop e monitor &mdash; sia apparecchi nuovi sia usato testato.</p></div>
+      <div><img src="https://kompre.pl/userdata/public/assets//kompre_sklep.jpg" alt="Punto vendita KOMPRE"></div>
     </div>
     <div class="kpx-row">
-      <div>
-        <img src="https://kompre.pl/userdata/public/assets//kompre%20magazyn.jpg" alt="Magazzino KOMPRE">
-      </div>
-      <div>
-        <p>Ogni giorno passano per le nostre mani migliaia di dispositivi. Tra i nostri clienti figurano scuole, enti pubblici, medie e grandi imprese e privati di tutta Europa.</p>
-      </div>
+      <div><img src="https://kompre.pl/userdata/public/assets//kompre%20magazyn.jpg" alt="Magazzino KOMPRE"></div>
+      <div><p>Ogni giorno passano per le nostre mani migliaia di dispositivi. Tra i nostri clienti figurano scuole, enti pubblici, medie e grandi imprese e privati di tutta Europa.</p></div>
     </div>
+  </section>
+
+  <div class="kpx-cta">
+    <b>Pronto all&rsquo;uso, dalla prima accensione</b>
+    <p>Sistema installato e attivato, driver aggiornati, ogni funzione verificata. Collegate monitor, tastiera e mouse e potete iniziare subito.</p>
+    <ul>
+      <li>{{garantie}}</li>
+      <li>30 giorni per il reso</li>
+      <li>Fattura con IVA</li>
+      <li>Nuovo e mai usato</li>
+    </ul>
   </div>
 
 </div>
