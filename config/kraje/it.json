@@ -64,7 +64,8 @@
         "Bluetooth",
         "Wi-Fi",
         "Microfono incorporato"
-      ]
+      ],
+      "dopisek_tytulu": "Garanzia"
     },
     "Desktop-PC": {
       "gwarancja": "12 mesi di garanzia",
@@ -82,7 +83,8 @@
           "Zasilacz z przewodem": "Alimentatore con cavo.",
           "Zasilacz w zestawie": "Alimentatore."
         }
-      }
+      },
+      "dopisek_tytulu": "Garanzia"
     },
     "Desktop-PC nowy": {
       "gwarancja": "12 mesi di garanzia",
@@ -100,7 +102,8 @@
           "Zasilacz z przewodem": "Alimentatore con cavo.",
           "Zasilacz w zestawie": "Alimentatore."
         }
-      }
+      },
+      "dopisek_tytulu": "Garanzia"
     },
     "Notebook GW24": {
       "gwarancja": "24 mesi di garanzia",
@@ -110,7 +113,8 @@
         "Bluetooth",
         "Wi-Fi",
         "Microfono incorporato"
-      ]
+      ],
+      "dopisek_tytulu": "Garanzia 24 mesi"
     },
     "Desktop-PC GW24": {
       "gwarancja": "24 mesi di garanzia",
@@ -128,7 +132,8 @@
           "Zasilacz z przewodem": "Alimentatore con cavo.",
           "Zasilacz w zestawie": "Alimentatore."
         }
-      }
+      },
+      "dopisek_tytulu": "Garanzia 24 mesi"
     },
     "Desktop-PC nowy GW24": {
       "gwarancja": "24 mesi di garanzia",
@@ -146,7 +151,8 @@
           "Zasilacz z przewodem": "Alimentatore con cavo.",
           "Zasilacz w zestawie": "Alimentatore."
         }
-      }
+      },
+      "dopisek_tytulu": "Garanzia 24 mesi"
     }
   },
   "pliki": {
@@ -219,5 +225,6 @@
     ]
   },
   "_zdania_wiodace": "Zdanie pod kafelkami, wybierane na stale po SKU - KOLEJNOSC MA ZNACZENIE, bo zmiana przetasuje przypisania. Lista musi miec tyle samo pozycji co niemiecka. Tlumaczenie maszynowe, do przejrzenia przez Marka.",
-  "_nadpisz_tlumaczenia": "Nowy zestaw nie jest poleasingowy - wspolny slownik tego nie wie, wiec kondycje opisuje sie osobno w profilu. Te napisy tez ida do oferty, wiec kraj musi je nadpisac."
+  "_nadpisz_tlumaczenia": "Nowy zestaw nie jest poleasingowy - wspolny slownik tego nie wie, wiec kondycje opisuje sie osobno w profilu. Te napisy tez ida do oferty, wiec kraj musi je nadpisac.",
+  "_dopisek_tytulu": "Nieskracalny ogon tytulu, liczy sie do limitu 80 znakow - skracaniu podlegaja DANE TECHNICZNE od konca. Zwykla oferta ma samo 'Garanzia' (8 zn.), bliznak GW24 'Garanzia 24 mesi', bo BEZ ROZNICY W TYTULE bylby duplikatem oryginalu. Pusty napis wylacza dopisek."
 }
