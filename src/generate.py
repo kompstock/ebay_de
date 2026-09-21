@@ -563,7 +563,7 @@ def connectivity_aspect(ports, aspects: dict, review: Review) -> str:
                 znalezione.append(wartosc)
     return "|".join(sorted(znalezione))
 def features_aspect(attrs: dict, ports, aspects: dict, podswietlenie: bool | None = None,
-                    profil: dict | None = None) -> str:
+                    profil: dict | None = None, review=None) -> str:
     """Cechy zakladane z gory bierzemy z profilu ('cechy_domyslne').
 
     Dla laptopa Bluetooth, Wi-Fi i mikrofon to zalozenia bezpieczne. Dla peceta
@@ -578,6 +578,12 @@ def features_aspect(attrs: dict, ports, aspects: dict, podswietlenie: bool | Non
     if podswietlenie:
         out.append(aspects["besonderheiten"]["_podswietlenie"])
     allowed = aspects["besonderheiten"]["_dozwolone"]
+    # Wartosc spoza listy znikala BEZ SLADU. Tak wlasnie przepadaly wloskie
+    # 'Webcam integrata' i 'Tastiera retroilluminata', gdy lista byla jeszcze
+    # niemiecka - oferta wychodzila ubozsza i nikt sie nie dowiadywal.
+    for v in out:
+        if v not in allowed and review is not None:
+            review.add("cecha odrzucona", v, "nie ma jej na liscie dozwolonych tego rynku")
     return "|".join(v for v in out if v in allowed)
 def gpu_clean(value: str) -> list[str]:  # noqa: C901
     """Feed: 'Grafika Intel HD 630 + Radeon Pro 460 4GB' -> kandydaci dla eBaya."""
@@ -1225,7 +1231,7 @@ def build_row(offer, attrs, cfg, headers, review):
             # Uklad klawiatury nie idzie juz do opisu, ale nadal wynika z niego
             # podswietlenie - dlatego zgloszenia trafiaja tu do prawdziwego review.
             keyboard_parts(attrs.get("Klawiatura (ISO lub ANSI)", ""), aspects, review)[1],
-            profil=profil),
+            profil=profil, review=review),
         kol("pojemnosc_ssd"): (vocab_match(asp("pojemnosc_ssd"), disk, vocab, review, "", strict=False) if attrs.get("Typ dysku") == "SSD" else ""),
         kol("gpu"): gpu_aspect,
         kol("rok"): vocab_match(asp("rok"), year_aspect(model, aspects), vocab, review),
