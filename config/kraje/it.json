@@ -68,11 +68,39 @@
     },
     "Desktop-PC": {
       "gwarancja": "12 mesi di garanzia",
-      "produktart": "Scrivania"
+      "produktart": "Scrivania",
+      "nadpisz_tlumaczenia": {
+        "Kondycja sprzętu": {
+          "Nowy": "Nuovo, in confezione originale e testato in fabbrica."
+        },
+        "Stan obudowy": {
+          "Nowy": "Nuovo, senza segni d'uso.",
+          "NOWY": "Nuovo, senza segni d'uso.",
+          "Normalne ślady użytkowania": "Nuovo, senza segni d'uso."
+        },
+        "W zestawie": {
+          "Zasilacz z przewodem": "Alimentatore con cavo.",
+          "Zasilacz w zestawie": "Alimentatore."
+        }
+      }
     },
     "Desktop-PC nowy": {
       "gwarancja": "12 mesi di garanzia",
-      "produktart": "Scrivania"
+      "produktart": "Scrivania",
+      "nadpisz_tlumaczenia": {
+        "Kondycja sprzętu": {
+          "Nowy": "Nuovo, in confezione originale e testato in fabbrica."
+        },
+        "Stan obudowy": {
+          "Nowy": "Nuovo, senza segni d'uso.",
+          "NOWY": "Nuovo, senza segni d'uso.",
+          "Normalne ślady użytkowania": "Nuovo, senza segni d'uso."
+        },
+        "W zestawie": {
+          "Zasilacz z przewodem": "Alimentatore con cavo.",
+          "Zasilacz w zestawie": "Alimentatore."
+        }
+      }
     },
     "Notebook GW24": {
       "gwarancja": "24 mesi di garanzia",
@@ -86,11 +114,39 @@
     },
     "Desktop-PC GW24": {
       "gwarancja": "24 mesi di garanzia",
-      "produktart": "Scrivania"
+      "produktart": "Scrivania",
+      "nadpisz_tlumaczenia": {
+        "Kondycja sprzętu": {
+          "Nowy": "Nuovo, in confezione originale e testato in fabbrica."
+        },
+        "Stan obudowy": {
+          "Nowy": "Nuovo, senza segni d'uso.",
+          "NOWY": "Nuovo, senza segni d'uso.",
+          "Normalne ślady użytkowania": "Nuovo, senza segni d'uso."
+        },
+        "W zestawie": {
+          "Zasilacz z przewodem": "Alimentatore con cavo.",
+          "Zasilacz w zestawie": "Alimentatore."
+        }
+      }
     },
     "Desktop-PC nowy GW24": {
       "gwarancja": "24 mesi di garanzia",
-      "produktart": "Scrivania"
+      "produktart": "Scrivania",
+      "nadpisz_tlumaczenia": {
+        "Kondycja sprzętu": {
+          "Nowy": "Nuovo, in confezione originale e testato in fabbrica."
+        },
+        "Stan obudowy": {
+          "Nowy": "Nuovo, senza segni d'uso.",
+          "NOWY": "Nuovo, senza segni d'uso.",
+          "Normalne ślady użytkowania": "Nuovo, senza segni d'uso."
+        },
+        "W zestawie": {
+          "Zasilacz z przewodem": "Alimentatore con cavo.",
+          "Zasilacz w zestawie": "Alimentatore."
+        }
+      }
     }
   },
   "pliki": {
@@ -135,5 +191,33 @@
     "2020",
     "2030"
   ],
-  "_ean_dla_stanow": "ConditionID, przy ktorych eBay zada identyfikatora produktu: nowy i cala rodzina odnowionych. Uzywany (3000) go nie potrzebuje i celowo zostaje pusty - 948 dzialajacych ofert niemieckich nie ruszamy bez powodu. Wartosc bierze sie z slowa.nie_dotyczy, wiec jest w jezyku rynku."
+  "_ean_dla_stanow": "ConditionID, przy ktorych eBay zada identyfikatora produktu: nowy i cala rodzina odnowionych. Uzywany (3000) go nie potrzebuje i celowo zostaje pusty - 948 dzialajacych ofert niemieckich nie ruszamy bez powodu. Wartosc bierze sie z slowa.nie_dotyczy, wiec jest w jezyku rynku.",
+  "opis_generacji_cpu": "{n}ª generazione",
+  "opis_cache_cpu": "{n} MB di cache",
+  "_opis_cpu": "Slowa w nawiasie przy procesorze - ida do naglowka opisu i do tabelki. To NIE to samo co 'format_generacji_cpu', ktory sluzy do dopasowania w slowniku eBaya.",
+  "zdania_wiodace": {
+    "lista": [
+      "Un notebook potente, che gestisce senza problemi molte schede del browser aperte, video ad alta risoluzione e più programmi in esecuzione contemporaneamente.",
+      "Consente di lavorare fluidamente con Word ed Excel, videoconferenze e numerose schede aperte, senza attese né rallentamenti fastidiosi.",
+      "Una buona scelta per chi cerca più di un semplice portatile. Ideale per il multitasking, la didattica online, i video e l'uso quotidiano di internet.",
+      "Offre potenza sufficiente per documenti, presentazioni, file PDF, video e videochiamate, anche con più applicazioni aperte allo stesso tempo.",
+      "Abbastanza potente per molte schede del browser aperte, per il montaggio video e fotografico di base e per creare progetti con Canva.",
+      "I programmi si avviano rapidamente e il passaggio tra browser, posta, documenti e altre applicazioni avviene in modo fluido, senza lunghe attese.",
+      "Un notebook robusto per l'uso quotidiano. Ideale per lunghe giornate di lavoro, scuola, università, film e navigazione in tutta tranquillità.",
+      "Consente di lavorare comodamente con più programmi contemporaneamente, di riprodurre video ad alta risoluzione e di fare videochiamate senza scatti.",
+      "La costruzione robusta di livello professionale e i componenti potenti rendono questo notebook una scelta affidabile per casa, ufficio o viaggio.",
+      "Per chi tiene alla velocità, a prestazioni affidabili e a una scocca robusta. Ideale per lavoro, studio e intrattenimento."
+    ]
+  },
+  "zdania_wiodace_gaming": {
+    "lista": [
+      "Un computer desktop assemblato nuovo per i giochi attuali, lo streaming e le applicazioni più esigenti.",
+      "Potenza sufficiente per giocare fluidamente con dettagli elevati, trasmettere in streaming e tenere aperti molti programmi.",
+      "Pensato per chi cerca un computer pronto all'uso e vuole evitare di assemblarlo da sé.",
+      "Costruito per i giochi, il montaggio fotografico e video e il lavoro su più schermi.",
+      "Un computer potente per il gaming, la creazione di contenuti e tutto quello che resta aperto accanto."
+    ]
+  },
+  "_zdania_wiodace": "Zdanie pod kafelkami, wybierane na stale po SKU - KOLEJNOSC MA ZNACZENIE, bo zmiana przetasuje przypisania. Lista musi miec tyle samo pozycji co niemiecka. Tlumaczenie maszynowe, do przejrzenia przez Marka.",
+  "_nadpisz_tlumaczenia": "Nowy zestaw nie jest poleasingowy - wspolny slownik tego nie wie, wiec kondycje opisuje sie osobno w profilu. Te napisy tez ida do oferty, wiec kraj musi je nadpisac."
 }
