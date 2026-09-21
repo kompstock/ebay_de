@@ -145,6 +145,17 @@ def wiersze(kraj_zrodlo: dict, kraj_cel: dict, settings: dict, tlumaczenia: dict
                   cel_cechy[i] if i < len(cel_cechy) else None,
                   "cecha zakladana z gory dla tego typu towaru - pole oferty",
                   aspekt="cechy")
+        # Nadpisania slownika per profil - nowy zestaw opisuje kondycje inaczej
+        # niz poleasingowy. Tez ida do oferty, wiec tez wymagaja tlumaczenia.
+        for pole_feedu, mapa in (profil.get("nadpisz_tlumaczenia") or {}).items():
+            if pole_feedu.startswith("_") or not isinstance(mapa, dict):
+                continue
+            cel_mapa = ((cel_profile.get(typ, {}).get("nadpisz_tlumaczenia") or {})
+                        .get(pole_feedu) or {})
+            for wartosc_feedu, napis in mapa.items():
+                dodaj(f"profil/{typ}/nadpisz/{pole_feedu}", wartosc_feedu, napis,
+                      cel_mapa.get(wartosc_feedu),
+                      f"opis w ofercie, gdy feed podaje \"{wartosc_feedu}\"")
         for pole in ("gwarancja", "produktart", "tastatur_layout"):
             dodaj(f"profil/{typ}", pole, profil.get(pole),
                   cel_profile.get(typ, {}).get(pole),
