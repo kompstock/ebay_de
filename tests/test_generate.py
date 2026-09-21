@@ -886,6 +886,57 @@ class OsKraju(unittest.TestCase):
         self.assertEqual(bloki - rozstrzygniete, set(),
                          "blok bez decyzji: dopisz go do eksportu albo do NIE_TLUMACZYMY")
 
+    def test_wloska_oferta_nie_ma_w_sobie_niemieckiego(self):
+        """Bramka, ktorej brakowalo przez caly czas budowy rynku wloskiego.
+
+        Niemieckie napisy wychodzily na eBay.it piec razy z rzedu, za kazdym
+        razem z innego bloku konfiguracji: cechy domyslne, przeznaczenie,
+        etykiety zlacz, zdania wiodace, dopisek tytulu. Za kazdym razem
+        szukalem KONKRETNYCH slow, ktore akurat podejrzewalem - czyli czarnej
+        listy, ktora z definicji znajduje tylko to, o czym juz sie wie.
+
+        Ten test dziala odwrotnie: bierze CALE wyjscie wloskiego przebiegu
+        i szuka cech jezyka niemieckiego. Nie trzeba wiedziec z gory, ktory
+        blok sie wysypie.
+        """
+        import unicodedata
+        NIEMIECKIE_ZNAKI = set("äöüßÄÖÜ")
+        # Slowa funkcyjne i typowo niemieckie konstrukcje. Zadne z nich nie jest
+        # poprawnym wloskim - 'die', 'das', 'und' po wlosku nie wystepuja.
+        NIEMIECKIE_SLOWA = re.compile(
+            r"(?<![\wàèéìòù])(der|die|das|und|mit|f[uü]r|ohne|nicht|wird|werden|sind|"
+            r"ist|ein|eine|einen|einem|auch|oder|aber|sehr|nach|vor|bei|zum|zur|"
+            r"Ger[aä]t|Monate|Monat|Garantie|Zoll|Festplatte|Arbeitsspeicher|"
+            r"Gebrauchsspuren|Kratzer|Lieferumfang|Zustand|vorhanden|zutreffend)"
+            r"(?![\wàèéìòù])", re.IGNORECASE)
+
+        raport, out, _ = self.przebieg("it", tryb="test")
+        self.assertTrue(raport["ok"], raport["blokady"])
+        with (out / "ebay-add.csv").open(encoding="utf-8-sig") as uchwyt:
+            rows = list(csv.reader(uchwyt, delimiter=";"))
+        naglowek = rows[1]
+        wiersze = [dict(zip(naglowek, r)) for r in rows[2:] if r]
+        self.assertTrue(wiersze, "wloski przebieg nic nie wystawil")
+
+        znalezione = []
+        for wiersz in wiersze:
+            widoczne = [wiersz.get("*Title", ""), wiersz.get("*Description", "")]
+            widoczne += [v for k, v in wiersz.items() if k.startswith(("C:", "*C:"))]
+            tekst = " ".join(widoczne)
+            czysty = re.sub(r"<[^>]+>", " ", html.unescape(tekst))
+            for znak in NIEMIECKIE_ZNAKI:
+                if znak in czysty:
+                    znalezione.append(f"{wiersz['CustomLabel']}: znak {znak!r}")
+                    break
+            else:
+                trafienie = NIEMIECKIE_SLOWA.search(czysty)
+                if trafienie:
+                    kontekst = czysty[max(0, trafienie.start() - 40):trafienie.end() + 40]
+                    znalezione.append(f"{wiersz['CustomLabel']}: {trafienie.group(0)!r}"
+                                      f" w: ...{' '.join(kontekst.split())}...")
+        self.assertEqual(znalezione[:5], [],
+                         f"niemiecki w {len(znalezione)} wloskich ofertach")
+
     def test_nieznany_kraj_konczy_sie_zrozumialym_bledem(self):
         wynik = subprocess.run(
             [sys.executable, str(ROOT / "src" / "generate.py"), "--kraj", "nieistnieje",
