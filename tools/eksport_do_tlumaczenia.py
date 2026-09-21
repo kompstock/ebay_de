@@ -156,11 +156,13 @@ def wiersze(kraj_zrodlo: dict, kraj_cel: dict, settings: dict, tlumaczenia: dict
                 dodaj(f"profil/{typ}/nadpisz/{pole_feedu}", wartosc_feedu, napis,
                       cel_mapa.get(wartosc_feedu),
                       f"opis w ofercie, gdy feed podaje \"{wartosc_feedu}\"")
-        for pole in ("gwarancja", "produktart", "tastatur_layout"):
+        for pole in ("gwarancja", "produktart", "tastatur_layout", "dopisek_tytulu"):
             dodaj(f"profil/{typ}", pole, profil.get(pole),
                   cel_profile.get(typ, {}).get(pole),
                   "rodzaj produktu - pole oferty; wybierz jedna z kolumny obok"
-                  if pole == "produktart" else "zdanie widoczne w opisie oferty",
+                  if pole == "produktart" else
+                  "nieskracalny ogon TYTULU - liczy sie do limitu 80 znakow"
+                  if pole == "dopisek_tytulu" else "zdanie widoczne w opisie oferty",
                   aspekt=BLOK_DO_ASPEKTU.get(pole, ""))
 
     for klucz in ("sekcja_business_notebook",):
