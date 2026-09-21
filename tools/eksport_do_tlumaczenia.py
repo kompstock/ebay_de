@@ -156,6 +156,13 @@ def wiersze(kraj_zrodlo: dict, kraj_cel: dict, settings: dict, tlumaczenia: dict
                 dodaj(f"profil/{typ}/nadpisz/{pole_feedu}", wartosc_feedu, napis,
                       cel_mapa.get(wartosc_feedu),
                       f"opis w ofercie, gdy feed podaje \"{wartosc_feedu}\"")
+        # Mapa formatu obudowy - wartosci musza byc z listy dozwolonych rynku.
+        mapa_ff = (profil.get("formfaktor") or {}).get("mapa") or {}
+        cel_ff = ((cel_profile.get(typ, {}).get("formfaktor") or {}).get("mapa") or {})
+        for klucz_feedu, wartosc in mapa_ff.items():
+            dodaj(f"profil/{typ}/formfaktor", klucz_feedu, wartosc, cel_ff.get(klucz_feedu),
+                  "format obudowy - pole oferty; wybierz jedna z kolumny obok",
+                  aspekt="formfaktor")
         for pole in ("gwarancja", "produktart", "tastatur_layout", "dopisek_tytulu"):
             dodaj(f"profil/{typ}", pole, profil.get(pole),
                   cel_profile.get(typ, {}).get(pole),
