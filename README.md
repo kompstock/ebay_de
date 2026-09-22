@@ -13,11 +13,36 @@ albo z artefaktu `wynik-generowania-<kraj>`.
 |---|---|---|
 | `pierwsze` | nic | `ebay-add.csv` ze wszystkimi produktami |
 | `nowe` | `input/aktywne.csv` | `ebay-add.csv` tylko z nowymi SKU |
-| `aktualizacja` | `input/aktywne.csv` | `ebay-revise.csv` z cenami i ilościami |
+| `aktualizacja` | `input/aktywne.csv` | `ebay-revise.csv` z cenami i ilościami **+ `ebay-revise-stany.csv`** |
 | `test` | jak wyżej | to samo z akcją `VerifyAdd` — eBay sprawdza, nic nie wystawia |
 
 `input/aktywne.csv` to raport **All active listings** pobrany z eBaya.
 Przeciągasz go do folderu `input/` przez przeglądarkę i commitujesz.
+
+### Drugi plik aktualizacji: dawkowanie zapasu
+
+Tryb `aktualizacja` robi obok prawdziwego pliku jeszcze `ebay-revise-stany.csv`.
+Te same aukcje, te same ceny, te same numery — różni się **wyłącznie kolumną
+`Available quantity`**, sprowadzoną do trzech poziomów:
+
+| stan w magazynie | co zobaczy eBay |
+|---|---|
+| poniżej 10 szt. | `0` — aukcja schodzi |
+| 10–99 szt. | `10` |
+| od 100 szt. | `35` |
+
+**Wgrywasz jeden z dwóch plików, nigdy oba.** Prawdziwy mówi prawdę o magazynie,
+pomocniczy dawkuje zapas. Progi zmienisz w `config/settings.json` →
+`stany_ograniczone` (pary `[granica, wartość]` działają jako „mniej niż granica”).
+
+Dwie rzeczy, które ten plik robi inaczej niż prawdziwy:
+
+- **Ma własne wykrywanie zmian.** Prawdziwy pomija SKU, którego stan się nie
+  ruszył; pomocniczy nie może, bo ograniczenie bywa inne nawet przy nieruszonym
+  stanie (feed 50, aukcja 50, pokazujemy 10). Bez tego limit nigdy by nie wszedł.
+- **Zerowanie znikniętych SKU wygląda w obu plikach tak samo** — brak towaru
+  w feedzie to zdjęcie aukcji, a nie dawkowanie. Bezpiecznik
+  `max_udzial_zerowanych` zatrzymuje oba pliki naraz.
 
 **Po każdym wgraniu `Add` pobierz raport ponownie.** Numery aukcji nadaje eBay
 i bez świeżego raportu narzędzie nie wie, że te oferty już istnieją.
