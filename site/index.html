@@ -17,6 +17,8 @@
  #instrukcja b{display:block;margin-bottom:8px;font-size:16px}
  #instrukcja ol{margin:0;padding-left:20px} #instrukcja li{margin-bottom:5px}
  #instrukcja .ostrz{margin:10px 0 0;padding-left:12px;border-left:3px solid #e2231a;color:#5a5c62}
+ /* #instrukcja b jest blokowy (naglowek sekcji) - w ostrzezeniu pogrubienie ma zostac w zdaniu */
+ #instrukcja .ostrz b{display:inline;font-size:inherit;margin:0}
  table{border-collapse:collapse;width:100%;font-size:15px;margin-bottom:24px}
  th,td{padding:9px 12px;text-align:left} tr:nth-child(odd){background:#fafaf9}
  th{color:#5a5c62;font-weight:400;width:45%}
@@ -46,6 +48,7 @@
   <li><b>Pierwsze wystawienie</b> — pobierz <code>ebay-add.csv</code>, wgraj na eBay przez File Exchange.</li>
   <li><b>Nowe SKU</b> — najpierw wgraj do repo świeży raport aktywnych ofert jako <code>input/aktywne.csv</code>, potem uruchom workflow w trybie <code>nowe</code>.</li>
   <li><b>Ceny i ilości</b> — ten sam raport, tryb <code>aktualizacja</code>, plik <code>ebay-revise.csv</code>.</li>
+  <li><b>Dawkowanie zapasu</b> — tryb <code>aktualizacja</code> robi obok drugi plik <code>ebay-revise-stany.csv</code>: te same aukcje i ceny, ale ilości sprowadzone do 0 / 10 / 35. Wgrywasz jeden z dwóch, nigdy oba. Progi zmienisz w <code>config/settings.json</code> → <code>stany_ograniczone</code>.</li>
   <li><b>Test bez wystawiania</b> — tryb <code>test</code> generuje ten sam plik z akcją <code>VerifyAdd</code>.</li>
   <li>Po każdym wgraniu <code>Add</code> pobierz raport na nowo — dopiero wtedy narzędzie zobaczy nowe aukcje.</li>
 </ul>
@@ -95,6 +98,12 @@ fetch("downloads/generation-report.json?" + Date.now())
        r.w_tym_zerowanych + " do wyzerowania).</li>" +
        "<li>Wgraj go na eBay przez File Exchange.</li>" +
        "<li>Plik zmienia wy\u0142\u0105cznie ceny i ilo\u015bci istniej\u0105cych aukcji.</li></ol>";
+     if (r.stany_ograniczone) {
+       tresc += "<p class='ostrz'>Albo zamiast niego <b>" + r.stany_ograniczone.plik +
+         "</b> (" + r.do_aktualizacji_ograniczone + " pozycji) \u2014 te same aukcje i ceny, " +
+         "ale ilo\u015bci podmienione: " + r.stany_ograniczone.opis +
+         ". Wgrywasz <b>jeden z dw\u00f3ch</b>, nigdy oba.</p>";
+     }
    }
    ins.innerHTML = tresc; ins.style.display = "block";
 
@@ -105,6 +114,7 @@ fetch("downloads/generation-report.json?" + Date.now())
      ["Aktywnych na eBay (DE)", r.aktywnych_na_ebay],
      ["Do wystawienia", r.do_wystawienia],
      ["Do aktualizacji", r.do_aktualizacji + (r.w_tym_zerowanych ? " (w tym " + r.w_tym_zerowanych + " zerowanych)" : "")],
+     ...(r.stany_ograniczone ? [["W pliku ze stanami", r.do_aktualizacji_ograniczone + " (" + r.stany_ograniczone.opis + ")"]] : []),
      ["Kurs NBP", r.nbp.rate + " (" + r.nbp.effective_date + ")"],
      ["Doliczana wysyłka", r.kurs_z_doplata_eur + " EUR"],
      ["Pozycji do uzupełnienia", r.review_items]
@@ -114,10 +124,17 @@ fetch("downloads/generation-report.json?" + Date.now())
 
    const pliki = [
      ["downloads/ebay-add.csv", "ebay-add.csv", "Nowe oferty do wystawienia"],
-     ["downloads/ebay-revise.csv", "ebay-revise.csv", "Zmiany cen i ilości"],
+     ["downloads/ebay-revise.csv", "ebay-revise.csv", "Zmiany cen i ilości"]
+   ];
+   // Plik pomocniczy tylko wtedy, gdy przebieg go zrobił - inaczej link byłby ślepy.
+   if (r.stany_ograniczone) {
+     pliki.push(["downloads/" + r.stany_ograniczone.plik, r.stany_ograniczone.plik,
+                 "To samo, ale ilości " + r.stany_ograniczone.opis]);
+   }
+   pliki.push(
      ["downloads/review.csv", "review.csv", "Czego brakuje w słownikach"],
      ["downloads/generation-report.json", "generation-report.json", "Pełny raport techniczny"]
-   ];
+   );
    document.getElementById("pliki").innerHTML = pliki
      .map(p => '<a class="plik" href="' + p[0] + '"><b>' + p[1] + '</b><span>' + p[2] + '</span></a>')
      .join("");
