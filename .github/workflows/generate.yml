@@ -85,6 +85,10 @@ jobs:
           for kat, ile in r.get("do_wystawienia_wg_kategorii", {}).items():
               print(f"| &nbsp;&nbsp;{kat} | {ile} |")
           print(f"| **Do aktualizacji** | **{r['do_aktualizacji']}** (zerowanych: {r['w_tym_zerowanych']}) |")
+          if r.get("stany_ograniczone"):
+              print(f"| &nbsp;&nbsp;{r['stany_ograniczone']['plik']} | "
+                    f"{r['do_aktualizacji_ograniczone']} "
+                    f"({r['stany_ograniczone']['opis']}) |")
           print(f"| Kurs NBP | {r['nbp']['rate']} z {r['nbp']['effective_date']} |")
           if r["sku_zdublowane"]:
               print(f"\n### SKU z kilkoma aukcjami (pominiete)\n")
