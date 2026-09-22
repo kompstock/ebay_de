@@ -1534,6 +1534,40 @@ def zapisz_add(sciezka: Path, headers: list[str], wiersze: list[dict], akcja: st
 KOLUMNY_REVISE = ["Action", "Category name", "Item number", "Title", "Listing site", "Currency",
                   "Start price", "Buy It Now price", "Available quantity", "Relationship",
                   "Relationship details", "Custom label (SKU)"]
+STANY_OGRANICZONE_DOMYSLNIE = {
+    "plik": "ebay-revise-stany.csv",
+    # [granica, wartosc] - ilosc mniejsza niz granica schodzi do wartosci.
+    "progi": [[10, 0], [100, 10]],
+    "powyzej": 35,
+}
+def regula_stanow(settings: dict) -> dict:
+    """Regula drugiego pliku aktualizacji. Brak wpisu w configu = wartosci domyslne,
+    zeby stary plik konfiguracyjny nie zatrzymywal przebiegu."""
+    regula = dict(STANY_OGRANICZONE_DOMYSLNIE)
+    regula.update(settings.get("stany_ograniczone") or {})
+    return regula
+def ogranicz_stan(ilosc: int, regula: dict) -> int:
+    """Prawdziwy stan magazynowy -> stan pokazywany na eBayu w pliku pomocniczym.
+
+    Progi dzialaja na zasadzie "mniej niz granica", od najnizszej w gore.
+    Domyslnie: ponizej 10 sztuk aukcja schodzi do zera, 10-99 pokazuje 10,
+    od 100 w gore pokazuje 35.
+    """
+    for granica, wartosc in sorted(regula["progi"], key=lambda para: int(para[0])):
+        if ilosc < int(granica):
+            return int(wartosc)
+    return int(regula["powyzej"])
+def opis_reguly_stanow(regula: dict) -> str:
+    """Regula slowami. Idzie do raportu i prosto na strone z pobieraniem,
+    wiec jako jedyny komunikat w tym pliku jest po polsku z ogonkami."""
+    czesci, poprzednia = [], None
+    for granica, wartosc in sorted(regula["progi"], key=lambda para: int(para[0])):
+        zakres = f"{poprzednia}–{int(granica) - 1}" if poprzednia is not None \
+            else f"poniżej {int(granica)}"
+        czesci.append(f"{zakres} szt. → {int(wartosc)}")
+        poprzednia = int(granica)
+    czesci.append(f"od {poprzednia} szt. → {int(regula['powyzej'])}")
+    return ", ".join(czesci)
 def zapisz_revise(sciezka: Path, wiersze: list[dict]) -> None:
     with sciezka.open("w", encoding="utf-8-sig", newline="") as handle:
         writer = csv.writer(handle, quoting=csv.QUOTE_MINIMAL, lineterminator="\n")
@@ -1606,6 +1640,8 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
     output_dir.mkdir(parents=True, exist_ok=True)
     wiersze_add: list[dict] = []
     wiersze_revise: list[dict] = []
+    wiersze_ograniczone: list[dict] = []
+    regula = regula_stanow(settings)
     zerowane = 0
     pliki_add: dict[str, list[dict]] = {}
     if not blokady and tryb in ("pierwsze", "nowe", "test"):
@@ -1662,34 +1698,51 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
                 nowa_ilosc = min(nowa_ilosc, cap)
             zmiana_ceny = abs(nowa_cena - biezaca["cena"]) >= float(settings["prog_zmiany_ceny_eur"])
             zmiana_ilosci = nowa_ilosc != biezaca["ilosc"]
+            # Plik ze stanami ograniczonymi ma wlasne wykrywanie zmian. Przy tym
+            # samym stanie w feedzie i na eBayu ograniczenie i tak bywa inne
+            # (np. feed 50, aukcja 50, pokazujemy 10) - bez osobnego warunku taki
+            # wiersz nigdy by do pliku nie trafil i limit nigdy by nie zadzialal.
+            ilosc_ograniczona = ogranicz_stan(nowa_ilosc, regula)
+            zmiana_ograniczona = ilosc_ograniczona != biezaca["ilosc"]
             if not (zmiana_ceny or zmiana_ilosci):
                 skipped["bez_zmian"] += 1
-                continue
+                if not zmiana_ograniczona:
+                    continue
             kat = kategoria_produktu(attrs.get("Producent", ""), profil, settings)
-            wiersze_revise.append({
+            wiersz = {
                 "Action": "Revise", "Category name": nazwy.get(kat, ""),
                 "Item number": biezaca["item"], "Title": biezaca["tytul"],
                 "Listing site": settings["listing_site"], "Currency": biezaca["waluta"],
                 "Start price": f"{nowa_cena if zmiana_ceny else biezaca['cena']:.1f}",
                 "Buy It Now price": "", "Available quantity": str(nowa_ilosc),
                 "Relationship": "", "Relationship details": "",
-                "Custom label (SKU)": sku})
+                "Custom label (SKU)": sku}
+            if zmiana_ceny or zmiana_ilosci:
+                wiersze_revise.append(wiersz)
+            if zmiana_ceny or zmiana_ograniczona:
+                wiersze_ograniczone.append(
+                    dict(wiersz, **{"Available quantity": str(ilosc_ograniczona)}))
         for sku, biezaca in aktywne.items():
             if sku in w_feedzie or biezaca["ilosc"] == 0:
                 continue
             zerowane += 1
-            wiersze_revise.append({
+            wiersz = {
                 "Action": "Revise", "Category name": "", "Item number": biezaca["item"],
                 "Title": biezaca["tytul"], "Listing site": settings["listing_site"],
                 "Currency": biezaca["waluta"], "Start price": f"{biezaca['cena']:.1f}",
                 "Buy It Now price": "", "Available quantity": "0",
-                "Relationship": "", "Relationship details": "", "Custom label (SKU)": sku})
+                "Relationship": "", "Relationship details": "", "Custom label (SKU)": sku}
+            # Zerowanie wyglada tak samo w obu plikach: towaru nie ma w feedzie.
+            wiersze_revise.append(wiersz)
+            wiersze_ograniczone.append(dict(wiersz))
         if aktywne and zerowane / len(aktywne) > float(settings["max_udzial_zerowanych"]):
             blokady.append(f"zerowanie objelo by {zerowane} z {len(aktywne)} aukcji "
                            f"({zerowane / len(aktywne):.0%}) - to wyglada na blad feedu, przerywam")
             wiersze_revise = []
+            wiersze_ograniczone = []
         else:
             zapisz_revise(output_dir / "ebay-revise.csv", wiersze_revise)
+            zapisz_revise(output_dir / regula["plik"], wiersze_ograniczone)
     # Raport duplikatow powstal wyzej, przed budowaniem wierszy. Tu tylko zapis:
     # co poszlo na eBay, co wstrzymalismy i z czym kolidowalo.
     if dupl:
@@ -1717,6 +1770,9 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
         "pliki_add": {nazwa: len(w) for nazwa, w in sorted(pliki_add.items())},
         "do_aktualizacji": len(wiersze_revise),
         "w_tym_zerowanych": zerowane,
+        "do_aktualizacji_ograniczone": len(wiersze_ograniczone),
+        "stany_ograniczone": (dict(regula, opis=opis_reguly_stanow(regula))
+                              if tryb == "aktualizacja" else None),
         "pominieto": dict(skipped),
         "review_items": len(review.rows()),
         "duplikaty": dupl or "wylaczone",
@@ -1735,6 +1791,13 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
         json.dumps(raport_json, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return raport_json
 def main() -> int:
+    # Konsola Windows chodzi w cp1250 i przewraca sie na kazdym znaku spoza niej
+    # (strzalka w opisie progow, emoji w komunikacie). Raport w pliku i tak jest
+    # w utf-8 - to dotyczy wylacznie wydruku, ktory inaczej konczy przebieg
+    # UnicodeEncodeError juz PO zapisaniu wszystkich plikow.
+    for strumien in (sys.stdout, sys.stderr):
+        if hasattr(strumien, "reconfigure"):
+            strumien.reconfigure(encoding="utf-8", errors="replace")
     parser = argparse.ArgumentParser()
     parser.add_argument("--min-produktow", type=int)
     parser.add_argument("--tryb", default="pierwsze",
