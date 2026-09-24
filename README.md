@@ -28,8 +28,8 @@ Te same aukcje, te same ceny, te same numery — różni się **wyłącznie kolu
 | stan w magazynie | co zobaczy eBay |
 |---|---|
 | poniżej 10 szt. | `0` — aukcja schodzi |
-| 10–99 szt. | `10` |
-| od 100 szt. | `35` |
+| 10–99 szt. | `8` |
+| od 100 szt. | `15` |
 
 **Wgrywasz jeden z dwóch plików, nigdy oba.** Prawdziwy mówi prawdę o magazynie,
 pomocniczy dawkuje zapas. Progi zmienisz w `config/settings.json` →
