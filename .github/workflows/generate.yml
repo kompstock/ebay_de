@@ -10,6 +10,7 @@ on:
         options:
           - de
           - it
+          - wszystkie
       tryb:
         description: "Co zrobić"
         type: choice
@@ -54,97 +55,193 @@ jobs:
       # przerywa z komunikatem, zamiast po cichu gubic wszystkie komputery.
       # Do odtworzenia wpisu sluzy tools/dodaj_kategorie_179.py.
 
-      # Jeden przebieg = jeden kraj. Rynki nie moga sobie nawzajem wyzerowac
-      # aukcji, bo raport aktywnych ofert filtruje sie po 'Listing site'.
+      # Lista rynkow bierze sie z katalogu, a nie z tego pliku: nowy
+      # config/kraje/xx.json wchodzi do przebiegu "wszystkie" sam, bez
+      # dotykania workflow.
+      - name: Ustal rynki
+        id: rynki
+        run: |
+          if [ "$WYBOR" = "wszystkie" ]; then
+            lista=$(ls config/kraje/*.json | xargs -n1 basename | sed 's/\.json$//' | sort | tr '\n' ' ')
+          else
+            lista="$WYBOR"
+          fi
+          lista=$(echo $lista)
+          if [ -z "$lista" ]; then
+            echo "::error::brak plikow konfiguracyjnych w config/kraje/"
+            exit 1
+          fi
+          echo "lista=$lista" >> "$GITHUB_OUTPUT"
+          echo "Rynki w tym przebiegu: $lista"
+        env:
+          WYBOR: ${{ inputs.kraj }}
+
+      # Kazdy rynek to osobne, niezalezne uruchomienie generatora - rynki nie
+      # moga sobie nawzajem namieszac w danych. Raport aktywnych ofert jest
+      # wspolny dla calego konta i dzieli sie po kolumnie "Listing site".
+      # Kod 2 znaczy "blokada" i jest przewidziany; petla leci dalej, zeby
+      # awaria jednego rynku nie zabrala plikow pozostalym. Ocenia krok "Bramka".
       - name: Wygeneruj pliki
         continue-on-error: true
-        run: python src/generate.py --kraj "${{ inputs.kraj }}" --tryb "${{ inputs.tryb }}"
+        run: |
+          for k in $LISTA; do
+            echo "::group::rynek $k"
+            kod=0
+            python src/generate.py --kraj "$k" --tryb "$TRYB" || kod=$?
+            if [ "$kod" = "0" ]; then
+              echo "rynek $k: gotowe"
+            else
+              echo "rynek $k: zakonczony kodem $kod - szczegoly w podsumowaniu"
+            fi
+            echo "::endgroup::"
+          done
+        env:
+          LISTA: ${{ steps.rynki.outputs.lista }}
+          TRYB: ${{ inputs.tryb }}
 
       - name: Podsumowanie
         if: always()
         run: |
           python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
           import json, os, pathlib
-          p = pathlib.Path(f"output/{os.environ['KRAJ']}/generation-report.json")
-          if not p.exists():
-              print("## Generowanie nie doszlo do skutku"); raise SystemExit
-          r = json.loads(p.read_text(encoding="utf-8"))
-          print(f"## Tryb: {r['tryb']}\n")
-          if not r["ok"]:
-              print("### PRZEBIEG ZATRZYMANY\n")
-              for b in r["blokady"]:
-                  print(f"- {b}")
+
+          def raport(kraj):
+              p = pathlib.Path(f"output/{kraj}/generation-report.json")
+              return json.loads(p.read_text(encoding="utf-8")) if p.exists() else None
+
+          def sekcja(kraj, r):
+              print(f"## {kraj.upper()} - tryb: {r['tryb']}\n")
+              if not r["ok"]:
+                  print("### PRZEBIEG ZATRZYMANY\n")
+                  for b in r["blokady"]:
+                      print(f"- {b}")
+                  print()
+              print("| | |\n|---|---|")
+              print(f"| Produktow w kategorii | {r['produktow_w_kategorii']} |")
+              print(f"| Z zapasem | {r['produktow_z_zapasem']} |")
+              for typ, ile in r.get("produktow_z_zapasem_wg_typu", {}).items():
+                  print(f"| &nbsp;&nbsp;{typ} | {ile} |")
+              print(f"| Aktywnych na eBay | {r['aktywnych_na_ebay']} |")
+              print(f"| **Do wystawienia** | **{r['do_wystawienia']}** |")
+              for kat, ile in r.get("do_wystawienia_wg_kategorii", {}).items():
+                  print(f"| &nbsp;&nbsp;{kat} | {ile} |")
+              print(f"| **Do aktualizacji** | **{r['do_aktualizacji']}** "
+                    f"(zerowanych: {r['w_tym_zerowanych']}) |")
+              if r.get("stany_ograniczone"):
+                  print(f"| &nbsp;&nbsp;{r['stany_ograniczone']['plik']} | "
+                        f"{r['do_aktualizacji_ograniczone']} "
+                        f"({r['stany_ograniczone']['opis']}) |")
+              print(f"| Kurs NBP | {r['nbp']['rate']} z {r['nbp']['effective_date']} |")
+              if r["sku_zdublowane"]:
+                  print("\n### SKU z kilkoma aukcjami (pominiete)\n")
+                  for s in r["sku_zdublowane"][:20]:
+                      print(f"- `{s}`")
+              print("\n### Powody pominiecia\n")
+              for k, v in sorted(r["pominieto"].items(), key=lambda i: -i[1]):
+                  print(f"- `{k}` — {v}")
+              for tytul, klucz in [("Marki bez GPSR", "marki_bez_gpsr"),
+                                   ("Brakujace tlumaczenia", "brakujace_tlumaczenia"),
+                                   ("Wartosci aspektow", "wartosci_aspektow"),
+                                   ("Etykiety portow", "etykiety_portow"),
+                                   ("Klawiatury", "klawiatury")]:
+                  items = r.get("do_uzupelnienia", {}).get(klucz, [])
+                  if items:
+                      print(f"\n### {tytul}\n")
+                      for i in items[:15]:
+                          print(f"- **{i['produktow']}x** — {i['wartosc'][:150]}")
+
+          rynki = os.environ["LISTA"].split()
+          # Skrot na samej gorze: przy kilku rynkach nikt nie czyta calosci.
+          if len(rynki) > 1:
+              print("## Rynki w tym przebiegu\n")
+              print("| rynek | wynik |\n|---|---|")
+              for kraj in rynki:
+                  r = raport(kraj)
+                  if r is None:
+                      stan = "**nic nie powstalo**"
+                  elif r["ok"]:
+                      stan = "ok"
+                  else:
+                      stan = "**ZATRZYMANY** - " + "; ".join(r["blokady"])
+                  print(f"| `{kraj}` | {stan} |")
               print()
-          print("| | |\n|---|---|")
-          print(f"| Produktow w kategorii | {r['produktow_w_kategorii']} |")
-          print(f"| Z zapasem | {r['produktow_z_zapasem']} |")
-          for typ, ile in r.get("produktow_z_zapasem_wg_typu", {}).items():
-              print(f"| &nbsp;&nbsp;{typ} | {ile} |")
-          print(f"| Aktywnych na eBay | {r['aktywnych_na_ebay']} |")
-          print(f"| **Do wystawienia** | **{r['do_wystawienia']}** |")
-          for kat, ile in r.get("do_wystawienia_wg_kategorii", {}).items():
-              print(f"| &nbsp;&nbsp;{kat} | {ile} |")
-          print(f"| **Do aktualizacji** | **{r['do_aktualizacji']}** (zerowanych: {r['w_tym_zerowanych']}) |")
-          if r.get("stany_ograniczone"):
-              print(f"| &nbsp;&nbsp;{r['stany_ograniczone']['plik']} | "
-                    f"{r['do_aktualizacji_ograniczone']} "
-                    f"({r['stany_ograniczone']['opis']}) |")
-          print(f"| Kurs NBP | {r['nbp']['rate']} z {r['nbp']['effective_date']} |")
-          if r["sku_zdublowane"]:
-              print(f"\n### SKU z kilkoma aukcjami (pominiete)\n")
-              for s in r["sku_zdublowane"][:20]:
-                  print(f"- `{s}`")
-          print(f"\n### Powody pominiecia\n")
-          for k, v in sorted(r["pominieto"].items(), key=lambda i: -i[1]):
-              print(f"- `{k}` — {v}")
-          for tytul, klucz in [("Marki bez GPSR", "marki_bez_gpsr"),
-                               ("Brakujace tlumaczenia", "brakujace_tlumaczenia"),
-                               ("Wartosci aspektow", "wartosci_aspektow"),
-                               ("Etykiety portow", "etykiety_portow"),
-                               ("Klawiatury", "klawiatury")]:
-              items = r.get("do_uzupelnienia", {}).get(klucz, [])
-              if items:
-                  print(f"\n### {tytul}\n")
-                  for i in items[:15]:
-                      print(f"- **{i['produktow']}x** — {i['wartosc'][:150]}")
+          for kraj in rynki:
+              r = raport(kraj)
+              if r is None:
+                  print(f"## {kraj.upper()}: generowanie nie doszlo do skutku\n")
+              else:
+                  sekcja(kraj, r)
           PY
         env:
-          KRAJ: ${{ inputs.kraj }}
+          LISTA: ${{ steps.rynki.outputs.lista }}
 
       - name: Zapisz artefakty
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: wynik-generowania-${{ inputs.kraj }}
-          path: output/${{ inputs.kraj }}/
+          name: wynik-generowania
+          path: output/
           if-no-files-found: warn
           retention-days: 30
 
+      # Czerwony przebieg, jesli ktorykolwiek rynek stanal - ale dopiero tutaj,
+      # po zapisaniu artefaktow. Strona publikuje sie mimo to (if: always()),
+      # wiec pliki rynkow, ktore wyszly, zostaja do pobrania.
       - name: Bramka
         run: |
           python - <<'PY'
-          import json, os, sys
-          r = json.load(open(f"output/{os.environ['KRAJ']}/generation-report.json", encoding="utf-8"))
+          import json, os, pathlib, sys
+          rynki = os.environ["LISTA"].split()
+          zle = []
+          for kraj in rynki:
+              p = pathlib.Path(f"output/{kraj}/generation-report.json")
+              if not p.exists():
+                  zle.append(f"{kraj}: brak raportu - generator w ogole nie doszedl do konca")
+                  continue
+              r = json.loads(p.read_text(encoding="utf-8"))
+              if not r["ok"]:
+                  zle.append(f"{kraj}: " + " | ".join(r["blokady"]))
+              elif r["tryb"] != "aktualizacja" and r["do_wystawienia"] == 0:
+                  print(f"{kraj}: brak nowych produktow - to nie blad")
+              else:
+                  print(f"{kraj}: ok")
           if os.environ.get("IGNORUJ") == "true":
-              print("progi pominiete na zyczenie"); raise SystemExit
-          if not r["ok"]:
-              sys.exit("BLOKADA: " + " | ".join(r["blokady"]))
-          if r["tryb"] != "aktualizacja" and r["do_wystawienia"] == 0:
-              print("brak nowych produktow - to nie blad")
+              print("progi pominiete na zyczenie")
+              raise SystemExit
+          if zle:
+              sys.exit("BLOKADA\n" + "\n".join(zle))
           PY
         env:
           IGNORUJ: ${{ inputs.ignoruj_prog }}
-          KRAJ: ${{ inputs.kraj }}
+          LISTA: ${{ steps.rynki.outputs.lista }}
 
+      # Kazdy rynek dostaje wlasny katalog, a rynki.json mowi stronie, ktore
+      # z nich w tym przebiegu powstaly. Bez plaskiej kopii: przy kilku rynkach
+      # znaczyla tyle, co "ten, ktory skonczyl ostatni".
       - name: Przygotuj stronę
         if: always()
         run: |
-          # Dwa miejsca naraz: plasko, bo strona czyta downloads/ i ma pokazywac
-          # ostatni przebieg niezaleznie od rynku, oraz w katalogu kraju, zeby
-          # wynik DE nie przykrywal wloskiego w archiwum.
-          mkdir -p site/downloads "site/downloads/${{ inputs.kraj }}"
-          cp output/${{ inputs.kraj }}/* site/downloads/ 2>/dev/null || true
-          cp output/${{ inputs.kraj }}/* "site/downloads/${{ inputs.kraj }}/" 2>/dev/null || true
+          mkdir -p site/downloads
+          gotowe=""
+          for k in $LISTA; do
+            if [ -f "output/$k/generation-report.json" ]; then
+              mkdir -p "site/downloads/$k"
+              cp output/$k/* "site/downloads/$k/"
+              gotowe="$gotowe $k"
+            else
+              echo "rynek $k nie ma raportu - pomijam na stronie"
+            fi
+          done
+          export GOTOWE="$gotowe"
+          python - <<'PY'
+          import json, os, pathlib
+          rynki = os.environ["GOTOWE"].split()
+          pathlib.Path("site/downloads/rynki.json").write_text(
+              json.dumps({"rynki": rynki}, ensure_ascii=False) + "\n", encoding="utf-8")
+          print("na stronie:", rynki or "(nic)")
+          PY
+        env:
+          LISTA: ${{ steps.rynki.outputs.lista }}
 
       - uses: actions/configure-pages@v5
         if: always()
