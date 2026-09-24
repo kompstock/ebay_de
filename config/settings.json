@@ -28,10 +28,10 @@
   "max_quantity": 0,
   "stany_ograniczone": {
     "plik": "ebay-revise-stany.csv",
-    "progi": [[10, 0], [100, 10]],
-    "powyzej": 35
+    "progi": [[10, 0], [100, 8]],
+    "powyzej": 15
   },
-  "_uwaga_stany_ograniczone": "Drugi, opcjonalny plik trybu 'aktualizacja'. Te same wiersze co ebay-revise.csv, ale z podmieniona iloscia: progi to pary [granica, wartosc] dzialajace jako 'mniej niz granica', reszta dostaje 'powyzej'. Domyslnie ponizej 10 szt. -> 0, 10-99 -> 10, od 100 -> 35. Wgrywasz ALBO ten plik, ALBO prawdziwy - nie oba.",
+  "_uwaga_stany_ograniczone": "Drugi, opcjonalny plik trybu 'aktualizacja'. Te same wiersze co ebay-revise.csv, ale z podmieniona iloscia: progi to pary [granica, wartosc] dzialajace jako 'mniej niz granica', reszta dostaje 'powyzej'. Domyslnie ponizej 10 szt. -> 0, 10-99 -> 8, od 100 -> 15. Wgrywasz ALBO ten plik, ALBO prawdziwy - nie oba.",
   "product_safety_pictograms": "EBPSP201",
   "max_skipped_ratio": 0.3,
   "doplata_wysylka_eur": 20,
