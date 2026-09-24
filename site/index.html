@@ -2,11 +2,16 @@
 <html lang="pl">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>KOMPRE → eBay.de</title>
+<title>KOMPRE → eBay</title>
 <style>
  body{font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:820px;margin:0 auto;
       padding:24px 18px 60px;color:#14161a;line-height:1.6}
  h1{font-size:22px;margin:0 0 4px} .pod{color:#5a5c62;margin:0 0 24px;font-size:15px}
+ #rynki{display:none;margin-bottom:18px}
+ #rynki button{font:inherit;font-size:15px;cursor:pointer;background:#fff;color:#5a5c62;
+               border:1px solid #e0e0dd;border-radius:9px;padding:8px 18px;margin-right:8px}
+ #rynki button:hover{border-color:#14161a;color:#14161a}
+ #rynki button.teraz{background:#14161a;border-color:#14161a;color:#fff;font-weight:700}
  #pasek{border-radius:12px;padding:18px 20px;margin-bottom:24px;font-size:16px;border:1px solid}
  .ok{background:#eef7f1;border-color:#cde6d8;color:#0f6b3c}
  .zle{background:#fdf1f0;border-color:#f3ccc8;color:#a01b12}
@@ -31,8 +36,10 @@
  code{background:#f2f2f0;padding:2px 6px;border-radius:4px;font-size:13px}
 </style>
 
-<h1>KOMPRE → eBay.de</h1>
+<h1>KOMPRE → eBay</h1>
 <p class="pod">Generator plików CSV do File Exchange.</p>
+
+<div id="rynki"></div>
 
 <div id="pasek" class="czeka"><b>Wczytywanie…</b>sprawdzam ostatni przebieg</div>
 
@@ -45,8 +52,9 @@
 
 <h2>Jak tego użyć</h2>
 <ul>
+  <li><b>Jeden rynek czy wszystkie</b> — w Actions wybierasz <code>de</code>, <code>it</code> albo <code>wszystkie</code>. Przy <code>wszystkie</code> każdy rynek dostaje własny komplet plików, a powyżej przełączasz się między nimi.</li>
   <li><b>Pierwsze wystawienie</b> — pobierz <code>ebay-add.csv</code>, wgraj na eBay przez File Exchange.</li>
-  <li><b>Nowe SKU</b> — najpierw wgraj do repo świeży raport aktywnych ofert jako <code>input/aktywne.csv</code>, potem uruchom workflow w trybie <code>nowe</code>.</li>
+  <li><b>Nowe SKU</b> — potrzebny świeży raport <b>All active listings</b> w <code>input/ebay/</code>. Jeden plik obsługuje wszystkie rynki: generator dzieli go po kolumnie <code>Listing site</code>.</li>
   <li><b>Ceny i ilości</b> — ten sam raport, tryb <code>aktualizacja</code>, plik <code>ebay-revise.csv</code>.</li>
   <li><b>Dawkowanie zapasu</b> — tryb <code>aktualizacja</code> robi obok drugi plik <code>ebay-revise-stany.csv</code>: te same aukcje i ceny, ale ilości sprowadzone do 0 / 10 / 35. Wgrywasz jeden z dwóch, nigdy oba. Progi zmienisz w <code>config/settings.json</code> → <code>stany_ograniczone</code>.</li>
   <li><b>Test bez wystawiania</b> — tryb <code>test</code> generuje ten sam plik z akcją <code>VerifyAdd</code>.</li>
@@ -57,91 +65,132 @@
 const nazwy = {
   ok:"Wszystko w porządku", zle:"Przebieg zatrzymany", czeka:"Brak danych"
 };
-fetch("downloads/generation-report.json?" + Date.now())
- .then(r => r.ok ? r.json() : Promise.reject())
- .then(r => {
-   const pasek = document.getElementById("pasek");
-   const data = new Date(r.generated_at_utc).toLocaleString("pl-PL");
-   if (r.ok) {
-     pasek.className = "ok";
-     const rynek = r.kraj ? " · rynek <b style='display:inline'>" + r.kraj + "</b>" : "";
-     pasek.innerHTML = "<b>" + nazwy.ok + "</b>Ostatni przebieg: " + data + " · tryb <b style='display:inline'>" + r.tryb + "</b>" + rynek;
-   } else {
-     pasek.className = "zle";
-     pasek.innerHTML = "<b>" + nazwy.zle + "</b>" + (r.blokady || []).join("<br>") + "<br><small>" + data + "</small>";
-   }
-   const ins = document.getElementById("instrukcja");
-   let tresc = "";
-   if (!r.ok) {
-     tresc = "<b>Nic nie wgrywaj na eBay</b>Przebieg zosta\u0142 zatrzymany. Napraw przyczyn\u0119 " +
-             "wypisan\u0105 powy\u017cej i uruchom ponownie.";
-   } else if (r.tryb === "test") {
-     tresc = "<b>Co teraz zrobi\u0107</b><ol>" +
-       "<li>Pobierz <b>ebay-add.csv</b> poni\u017cej.</li>" +
-       "<li>Wgraj go na eBay przez File Exchange.</li>" +
-       "<li>eBay tylko sprawdzi plik i <b>nie utworzy \u017cadnej aukcji</b>.</li>" +
-       "<li>Je\u015bli nie ma b\u0142\u0119d\u00f3w \u2013 uruchom tryb <code>pierwsze</code>.</li></ol>";
-   } else if ((r.tryb === "pierwsze" || r.tryb === "nowe") && r.do_wystawienia === 0) {
-     tresc = "<b>Nie ma czego wgrywa\u0107</b>Wszystko z feedu jest ju\u017c wystawione.";
-   } else if (r.tryb === "pierwsze" || r.tryb === "nowe") {
-     tresc = "<b>Co teraz zrobi\u0107</b><ol>" +
-       "<li>Pobierz <b>ebay-add.csv</b> (" + r.do_wystawienia + " ofert).</li>" +
-       "<li>Wgraj go na eBay przez File Exchange.</li>" +
-       "<li>Po imporcie pobierz z eBaya raport <b>All active listings</b>.</li>" +
-       "<li>Wgraj go do repozytorium jako <b>input/aktywne.csv</b>.</li></ol>" +
-       "<p class='ostrz'>Bez kroku 3 i 4 nast\u0119pny przebieg uzna te oferty za nowe i zrobi duplikaty.</p>";
-   } else if (r.tryb === "aktualizacja" && r.do_aktualizacji === 0) {
-     tresc = "<b>Nie ma czego wgrywa\u0107</b>\u017badna cena ani ilo\u015b\u0107 si\u0119 nie zmieni\u0142a.";
-   } else {
-     tresc = "<b>Co teraz zrobi\u0107</b><ol>" +
-       "<li>Pobierz <b>ebay-revise.csv</b> (" + r.do_aktualizacji + " pozycji, w tym " +
-       r.w_tym_zerowanych + " do wyzerowania).</li>" +
-       "<li>Wgraj go na eBay przez File Exchange.</li>" +
-       "<li>Plik zmienia wy\u0142\u0105cznie ceny i ilo\u015bci istniej\u0105cych aukcji.</li></ol>";
-     if (r.stany_ograniczone) {
-       tresc += "<p class='ostrz'>Albo zamiast niego <b>" + r.stany_ograniczone.plik +
-         "</b> (" + r.do_aktualizacji_ograniczone + " pozycji) \u2014 te same aukcje i ceny, " +
-         "ale ilo\u015bci podmienione: " + r.stany_ograniczone.opis +
-         ". Wgrywasz <b>jeden z dw\u00f3ch</b>, nigdy oba.</p>";
-     }
-   }
-   ins.innerHTML = tresc; ins.style.display = "block";
 
-   const w = [
-     ["Tryb", r.tryb],
-     ["Produktów w kategorii", r.produktow_w_kategorii],
-     ["Z zapasem", r.produktow_z_zapasem],
-     ["Aktywnych na eBay (DE)", r.aktywnych_na_ebay],
-     ["Do wystawienia", r.do_wystawienia],
-     ["Do aktualizacji", r.do_aktualizacji + (r.w_tym_zerowanych ? " (w tym " + r.w_tym_zerowanych + " zerowanych)" : "")],
-     ...(r.stany_ograniczone ? [["W pliku ze stanami", r.do_aktualizacji_ograniczone + " (" + r.stany_ograniczone.opis + ")"]] : []),
-     ["Kurs NBP", r.nbp.rate + " (" + r.nbp.effective_date + ")"],
-     ["Doliczana wysyłka", r.kurs_z_doplata_eur + " EUR"],
-     ["Pozycji do uzupełnienia", r.review_items]
-   ];
-   document.getElementById("liczby").innerHTML =
-     w.map(x => "<tr><th>" + x[0] + "</th><td>" + x[1] + "</td></tr>").join("");
+function pobierz(url) {
+  return fetch(url + "?" + Date.now())
+    .then(r => r.ok ? r.json() : null)
+    .catch(() => null);
+}
 
-   const pliki = [
-     ["downloads/ebay-add.csv", "ebay-add.csv", "Nowe oferty do wystawienia"],
-     ["downloads/ebay-revise.csv", "ebay-revise.csv", "Zmiany cen i ilości"]
-   ];
-   // Plik pomocniczy tylko wtedy, gdy przebieg go zrobił - inaczej link byłby ślepy.
-   if (r.stany_ograniczone) {
-     pliki.push(["downloads/" + r.stany_ograniczone.plik, r.stany_ograniczone.plik,
-                 "To samo, ale ilości " + r.stany_ograniczone.opis]);
-   }
-   pliki.push(
-     ["downloads/review.csv", "review.csv", "Czego brakuje w słownikach"],
-     ["downloads/generation-report.json", "generation-report.json", "Pełny raport techniczny"]
-   );
-   document.getElementById("pliki").innerHTML = pliki
-     .map(p => '<a class="plik" href="' + p[0] + '"><b>' + p[1] + '</b><span>' + p[2] + '</span></a>')
-     .join("");
- })
- .catch(() => {
-   document.getElementById("pasek").innerHTML =
-     "<b>" + nazwy.czeka + "</b>Nie znalazłem raportu. Uruchom workflow w zakładce Actions.";
- });
+function przyciski(rynki, aktywny) {
+  const el = document.getElementById("rynki");
+  // Jeden rynek nie potrzebuje przelacznika - pasek i tak pisze, ktory to.
+  if (rynki.length < 2) { el.style.display = "none"; return; }
+  el.innerHTML = rynki.map(k => '<button type="button" data-kraj="' + k + '"' +
+    (k === aktywny ? ' class="teraz"' : '') + '>' + k.toUpperCase() + '</button>').join("");
+  el.style.display = "block";
+  el.querySelectorAll("button").forEach(b => {
+    b.onclick = () => pokaz(rynki, b.dataset.kraj);
+  });
+}
+
+function brakDanych(tekst) {
+  document.getElementById("pasek").className = "czeka";
+  document.getElementById("pasek").innerHTML = "<b>" + nazwy.czeka + "</b>" + tekst;
+  document.getElementById("instrukcja").style.display = "none";
+  document.getElementById("liczby").innerHTML = "";
+  document.getElementById("pliki").innerHTML = "";
+}
+
+function rysuj(r, baza) {
+  const pasek = document.getElementById("pasek");
+  const data = new Date(r.generated_at_utc).toLocaleString("pl-PL");
+  if (r.ok) {
+    pasek.className = "ok";
+    const rynek = r.kraj ? " · rynek <b style='display:inline'>" + r.kraj + "</b>" : "";
+    pasek.innerHTML = "<b>" + nazwy.ok + "</b>Ostatni przebieg: " + data + " · tryb <b style='display:inline'>" + r.tryb + "</b>" + rynek;
+  } else {
+    pasek.className = "zle";
+    pasek.innerHTML = "<b>" + nazwy.zle + "</b>" + (r.blokady || []).join("<br>") + "<br><small>" + data + "</small>";
+  }
+  const ins = document.getElementById("instrukcja");
+  let tresc = "";
+  if (!r.ok) {
+    tresc = "<b>Nic nie wgrywaj na eBay</b>Przebieg został zatrzymany. Napraw przyczynę " +
+            "wypisaną powyżej i uruchom ponownie.";
+  } else if (r.tryb === "test") {
+    tresc = "<b>Co teraz zrobić</b><ol>" +
+      "<li>Pobierz <b>ebay-add.csv</b> poniżej.</li>" +
+      "<li>Wgraj go na eBay przez File Exchange.</li>" +
+      "<li>eBay tylko sprawdzi plik i <b>nie utworzy żadnej aukcji</b>.</li>" +
+      "<li>Jeśli nie ma błędów – uruchom tryb <code>pierwsze</code>.</li></ol>";
+  } else if ((r.tryb === "pierwsze" || r.tryb === "nowe") && r.do_wystawienia === 0) {
+    tresc = "<b>Nie ma czego wgrywać</b>Wszystko z feedu jest już wystawione.";
+  } else if (r.tryb === "pierwsze" || r.tryb === "nowe") {
+    tresc = "<b>Co teraz zrobić</b><ol>" +
+      "<li>Pobierz <b>ebay-add.csv</b> (" + r.do_wystawienia + " ofert).</li>" +
+      "<li>Wgraj go na eBay przez File Exchange.</li>" +
+      "<li>Po imporcie pobierz z eBaya raport <b>All active listings</b>.</li>" +
+      "<li>Wgraj go do repozytorium do <b>input/ebay/</b>.</li></ol>" +
+      "<p class='ostrz'>Bez kroku 3 i 4 następny przebieg uzna te oferty za nowe i zrobi duplikaty.</p>";
+  } else if (r.tryb === "aktualizacja" && r.do_aktualizacji === 0) {
+    tresc = "<b>Nie ma czego wgrywać</b>Żadna cena ani ilość się nie zmieniła.";
+  } else {
+    tresc = "<b>Co teraz zrobić</b><ol>" +
+      "<li>Pobierz <b>ebay-revise.csv</b> (" + r.do_aktualizacji + " pozycji, w tym " +
+      r.w_tym_zerowanych + " do wyzerowania).</li>" +
+      "<li>Wgraj go na eBay przez File Exchange.</li>" +
+      "<li>Plik zmienia wyłącznie ceny i ilości istniejących aukcji.</li></ol>";
+    if (r.stany_ograniczone) {
+      tresc += "<p class='ostrz'>Albo zamiast niego <b>" + r.stany_ograniczone.plik +
+        "</b> (" + r.do_aktualizacji_ograniczone + " pozycji) — te same aukcje i ceny, " +
+        "ale ilości podmienione: " + r.stany_ograniczone.opis +
+        ". Wgrywasz <b>jeden z dwóch</b>, nigdy oba.</p>";
+    }
+  }
+  ins.innerHTML = tresc; ins.style.display = "block";
+
+  const w = [
+    ["Tryb", r.tryb],
+    ["Produktów w kategorii", r.produktow_w_kategorii],
+    ["Z zapasem", r.produktow_z_zapasem],
+    ["Aktywnych na eBay" + (r.kraj ? " (" + r.kraj + ")" : ""), r.aktywnych_na_ebay],
+    ["Do wystawienia", r.do_wystawienia],
+    ["Do aktualizacji", r.do_aktualizacji + (r.w_tym_zerowanych ? " (w tym " + r.w_tym_zerowanych + " zerowanych)" : "")],
+    ...(r.stany_ograniczone ? [["W pliku ze stanami", r.do_aktualizacji_ograniczone + " (" + r.stany_ograniczone.opis + ")"]] : []),
+    ["Kurs NBP", r.nbp.rate + " (" + r.nbp.effective_date + ")"],
+    ["Doliczana wysyłka", r.kurs_z_doplata_eur + " EUR"],
+    ["Pozycji do uzupełnienia", r.review_items]
+  ];
+  document.getElementById("liczby").innerHTML =
+    w.map(x => "<tr><th>" + x[0] + "</th><td>" + x[1] + "</td></tr>").join("");
+
+  const pliki = [
+    ["ebay-add.csv", "Nowe oferty do wystawienia"],
+    ["ebay-revise.csv", "Zmiany cen i ilości"]
+  ];
+  // Plik pomocniczy tylko wtedy, gdy przebieg go zrobił - inaczej link byłby ślepy.
+  if (r.stany_ograniczone) {
+    pliki.push([r.stany_ograniczone.plik, "To samo, ale ilości " + r.stany_ograniczone.opis]);
+  }
+  pliki.push(
+    ["review.csv", "Czego brakuje w słownikach"],
+    ["generation-report.json", "Pełny raport techniczny"]
+  );
+  document.getElementById("pliki").innerHTML = pliki
+    .map(p => '<a class="plik" href="' + baza + p[0] + '"><b>' + p[0] + '</b><span>' + p[1] + '</span></a>')
+    .join("");
+}
+
+function pokaz(rynki, kraj) {
+  przyciski(rynki, kraj);
+  // Bez kraju czytamy stary, plaski uklad - zeby strona z poprzedniej
+  // publikacji nie zrobila sie nagle pusta.
+  const baza = kraj ? "downloads/" + kraj + "/" : "downloads/";
+  pobierz(baza + "generation-report.json").then(r => {
+    if (!r) {
+      brakDanych(kraj
+        ? "Rynek " + kraj.toUpperCase() + " nie ma raportu z tego przebiegu."
+        : "Nie znalazłem raportu. Uruchom workflow w zakładce Actions.");
+      return;
+    }
+    rysuj(r, baza);
+  });
+}
+
+pobierz("downloads/rynki.json").then(d => {
+  const rynki = (d && d.rynki) || [];
+  pokaz(rynki, rynki[0] || null);
+});
 </script>
 </html>
