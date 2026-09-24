@@ -266,5 +266,19 @@
   },
   "_zdania_wiodace": "Zdanie pod kafelkami, wybierane na stale po SKU - KOLEJNOSC MA ZNACZENIE, bo zmiana przetasuje przypisania. Lista musi miec tyle samo pozycji co niemiecka. Tlumaczenie maszynowe, do przejrzenia przez Marka.",
   "_nadpisz_tlumaczenia": "Nowy zestaw nie jest poleasingowy - wspolny slownik tego nie wie, wiec kondycje opisuje sie osobno w profilu. Te napisy tez ida do oferty, wiec kraj musi je nadpisac.",
-  "_dopisek_tytulu": "Nieskracalny ogon tytulu, liczy sie do limitu 80 znakow - skracaniu podlegaja DANE TECHNICZNE od konca. Zwykla oferta ma samo 'Garanzia' (8 zn.), bliznak GW24 'Garanzia 24 mesi', bo BEZ ROZNICY W TYTULE bylby duplikatem oryginalu. Pusty napis wylacza dopisek."
+  "_dopisek_tytulu": "Nieskracalny ogon tytulu, liczy sie do limitu 80 znakow - skracaniu podlegaja DANE TECHNICZNE od konca. Zwykla oferta ma samo 'Garanzia' (8 zn.), bliznak GW24 'Garanzia 24 mesi', bo BEZ ROZNICY W TYTULE bylby duplikatem oryginalu. Pusty napis wylacza dopisek.",
+  "zdania_wiodace_pecety": {
+    "lista": [
+      "Un computer desktop professionale potente, che gestisce senza problemi molte schede del browser aperte, video ad alta risoluzione e più programmi in esecuzione contemporaneamente.",
+      "Consente di lavorare fluidamente con Word ed Excel, videoconferenze e numerose schede aperte, senza rallentamenti.",
+      "Una buona scelta per chi cerca un computer affidabile per la scrivania. Ideale per il multitasking, l'ufficio e il lavoro da casa.",
+      "Offre potenza sufficiente per documenti, presentazioni, file PDF, video e videochiamate nella giornata lavorativa.",
+      "Abbastanza potente per molte schede del browser aperte, per il montaggio video e fotografico e per più programmi contemporaneamente.",
+      "I programmi si avviano rapidamente e il passaggio tra browser, posta, documenti e altre applicazioni avviene senza attese.",
+      "Un computer robusto per l'uso quotidiano. Ideale per lunghe giornate di lavoro in ufficio, a scuola o negli enti pubblici.",
+      "Consente di lavorare comodamente con più programmi contemporaneamente, di riprodurre video e di collegare più monitor.",
+      "La costruzione di livello professionale e i componenti potenti rendono questo computer uno strumento di lavoro affidabile per molti anni.",
+      "Per chi tiene alla velocità, a prestazioni affidabili e a un computer facile da mantenere. Ideale per il funzionamento continuo in ufficio."
+    ]
+  }
 }
