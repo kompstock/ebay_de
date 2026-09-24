@@ -1537,8 +1537,8 @@ KOLUMNY_REVISE = ["Action", "Category name", "Item number", "Title", "Listing si
 STANY_OGRANICZONE_DOMYSLNIE = {
     "plik": "ebay-revise-stany.csv",
     # [granica, wartosc] - ilosc mniejsza niz granica schodzi do wartosci.
-    "progi": [[10, 0], [100, 10]],
-    "powyzej": 35,
+    "progi": [[10, 0], [100, 8]],
+    "powyzej": 15,
 }
 def regula_stanow(settings: dict) -> dict:
     """Regula drugiego pliku aktualizacji. Brak wpisu w configu = wartosci domyslne,
@@ -1550,8 +1550,8 @@ def ogranicz_stan(ilosc: int, regula: dict) -> int:
     """Prawdziwy stan magazynowy -> stan pokazywany na eBayu w pliku pomocniczym.
 
     Progi dzialaja na zasadzie "mniej niz granica", od najnizszej w gore.
-    Domyslnie: ponizej 10 sztuk aukcja schodzi do zera, 10-99 pokazuje 10,
-    od 100 w gore pokazuje 35.
+    Domyslnie: ponizej 10 sztuk aukcja schodzi do zera, 10-99 pokazuje 8,
+    od 100 w gore pokazuje 15.
     """
     for granica, wartosc in sorted(regula["progi"], key=lambda para: int(para[0])):
         if ilosc < int(granica):
