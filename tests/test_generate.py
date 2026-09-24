@@ -1064,14 +1064,48 @@ class StanyOgraniczone(unittest.TestCase):
     def ilosci(self, sciezka):
         return {w["Custom label (SKU)"]: w["Available quantity"] for w in self.czytaj(sciezka)}
 
-    def test_progi_na_granicach(self):
+    def mapuj(self, ile):
+        """Czego oczekujemy wg aktualnej reguly z configu. Testy integracyjne
+        pilnuja, czy generator w ogole stosuje ograniczenie i do wlasciwej
+        kolumny - same wartosci pilnuje test_config_ma_progi_ktore_ustalilismy,
+        zeby zmiana progow nie rozjezdzala polowy pliku."""
         sys.path.insert(0, str(ROOT / "src"))
         import generate
         regula = generate.regula_stanow(json.loads(
             (ROOT / "config" / "settings.json").read_text(encoding="utf-8")))
-        oczekiwane = {0: 0, 1: 0, 9: 0, 10: 10, 11: 10, 99: 10, 100: 35, 5000: 35}
+        return str(generate.ogranicz_stan(ile, regula))
+
+    def test_progi_dzialaja_na_granicach(self):
+        """Sama logika progow, na regule wpisanej tutaj - zeby zmiana wartosci
+        w configu nie wymagala poprawiania tego testu."""
+        sys.path.insert(0, str(ROOT / "src"))
+        import generate
+        regula = {"progi": [[10, 0], [100, 7]], "powyzej": 20}
+        oczekiwane = {0: 0, 1: 0, 9: 0, 10: 7, 11: 7, 99: 7, 100: 20, 5000: 20}
         self.assertEqual({ile: generate.ogranicz_stan(ile, regula) for ile in oczekiwane},
                          oczekiwane)
+
+    def test_progi_dzialaja_bez_wzgledu_na_kolejnosc_w_configu(self):
+        sys.path.insert(0, str(ROOT / "src"))
+        import generate
+        pomieszana = {"progi": [[100, 7], [10, 0]], "powyzej": 20}
+        self.assertEqual([generate.ogranicz_stan(i, pomieszana) for i in (5, 50, 500)],
+                         [0, 7, 20])
+
+    def test_config_ma_progi_ktore_ustalilismy(self):
+        """Wartosci z config/settings.json. Ten test ma padac przy kazdej ich
+        zmianie - progi sa decyzja handlowa, nie szczegolem technicznym."""
+        sys.path.insert(0, str(ROOT / "src"))
+        import generate
+        regula = generate.regula_stanow(json.loads(
+            (ROOT / "config" / "settings.json").read_text(encoding="utf-8")))
+        oczekiwane = {0: 0, 9: 0, 10: 8, 99: 8, 100: 15, 5000: 15}
+        self.assertEqual({ile: generate.ogranicz_stan(ile, regula) for ile in oczekiwane},
+                         oczekiwane)
+        # Kod i config musza mowic to samo - inaczej brak wpisu w configu
+        # po cichu przestawia progi na inne niz te uzgodnione.
+        self.assertEqual(generate.STANY_OGRANICZONE_DOMYSLNIE["progi"], regula["progi"])
+        self.assertEqual(generate.STANY_OGRANICZONE_DOMYSLNIE["powyzej"], regula["powyzej"])
 
     def test_oba_pliki_powstaja_i_roznia_sie_tylko_iloscia(self):
         raport = self.aktywne([("4220", 5, "100.0")])
@@ -1079,7 +1113,7 @@ class StanyOgraniczone(unittest.TestCase):
         prawdziwy = self.czytaj(out / "ebay-revise.csv")
         ograniczony = self.czytaj(out / "ebay-revise-stany.csv")
         self.assertEqual([w["Available quantity"] for w in prawdziwy], ["51"])
-        self.assertEqual([w["Available quantity"] for w in ograniczony], ["10"])
+        self.assertEqual([w["Available quantity"] for w in ograniczony], [self.mapuj(51)])
         self.assertEqual(wynik["do_aktualizacji_ograniczone"], 1)
         # Poza iloscia wiersze musza byc identyczne - plik pomocniczy nie moze
         # przy okazji ruszac ceny, tytulu ani numeru aukcji.
@@ -1096,7 +1130,7 @@ class StanyOgraniczone(unittest.TestCase):
         _, wynik, out = uruchom("aktualizacja", raport=raport)
         self.assertEqual(wynik["do_aktualizacji"], 0)
         self.assertEqual(self.czytaj(out / "ebay-revise.csv"), [])
-        self.assertEqual(self.ilosci(out / "ebay-revise-stany.csv"), {"4220": "10"})
+        self.assertEqual(self.ilosci(out / "ebay-revise-stany.csv"), {"4220": self.mapuj(51)})
 
     def test_ponizej_dziesieciu_schodzi_do_zera_tylko_w_pomocniczym(self):
         """Prawdziwy plik ma zostac nietkniety: to on mowi prawde o magazynie."""
@@ -1107,7 +1141,8 @@ class StanyOgraniczone(unittest.TestCase):
         self.assertEqual(self.ilosci(out / "ebay-revise.csv"),
                          {"4220": "51", "4242": "1", "3809": "6"})
         self.assertEqual(self.ilosci(out / "ebay-revise-stany.csv"),
-                         {"4220": "10", "4242": "0", "3809": "0"})
+                         {"4220": self.mapuj(51), "4242": self.mapuj(1),
+                          "3809": self.mapuj(6)})
 
     def test_zerowanie_jest_w_obu_plikach(self):
         """SKU zniknelo z feedu - to zdjecie aukcji, nie dawkowanie zapasu,
