@@ -56,7 +56,7 @@
   <li><b>Pierwsze wystawienie</b> — pobierz <code>ebay-add.csv</code>, wgraj na eBay przez File Exchange.</li>
   <li><b>Nowe SKU</b> — potrzebny świeży raport <b>All active listings</b> w <code>input/ebay/</code>. Jeden plik obsługuje wszystkie rynki: generator dzieli go po kolumnie <code>Listing site</code>.</li>
   <li><b>Ceny i ilości</b> — ten sam raport, tryb <code>aktualizacja</code>, plik <code>ebay-revise.csv</code>.</li>
-  <li><b>Dawkowanie zapasu</b> — tryb <code>aktualizacja</code> robi obok drugi plik <code>ebay-revise-stany.csv</code>: te same aukcje i ceny, ale ilości sprowadzone do 0 / 10 / 35. Wgrywasz jeden z dwóch, nigdy oba. Progi zmienisz w <code>config/settings.json</code> → <code>stany_ograniczone</code>.</li>
+  <li><b>Dawkowanie zapasu</b> — tryb <code>aktualizacja</code> robi obok drugi plik <code>ebay-revise-stany.csv</code>: te same aukcje i ceny, ale ilości sprowadzone do 0 / 8 / 15. Wgrywasz jeden z dwóch, nigdy oba. Progi zmienisz w <code>config/settings.json</code> → <code>stany_ograniczone</code>.</li>
   <li><b>Test bez wystawiania</b> — tryb <code>test</code> generuje ten sam plik z akcją <code>VerifyAdd</code>.</li>
   <li>Po każdym wgraniu <code>Add</code> pobierz raport na nowo — dopiero wtedy narzędzie zobaczy nowe aukcje.</li>
 </ul>
