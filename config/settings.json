@@ -28,7 +28,16 @@
   "max_quantity": 0,
   "stany_ograniczone": {
     "plik": "ebay-revise-stany.csv",
-    "progi": [[10, 0], [100, 8]],
+    "progi": [
+      [
+        10,
+        0
+      ],
+      [
+        100,
+        8
+      ]
+    ],
     "powyzej": 15
   },
   "_uwaga_stany_ograniczone": "Drugi, opcjonalny plik trybu 'aktualizacja'. Te same wiersze co ebay-revise.csv, ale z podmieniona iloscia: progi to pary [granica, wartosc] dzialajace jako 'mniej niz granica', reszta dostaje 'powyzej'. Domyslnie ponizej 10 szt. -> 0, 10-99 -> 8, od 100 -> 15. Wgrywasz ALBO ten plik, ALBO prawdziwy - nie oba.",
@@ -283,7 +292,8 @@
         },
         "_domyslnie": "Tower"
       },
-      "gwarancja": "12 Monate Garantie"
+      "gwarancja": "12 Monate Garantie",
+      "zdania_wiodace": "zdania_wiodace_pecety"
     },
     "Desktop-PC nowy": {
       "_about": "Nowe komputery skladane (zestawy do gier). Ta sama kategoria XML co poleasingowe, wiec wybiera je wariant po polu kondycji - patrz typ_produktu_warianty.",
@@ -514,7 +524,8 @@
       "dopisek_tytulu": "24 Monate Garantie",
       "mnoznik_ceny": 1.2,
       "_uwaga_gwarancja": "C:Herstellergarantie zostaje puste - to pole gwarancji PRODUCENTA, a nasza jest gwarancja sprzedawcy. Mowi o niej opis.",
-      "gwarancja": "24 Monate Garantie"
+      "gwarancja": "24 Monate Garantie",
+      "zdania_wiodace": "zdania_wiodace_pecety"
     },
     "Desktop-PC nowy GW24": {
       "_about": "Nowy zestaw skladany - blizniak z wyzsza cena. Szablon i gwarancja te same co w oryginale (nowy zestaw ma 24 miesiace prosto z feedu), rozni go SKU, dopisek w tytule i cena.",
@@ -757,5 +768,20 @@
     "pole_zrodla": "Źródło",
     "domyslne_zrodlo": "Shoper",
     "preferowane_zrodlo": "Shoper"
+  },
+  "zdania_wiodace_pecety": {
+    "_about": "Pula zdan wiodacych dla komputerow stacjonarnych. Osobna od laptopowej, bo tamta mowi wprost 'Laptop'/'notebook' - na pececie to nieprawda.",
+    "lista": [
+      "Ein leistungsstarker Business-PC, der auch mit vielen geöffneten Browser-Tabs, hochauflösenden Videos und mehreren parallel laufenden Programmen zurechtkommt.",
+      "Ermöglicht flüssiges Arbeiten mit Word und Excel, Videokonferenzen und zahlreichen geöffneten Tabs, ohne ins Stocken zu geraten.",
+      "Eine gute Wahl für alle, die einen zuverlässigen Rechner für den Schreibtisch suchen. Ideal für Multitasking, Verwaltung und Homeoffice.",
+      "Bietet genug Leistung für Dokumente, Präsentationen, PDF-Dateien, Videos und Videotelefonie im Arbeitsalltag.",
+      "Kräftig genug für viele geöffnete Browser-Tabs, Bild- und Videobearbeitung sowie mehrere Programme gleichzeitig.",
+      "Programme starten schnell und der Wechsel zwischen Browser, E-Mail, Dokumenten und weiteren Anwendungen geht ohne Verzögerung.",
+      "Ein robuster Rechner für den täglichen Einsatz. Ideal für lange Arbeitstage im Büro, in der Schule oder in der Verwaltung.",
+      "Ermöglicht bequemes Arbeiten mit mehreren Programmen gleichzeitig, das Abspielen von Videos und den Anschluss mehrerer Monitore.",
+      "Die Verarbeitung auf Business-Niveau und die leistungsstarken Komponenten machen diesen Rechner zu einem verlässlichen Arbeitsgerät für viele Jahre.",
+      "Für alle, die Wert auf Tempo, verlässliche Leistung und einen wartungsfreundlichen Rechner legen. Ideal für den Dauerbetrieb im Büro."
+    ]
   }
 }
