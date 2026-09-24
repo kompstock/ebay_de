@@ -26,7 +26,14 @@ def uruchom(tryb="pierwsze", feed=FIXTURE, raport=RAPORT, gw_lista=None):
                  "--min-produktow", "1", "--output-dir", str(out)]
     if gw_lista:
         polecenie += ["--gw-lista", str(gw_lista)]
-    subprocess.run(polecenie, check=False, capture_output=True)
+    wynik = subprocess.run(polecenie, check=False, capture_output=True)
+    # 0 = ok, 2 = blokada. Cokolwiek innego to wywrotka, ktora bez tej asercji
+    # przechodzila niezauwazona: pliki sa juz na dysku, wiec testy czytajace
+    # tylko raport nie widzialy roznicy. Tak uciekl UnicodeEncodeError na
+    # wydruku raportu w konsoli Windows.
+    if wynik.returncode not in (0, 2):
+        raise AssertionError(f"generate.py wywrocil sie (kod {wynik.returncode}):\n"
+                             + wynik.stderr.decode("utf-8", "replace")[-2000:])
     raport_json = json.loads((out / "generation-report.json").read_text(encoding="utf-8"))
     wiersze = []
     plik = out / "ebay-add.csv"
@@ -1026,6 +1033,111 @@ class DuplikatWAktualizacji(unittest.TestCase):
         zerowane = [w["Custom label (SKU)"] for w in self.revise(out)
                     if w["Available quantity"] == "0"]
         self.assertEqual(zerowane, [])
+
+
+class StanyOgraniczone(unittest.TestCase):
+    """Drugi plik trybu 'aktualizacja': te same aukcje, podmieniona ilosc.
+
+    Sluzy do dawkowania zapasu na eBayu, wiec wgrywa sie ALBO jego, ALBO
+    prawdziwy ebay-revise.csv. Ma wlasne wykrywanie zmian, bo ograniczenie
+    potrafi byc inne nawet wtedy, gdy stan w feedzie wcale sie nie ruszyl.
+    """
+
+    NAGLOWEK = DuplikatWAktualizacji.NAGLOWEK
+
+    def aktywne(self, wiersze):
+        """wiersze: (sku, ilosc na eBayu, cena na eBayu)."""
+        katalog = Path(tempfile.mkdtemp())
+        linie = [self.NAGLOWEK]
+        for numer, (sku, ilosc, cena) in enumerate(wiersze, start=307000000000):
+            linie.append(f"{numer},Testowa oferta,,{sku},{ilosc},FIXED_PRICE,EUR,{cena},,,"
+                         f"{cena},0,,,,,PC Laptops,177,,,Used,DE")
+        plik = katalog / "aktywne.csv"
+        plik.write_text("\n".join(linie) + "\n", encoding="utf-8")
+        return plik
+
+    def czytaj(self, sciezka):
+        with sciezka.open(encoding="utf-8-sig") as uchwyt:
+            rows = list(csv.reader(uchwyt))
+        return [dict(zip(rows[1], r)) for r in rows[2:] if r]
+
+    def ilosci(self, sciezka):
+        return {w["Custom label (SKU)"]: w["Available quantity"] for w in self.czytaj(sciezka)}
+
+    def test_progi_na_granicach(self):
+        sys.path.insert(0, str(ROOT / "src"))
+        import generate
+        regula = generate.regula_stanow(json.loads(
+            (ROOT / "config" / "settings.json").read_text(encoding="utf-8")))
+        oczekiwane = {0: 0, 1: 0, 9: 0, 10: 10, 11: 10, 99: 10, 100: 35, 5000: 35}
+        self.assertEqual({ile: generate.ogranicz_stan(ile, regula) for ile in oczekiwane},
+                         oczekiwane)
+
+    def test_oba_pliki_powstaja_i_roznia_sie_tylko_iloscia(self):
+        raport = self.aktywne([("4220", 5, "100.0")])
+        _, wynik, out = uruchom("aktualizacja", raport=raport)
+        prawdziwy = self.czytaj(out / "ebay-revise.csv")
+        ograniczony = self.czytaj(out / "ebay-revise-stany.csv")
+        self.assertEqual([w["Available quantity"] for w in prawdziwy], ["51"])
+        self.assertEqual([w["Available quantity"] for w in ograniczony], ["10"])
+        self.assertEqual(wynik["do_aktualizacji_ograniczone"], 1)
+        # Poza iloscia wiersze musza byc identyczne - plik pomocniczy nie moze
+        # przy okazji ruszac ceny, tytulu ani numeru aukcji.
+        bez = [{k: v for k, v in w.items() if k != "Available quantity"}
+               for w in (prawdziwy[0], ograniczony[0])]
+        self.assertEqual(bez[0], bez[1])
+
+    def test_brak_zmiany_stanu_i_tak_trafia_do_ograniczonego(self):
+        """Najwazniejszy przypadek. Feed 51, aukcja 51, cena bez zmian: prawdziwy
+        plik nie ma czego poprawiac, ale limit 10 dopiero trzeba ustawic. Gdyby
+        plik pomocniczy dziedziczyl warunek 'bez_zmian', limit nigdy by nie
+        zadzialal - plik wychodzilby pusty przy kazdym przebiegu."""
+        raport = self.aktywne([("4220", 51, "279.0")])
+        _, wynik, out = uruchom("aktualizacja", raport=raport)
+        self.assertEqual(wynik["do_aktualizacji"], 0)
+        self.assertEqual(self.czytaj(out / "ebay-revise.csv"), [])
+        self.assertEqual(self.ilosci(out / "ebay-revise-stany.csv"), {"4220": "10"})
+
+    def test_ponizej_dziesieciu_schodzi_do_zera_tylko_w_pomocniczym(self):
+        """Prawdziwy plik ma zostac nietkniety: to on mowi prawde o magazynie."""
+        raport = self.aktywne([("4220", 5, "100.0"), ("4242", 5, "100.0"),
+                               ("3809", 5, "100.0")])
+        _, _, out = uruchom("aktualizacja", raport=raport)
+        # 4242 ma w feedzie 1 sztuke, 3809 - szesc.
+        self.assertEqual(self.ilosci(out / "ebay-revise.csv"),
+                         {"4220": "51", "4242": "1", "3809": "6"})
+        self.assertEqual(self.ilosci(out / "ebay-revise-stany.csv"),
+                         {"4220": "10", "4242": "0", "3809": "0"})
+
+    def test_zerowanie_jest_w_obu_plikach(self):
+        """SKU zniknelo z feedu - to zdjecie aukcji, nie dawkowanie zapasu,
+        wiec oba pliki musza je zerowac tak samo."""
+        raport = self.aktywne([("4220", 5, "100.0"), ("4242", 5, "100.0"),
+                               ("3809", 5, "100.0"), ("NIE-MA-W-FEEDZIE", 4, "100.0")])
+        _, wynik, out = uruchom("aktualizacja", raport=raport)
+        self.assertEqual(wynik["w_tym_zerowanych"], 1)
+        for nazwa in ("ebay-revise.csv", "ebay-revise-stany.csv"):
+            self.assertEqual(self.ilosci(out / nazwa).get("NIE-MA-W-FEEDZIE"), "0", nazwa)
+
+    def test_blokada_zerowania_nie_zostawia_zadnego_pliku(self):
+        """Bezpiecznik masowego zerowania musi zatrzymac oba pliki naraz.
+        Gdyby zatrzymal tylko prawdziwy, wgralibysmy zdjecie aukcji tylnymi
+        drzwiami - przez plik pomocniczy. Raport tez musi pokazac zero, bo
+        inaczej strona obiecuje plik, ktorego nie ma."""
+        raport = self.aktywne([("4220", 5, "100.0"), ("ZNIKNELO-1", 4, "100.0"),
+                               ("ZNIKNELO-2", 4, "100.0")])
+        _, wynik, out = uruchom("aktualizacja", raport=raport)
+        self.assertFalse(wynik["ok"])
+        self.assertFalse((out / "ebay-revise.csv").exists())
+        self.assertFalse((out / "ebay-revise-stany.csv").exists())
+        self.assertEqual(wynik["do_aktualizacji"], 0)
+        self.assertEqual(wynik["do_aktualizacji_ograniczone"], 0)
+
+    def test_pomocniczy_nie_powstaje_poza_aktualizacja(self):
+        for tryb in ("pierwsze", "nowe", "test"):
+            _, wynik, out = uruchom(tryb)
+            self.assertFalse((out / "ebay-revise-stany.csv").exists(), tryb)
+            self.assertIsNone(wynik["stany_ograniczone"], tryb)
 
 
 class Tryby(unittest.TestCase):
