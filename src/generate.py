@@ -1534,6 +1534,53 @@ def zapisz_add(sciezka: Path, headers: list[str], wiersze: list[dict], akcja: st
 KOLUMNY_REVISE = ["Action", "Category name", "Item number", "Title", "Listing site", "Currency",
                   "Start price", "Buy It Now price", "Available quantity", "Relationship",
                   "Relationship details", "Custom label (SKU)"]
+SKU_RECZNE_DOMYSLNIE = "config/sku-reczne.csv"
+def wczytaj_sku_reczne(sciezka: Path) -> tuple[dict, str]:
+    """Aukcje prowadzone poza generatorem: {SKU: ilosc albo None}.
+
+    Po co to istnieje: tryb 'aktualizacja' zeruje kazde aktywne SKU, ktorego
+    nie ma w feedzie. Oferta wystawiona recznie (np. tablet, ktorego kategorii
+    generator jeszcze nie obsluguje) nie ma jak sie w feedzie znalezc, wiec
+    pierwszy przebieg po jej wystawieniu zdjalby ja z eBaya.
+
+    Pusta ilosc = "nie ruszaj tej aukcji wcale", czyli samo zabezpieczenie
+    przed zerowaniem. Liczba = pilnuj, zeby aukcja pokazywala wlasnie tyle.
+    Brak pliku = funkcja uspiona, tak samo jak przy liscie GW24.
+    """
+    if not sciezka.is_file():
+        return {}, ""
+    with sciezka.open(encoding="utf-8-sig", newline="") as handle:
+        proba = handle.read(4096)
+        handle.seek(0)
+        try:                                  # Excel zapisuje raz ',' raz ';'
+            dialekt = csv.Sniffer().sniff(proba, delimiters=",;\t")
+        except csv.Error:
+            dialekt = csv.excel
+        wiersze = list(csv.DictReader(handle, dialect=dialekt))
+    if not wiersze:
+        return {}, ""
+    naglowki = {(k or "").strip().lower(): k for k in wiersze[0]}
+    kol_sku = naglowki.get("sku")
+    if kol_sku is None:
+        return {}, (f"{sciezka.name}: brak kolumny 'SKU' "
+                    f"(sa: {', '.join(str(k) for k in wiersze[0])})")
+    kol_ilosc = naglowki.get("ilosc") or naglowki.get("ilość")
+    out: dict = {}
+    for wiersz in wiersze:
+        sku = (wiersz.get(kol_sku) or "").strip()
+        if not sku:
+            continue
+        surowa = (wiersz.get(kol_ilosc) or "").strip() if kol_ilosc else ""
+        if not surowa:
+            out[sku] = None
+            continue
+        try:
+            out[sku] = max(0, int(float(surowa.replace(",", "."))))
+        except ValueError:
+            # Twarda blokada, nie ciche pominiecie: literowka w ilosci znaczylaby
+            # "nie ruszaj", a wtedy aukcja po cichu zostawalaby ze starym stanem.
+            return {}, f"{sciezka.name}: SKU {sku} ma nieliczbowa ilosc '{surowa}'"
+    return out, ""
 STANY_OGRANICZONE_DOMYSLNIE = {
     "plik": "ebay-revise-stany.csv",
     # [granica, wartosc] - ilosc mniejsza niz granica schodzi do wartosci.
@@ -1643,6 +1690,13 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
     wiersze_ograniczone: list[dict] = []
     regula = regula_stanow(settings)
     zerowane = 0
+    reczne, blad_recznych = wczytaj_sku_reczne(
+        ROOT / settings.get("sku_reczne_plik", SKU_RECZNE_DOMYSLNIE))
+    if blad_recznych:
+        blokady.append("lista recznych SKU: " + blad_recznych)
+    reczne_poprawione = 0
+    # Zbior widoczny takze w raporcie, poza galezia 'aktualizacja'.
+    w_feedzie_all: set = set()
     pliki_add: dict[str, list[dict]] = {}
     if not blokady and tryb in ("pierwsze", "nowe", "test"):
         # Rozdzial na pliki jest opcjonalny: domyslnie wszystko idzie do jednego
@@ -1679,7 +1733,7 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
                        wiersze, "VerifyAdd" if tryb == "test" else "Add")
     if not blokady and tryb == "aktualizacja":
         nazwy = settings["kategorie_nazwy"]
-        w_feedzie = set()
+        w_feedzie = w_feedzie_all
         for offer, attrs in produkty:
             sku = attrs.get("SKU", "")
             w_feedzie.add(sku)
@@ -1722,8 +1776,28 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
             if zmiana_ceny or zmiana_ograniczona:
                 wiersze_ograniczone.append(
                     dict(wiersz, **{"Available quantity": str(ilosc_ograniczona)}))
+        # Aukcje z listy recznej: generator nie zna ich z feedu, wiec pilnuje
+        # tylko ilosci. Ceny NIE rusza - nie ma skad znac ceny takiego towaru,
+        # a nadpisanie jej byloby zgadywaniem. Bierzemy te, ktora jest na aukcji.
+        for sku, ilosc in sorted(reczne.items()):
+            if sku in w_feedzie or ilosc is None:
+                continue
+            biezaca = aktywne.get(sku)
+            if not biezaca or biezaca["ilosc"] == ilosc:
+                continue
+            reczne_poprawione += 1
+            wiersz = {
+                "Action": "Revise", "Category name": "", "Item number": biezaca["item"],
+                "Title": biezaca["tytul"], "Listing site": settings["listing_site"],
+                "Currency": biezaca["waluta"], "Start price": f"{biezaca['cena']:.1f}",
+                "Buy It Now price": "", "Available quantity": str(ilosc),
+                "Relationship": "", "Relationship details": "", "Custom label (SKU)": sku}
+            # Ta sama liczba w obu plikach: wpis reczny to juz swiadoma decyzja,
+            # progi 0/8/15 nie maja jej po raz drugi poprawiac.
+            wiersze_revise.append(wiersz)
+            wiersze_ograniczone.append(dict(wiersz))
         for sku, biezaca in aktywne.items():
-            if sku in w_feedzie or biezaca["ilosc"] == 0:
+            if sku in w_feedzie or biezaca["ilosc"] == 0 or sku in reczne:
                 continue
             zerowane += 1
             wiersz = {
@@ -1771,6 +1845,16 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
         "do_aktualizacji": len(wiersze_revise),
         "w_tym_zerowanych": zerowane,
         "do_aktualizacji_ograniczone": len(wiersze_ograniczone),
+        "sku_reczne": ({
+            "plik": settings.get("sku_reczne_plik", SKU_RECZNE_DOMYSLNIE),
+            "wpisow": len(reczne),
+            "chronionych_przed_zerowaniem": sorted(s for s in reczne if s in aktywne),
+            "poprawiono_ilosc": reczne_poprawione,
+            # Feed ma pierwszenstwo - inaczej lista po cichu zamrazalaby stan
+            # prawdziwego produktu, gdyby jego kategoria kiedys doszla do feedu.
+            "pominieto_bo_sa_w_feedzie": sorted(s for s in reczne if s in w_feedzie_all),
+            "nie_ma_ich_wsrod_aktywnych": sorted(s for s in reczne if s not in aktywne),
+        } if reczne else "lista pusta albo brak pliku"),
         "stany_ograniczone": (dict(regula, opis=opis_reguly_stanow(regula))
                               if tryb == "aktualizacja" else None),
         "pominieto": dict(skipped),
@@ -1807,6 +1891,8 @@ def main() -> int:
     parser.add_argument("--allegro-file", type=Path)
     parser.add_argument("--gw-lista", type=Path,
                         help="lista SKU do wariantu gwarancyjnego; wlacza funkcje")
+    parser.add_argument("--sku-reczne", type=Path,
+                        help="lista SKU aukcji prowadzonych poza generatorem; nadpisuje settings.sku_reczne_plik")
     parser.add_argument("--nbp-rate", type=float)
     parser.add_argument("--kraj", default="de",
                         help="rynek docelowy; plik config/kraje/<kod>.json")
@@ -1818,6 +1904,8 @@ def main() -> int:
     # handlowych i serwisie. Klucze zaczynajace sie od '_' to komentarze.
     settings.update({k: v for k, v in kraj.items()
                      if not k.startswith("_") and k not in ("pliki", "katalog_szablonow")})
+    if args.sku_reczne:
+        settings["sku_reczne_plik"] = str(args.sku_reczne)
     if args.min_produktow is not None:
         settings["min_produktow_w_feedzie"] = args.min_produktow
     pliki = kraj.get("pliki") or {}
