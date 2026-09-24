@@ -1175,6 +1175,119 @@ class StanyOgraniczone(unittest.TestCase):
             self.assertIsNone(wynik["stany_ograniczone"], tryb)
 
 
+class SkuReczne(unittest.TestCase):
+    """Aukcje prowadzone poza generatorem.
+
+    Tryb 'aktualizacja' zeruje kazde aktywne SKU nieobecne w feedzie. Oferta
+    wystawiona recznie (tablet, ktorego kategorii generator nie obsluguje) nie
+    ma jak trafic do feedu, wiec pierwszy przebieg po jej wystawieniu zdjalby
+    ja z eBaya. Lista recznych SKU jest jedyna rzecza, ktora ja chroni.
+    """
+
+    NAGLOWEK = DuplikatWAktualizacji.NAGLOWEK
+
+    def srodowisko(self, aktywne, lista=None):
+        """aktywne: (sku, ilosc). lista: tresc pliku sku-reczne.csv albo None."""
+        katalog = Path(tempfile.mkdtemp())
+        linie = [self.NAGLOWEK]
+        for numer, (sku, ilosc) in enumerate(aktywne, start=307000000000):
+            linie.append(f"{numer},Testowa oferta,,{sku},{ilosc},FIXED_PRICE,EUR,390.0,,,"
+                         f"390.0,0,,,,,PC Laptops,177,,,Used,DE")
+        raport = katalog / "aktywne.csv"
+        raport.write_text("\n".join(linie) + "\n", encoding="utf-8")
+        plik = katalog / "sku-reczne.csv"
+        plik.write_text(lista if lista is not None else "SKU;ilosc\n", encoding="utf-8")
+        return raport, plik
+
+    def uruchom(self, raport, plik):
+        out = Path(tempfile.mkdtemp())
+        wynik = subprocess.run(
+            [sys.executable, str(ROOT / "src" / "generate.py"), "--tryb", "aktualizacja",
+             "--feed-file", str(FIXTURE), "--raport", str(raport), "--nbp-rate", "4.26",
+             "--min-produktow", "1", "--sku-reczne", str(plik), "--output-dir", str(out)],
+            check=False, capture_output=True)
+        if wynik.returncode not in (0, 2):
+            raise AssertionError(wynik.stderr.decode("utf-8", "replace")[-1500:])
+        raport_json = json.loads((out / "generation-report.json").read_text(encoding="utf-8"))
+        return raport_json, out
+
+    def ilosci(self, out, nazwa="ebay-revise.csv"):
+        sciezka = out / nazwa
+        if not sciezka.exists():
+            return {}
+        with sciezka.open(encoding="utf-8-sig") as uchwyt:
+            rows = list(csv.reader(uchwyt))
+        return {w[11]: (w[8], w[6]) for w in rows[2:] if w}
+
+    # 4220, 4242 i 3809 sa w fixture; RECZNY-1 nie jest - i o to chodzi.
+    AKTYWNE = [("4220", 5), ("4242", 5), ("3809", 5), ("RECZNY-1", 20)]
+
+    def test_bez_listy_reczne_sku_jest_zerowane(self):
+        """Bramka wyjsciowa: gdyby to przestalo byc prawda, cala lista
+        stalaby sie zbedna i test ponizej nic by nie dowodzil."""
+        raport, plik = self.srodowisko(self.AKTYWNE, lista="SKU;ilosc\n")
+        wynik, out = self.uruchom(raport, plik)
+        self.assertEqual(wynik["w_tym_zerowanych"], 1)
+        self.assertEqual(self.ilosci(out).get("RECZNY-1", ("brak",))[0], "0")
+
+    def test_z_lista_sku_nie_jest_zerowane(self):
+        raport, plik = self.srodowisko(self.AKTYWNE, lista="SKU;ilosc\nRECZNY-1;20\n")
+        wynik, out = self.uruchom(raport, plik)
+        self.assertEqual(wynik["w_tym_zerowanych"], 0)
+        self.assertEqual(wynik["sku_reczne"]["chronionych_przed_zerowaniem"], ["RECZNY-1"])
+        self.assertNotIn("RECZNY-1", self.ilosci(out))
+
+    def test_rozjechana_ilosc_jest_poprawiana_a_cena_nie(self):
+        """Na eBayu 5 szt., w pliku 20 -> Revise z 20. Cena musi zostac ta
+        z aukcji: generator nie zna ceny takiego towaru i nie moze zgadywac."""
+        raport, plik = self.srodowisko(
+            [("4220", 5), ("4242", 5), ("3809", 5), ("RECZNY-1", 5)],
+            lista="SKU;ilosc\nRECZNY-1;20\n")
+        wynik, out = self.uruchom(raport, plik)
+        self.assertEqual(wynik["sku_reczne"]["poprawiono_ilosc"], 1)
+        self.assertEqual(self.ilosci(out)["RECZNY-1"], ("20", "390.0"))
+
+    def test_pusta_ilosc_znaczy_nie_ruszaj_wcale(self):
+        raport, plik = self.srodowisko(
+            [("4220", 5), ("4242", 5), ("3809", 5), ("RECZNY-1", 7)],
+            lista="SKU;ilosc\nRECZNY-1;\n")
+        wynik, out = self.uruchom(raport, plik)
+        self.assertEqual(wynik["w_tym_zerowanych"], 0)
+        self.assertEqual(wynik["sku_reczne"]["poprawiono_ilosc"], 0)
+        self.assertNotIn("RECZNY-1", self.ilosci(out))
+
+    def test_wpis_reczny_wygrywa_z_progami_stanow(self):
+        """20 szt. wpadloby w przedzial 10-99 i zeszlo do 8. Wpis reczny to
+        juz swiadoma decyzja - plik pomocniczy nie moze jej poprawiac."""
+        raport, plik = self.srodowisko(
+            [("4220", 5), ("4242", 5), ("3809", 5), ("RECZNY-1", 5)],
+            lista="SKU;ilosc\nRECZNY-1;20\n")
+        _, out = self.uruchom(raport, plik)
+        self.assertEqual(self.ilosci(out, "ebay-revise-stany.csv")["RECZNY-1"][0], "20")
+
+    def test_feed_ma_pierwszenstwo_przed_lista(self):
+        """SKU z listy, ktore JEST w feedzie, nie moze zamrozic prawdziwego
+        stanu - inaczej lista po cichu psulaby zwykly produkt."""
+        raport, plik = self.srodowisko(self.AKTYWNE, lista="SKU;ilosc\n4220;20\nRECZNY-1;20\n")
+        wynik, out = self.uruchom(raport, plik)
+        self.assertEqual(wynik["sku_reczne"]["pominieto_bo_sa_w_feedzie"], ["4220"])
+        # 4220 ma w fixture 51 sztuk i ma dostac 51, a nie 20 z listy.
+        self.assertEqual(self.ilosci(out)["4220"][0], "51")
+
+    def test_nieliczbowa_ilosc_zatrzymuje_przebieg(self):
+        raport, plik = self.srodowisko(self.AKTYWNE, lista="SKU;ilosc\nRECZNY-1;dwadziescia\n")
+        wynik, out = self.uruchom(raport, plik)
+        self.assertFalse(wynik["ok"])
+        self.assertTrue(any("nieliczbowa ilosc" in b for b in wynik["blokady"]), wynik["blokady"])
+        self.assertFalse((out / "ebay-revise.csv").exists())
+
+    def test_brak_pliku_nie_jest_bledem(self):
+        raport, plik = self.srodowisko(self.AKTYWNE)
+        wynik, _ = self.uruchom(raport, Path(plik.parent / "nie-ma-takiego.csv"))
+        self.assertTrue(wynik["ok"])
+        self.assertEqual(wynik["sku_reczne"], "lista pusta albo brak pliku")
+
+
 class ZdaniaWiodace(unittest.TestCase):
     """Pecet nie moze o sobie mowic 'laptop'.
 
