@@ -44,6 +44,45 @@ Dwie rzeczy, które ten plik robi inaczej niż prawdziwy:
   w feedzie to zdjęcie aukcji, a nie dawkowanie. Bezpiecznik
   `max_udzial_zerowanych` zatrzymuje oba pliki naraz.
 
+### Aukcje wystawione poza generatorem: `config/sku-reczne.csv`
+
+Tryb `aktualizacja` zeruje **każde** aktywne SKU, którego nie ma w feedzie.
+Oferta wystawiona ręcznie — na przykład tablet, którego kategorii generator
+jeszcze nie obsługuje — nie ma jak trafić do feedu, więc pierwszy przebieg po
+jej wystawieniu **zdjąłby ją z eBaya**. Bezpiecznik `max_udzial_zerowanych`
+tego nie wyłapie: dwie sztuki na kilkaset aukcji to ułamek procenta.
+
+Przed tym chroni lista ręcznych SKU:
+
+```csv
+SKU;ilosc
+5764ITT;20
+5691_20260602124826ITT;
+```
+
+| wpis | co robi generator |
+|---|---|
+| SKU + liczba | nigdy nie zeruje; pilnuje, żeby aukcja pokazywała właśnie tyle |
+| SKU + pusta ilość | nigdy nie zeruje i **nie rusza aukcji wcale** |
+
+Zasady, które warto znać:
+
+- **Cena nigdy nie jest dotykana.** Generator nie zna ceny takiego towaru, więc
+  bierze tę, która już jest na aukcji. Zgadywanie byłoby gorsze niż nic.
+- **Wpis ręczny wygrywa z progami** z `stany_ograniczone`. Wpisane 20 zostaje
+  dwudziestką także w `ebay-revise-stany.csv`, choć próg zrobiłby z tego 8.
+- **Feed ma pierwszeństwo przed listą.** Jeśli SKU z listy pojawi się w feedzie,
+  wygrywa feed, a raport to odnotowuje w `sku_reczne.pominieto_bo_sa_w_feedzie`.
+  Bez tego lista po cichu zamrażałaby stan normalnego produktu.
+- **Literówka w ilości zatrzymuje przebieg.** Ciche pominięcie znaczyłoby
+  „nie ruszaj", a aukcja zostałaby ze starym stanem i nikt by nie zauważył.
+- Brak pliku = funkcja uśpiona, bez błędu.
+
+Ścieżkę zmienia `settings.sku_reczne_plik`, a jednorazowo `--sku-reczne`.
+
+**To Twoje dane, jak `config/gwarancja-24.csv`** — plik nigdy nie jedzie
+w paczce do wgrania i nie wolno go nadpisywać przy aktualizacji kodu.
+
 **Po każdym wgraniu `Add` pobierz raport ponownie.** Numery aukcji nadaje eBay
 i bez świeżego raportu narzędzie nie wie, że te oferty już istnieją.
 
