@@ -1175,6 +1175,95 @@ class StanyOgraniczone(unittest.TestCase):
             self.assertIsNone(wynik["stany_ograniczone"], tryb)
 
 
+class ZdaniaWiodace(unittest.TestCase):
+    """Pecet nie moze o sobie mowic 'laptop'.
+
+    Zdania wiodace sa wybierane z puli po hashu SKU. Pecety nie mialy wlasnej
+    puli i brały laptopową, w ktorej 4 z 10 zdan mowia wprost 'Laptop' /
+    'notebook'. Efekt: HP T630 Thin Client opisany jako 'Un notebook potente'.
+    """
+
+    LAPTOPOWE = ("notebook", "laptop", "portatile", "portatili")
+
+    def pule_pecetow(self):
+        """(nazwa_rynku, lista zdan) dla kazdej puli, z ktorej korzystaja pecety."""
+        sys.path.insert(0, str(ROOT / "src"))
+        import generate
+        wynik = []
+        for kod in sorted(p.stem for p in (ROOT / "config" / "kraje").glob("*.json")):
+            settings = json.loads((ROOT / "config" / "settings.json").read_text(encoding="utf-8"))
+            kraj = json.loads((ROOT / "config" / "kraje" / f"{kod}.json").read_text(encoding="utf-8"))
+            settings.update({k: v for k, v in kraj.items()
+                             if not k.startswith("_") and k not in ("pliki", "katalog_szablonow")})
+            for typ, attrs in (("Desktop-PC", {}),
+                               ("Desktop-PC GW24", {"Wariant gwarancyjny": "GW24"}),
+                               ("Desktop-PC nowy", {"Kondycja sprzętu": "Nowy"})):
+                profil = generate.profil_produktu("Komputery", settings, attrs)
+                klucz = profil.get("zdania_wiodace", "zdania_wiodace")
+                lista = settings.get(klucz, {}).get("lista", [])
+                self.assertTrue(lista, f"{kod}/{typ}: pula '{klucz}' jest pusta")
+                wynik.append((f"{kod}/{typ} ({klucz})", lista))
+        return wynik
+
+    def test_zadne_zdanie_dla_peceta_nie_mowi_o_laptopie(self):
+        for skad, lista in self.pule_pecetow():
+            for zdanie in lista:
+                trafione = [w for w in self.LAPTOPOWE if w in zdanie.lower()]
+                self.assertFalse(trafione,
+                                 f"{skad}: zdanie mowi {trafione} -> {zdanie[:90]}")
+
+    def test_pecety_nie_biora_puli_laptopowej(self):
+        """Sam brak slowa 'laptop' nie wystarcza - pula laptopowa moze sie
+        kiedys zmienic. Pecet ma miec wskazana WLASNA pule."""
+        for skad, _ in self.pule_pecetow():
+            self.assertNotIn("(zdania_wiodace)", skad,
+                             f"{skad}: pecet siega po pule laptopowa")
+
+    def test_w_gotowym_opisie_peceta_zdanie_wiodace_jest_z_puli_pecetow(self):
+        """Droga do konca: przez generate.py, az do kolumny z opisem.
+
+        Nie szukamy slowa 'notebook' w calym opisie - niemiecki szablon peceta
+        slusznie wspomina notebooki w sekcji o firmie ("prüfen, reinigen und
+        konfigurieren wir notebooks, desktop-computer..."). Sprawdzamy dokladnie
+        to, co sie zepsulo: ze zdanie wiodace pochodzi z puli dla pecetow.
+        """
+        import html as _html
+        sys.path.insert(0, str(ROOT / "src"))
+        import generate
+        for kraj in ("de", "it"):
+            out = Path(tempfile.mkdtemp())
+            subprocess.run([sys.executable, str(ROOT / "src" / "generate.py"),
+                            "--tryb", "pierwsze", "--kraj", kraj, "--feed-file", str(FIXTURE),
+                            "--raport", str(RAPORT), "--nbp-rate", "4.26",
+                            "--min-produktow", "1", "--output-dir", str(out)],
+                           check=False, capture_output=True)
+            plik = out / "ebay-add.csv"
+            self.assertTrue(plik.exists(), f"{kraj}: nie powstal ebay-add.csv")
+            with plik.open(encoding="utf-8-sig") as uchwyt:
+                rows = list(csv.reader(uchwyt, delimiter=";"))
+            naglowek = rows[1]
+            kol_kat = next(i for i, k in enumerate(naglowek) if k.strip().endswith("Category"))
+            kol_op = next(i for i, k in enumerate(naglowek) if "Description" in k)
+
+            settings = json.loads((ROOT / "config" / "settings.json").read_text(encoding="utf-8"))
+            kr = json.loads((ROOT / "config" / "kraje" / f"{kraj}.json").read_text(encoding="utf-8"))
+            settings.update({k: v for k, v in kr.items()
+                             if not k.startswith("_") and k not in ("pliki", "katalog_szablonow")})
+            pula = settings["zdania_wiodace_pecety"]["lista"]
+            laptopowe = settings["zdania_wiodace"]["lista"]
+
+            pecety = [r for r in rows[2:] if r and r[kol_kat] == "179"]
+            self.assertTrue(pecety, f"{kraj}: fixture nie dal ani jednego peceta")
+            for r in pecety:
+                opis = _html.unescape(r[kol_op])
+                z_pecetow = [z for z in pula if z in opis]
+                z_laptopow = [z for z in laptopowe if z in opis]
+                self.assertTrue(z_pecetow or r[kol_kat] != "179" or z_laptopow == [],
+                                f"{kraj}/{r[1]}: brak zdania z puli pecetow")
+                self.assertEqual(z_laptopow, [],
+                                 f"{kraj}/{r[1]}: opis peceta niesie zdanie z puli laptopowej")
+
+
 class Tryby(unittest.TestCase):
     def test_nowe_pomija_juz_wystawione(self):
         wiersze, raport, _ = uruchom("nowe")
