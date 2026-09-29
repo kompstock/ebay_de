@@ -28,8 +28,10 @@ Te same aukcje, te same ceny, te same numery — różni się **wyłącznie kolu
 | stan w magazynie | co zobaczy eBay |
 |---|---|
 | poniżej 10 szt. | `0` — aukcja schodzi |
-| 10–99 szt. | `8` |
-| od 100 szt. | `15` |
+| 10–24 szt. | `2` |
+| 25–50 szt. | `5` |
+| 51–99 szt. | `8` |
+| od 100 szt. | `10` |
 
 **Wgrywasz jeden z dwóch plików, nigdy oba.** Prawdziwy mówi prawdę o magazynie,
 pomocniczy dawkuje zapas. Progi zmienisz w `config/settings.json` →
@@ -60,10 +62,20 @@ SKU;ilosc
 5691_20260602124826ITT;
 ```
 
-| wpis | co robi generator |
+Plik robi **dwie różne rzeczy**, zależnie od tego, czy SKU jest w feedzie:
+
+| SKU | co robi generator |
 |---|---|
-| SKU + liczba | nigdy nie zeruje; pilnuje, żeby aukcja pokazywała właśnie tyle |
-| SKU + pusta ilość | nigdy nie zeruje i **nie rusza aukcji wcale** |
+| **spoza feedu** + liczba | nigdy nie zeruje; pilnuje, żeby aukcja pokazywała właśnie tyle |
+| **spoza feedu** + pusta ilość | nigdy nie zeruje i **nie rusza aukcji wcale** |
+| **z feedu** + liczba | prawdziwy plik bez zmian (prawda o magazynie), a w `ebay-revise-stany.csv` Twoja liczba **zastępuje próg** |
+
+Trzeci wiersz to sposób na towar, który schodzi lepiej: progi dają mu 5 sztuk,
+a Ty chcesz pokazywać 20. Wpisujesz `SKU;20` i tyle.
+
+**Wpis nigdy nie przebije stanu magazynu.** Wpisane 20 przy trzech sztukach na
+stanie daje 3, nie 20 — inaczej sprzedałbyś siedemnaście nieistniejących sztuk.
+Raport wypisuje takie przypadki w `sku_reczne.przyciete_do_stanu_magazynu`.
 
 Zasady, które warto znać:
 
