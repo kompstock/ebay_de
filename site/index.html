@@ -56,7 +56,7 @@
   <li><b>Pierwsze wystawienie</b> — pobierz <code>ebay-add.csv</code>, wgraj na eBay przez File Exchange.</li>
   <li><b>Nowe SKU</b> — potrzebny świeży raport <b>All active listings</b> w <code>input/ebay/</code>. Jeden plik obsługuje wszystkie rynki: generator dzieli go po kolumnie <code>Listing site</code>.</li>
   <li><b>Ceny i ilości</b> — ten sam raport, tryb <code>aktualizacja</code>, plik <code>ebay-revise.csv</code>.</li>
-  <li><b>Dawkowanie zapasu</b> — tryb <code>aktualizacja</code> robi obok drugi plik <code>ebay-revise-stany.csv</code>: te same aukcje i ceny, ale ilości sprowadzone do 0 / 8 / 15. Wgrywasz jeden z dwóch, nigdy oba. Progi zmienisz w <code>config/settings.json</code> → <code>stany_ograniczone</code>.</li>
+  <li><b>Dawkowanie zapasu</b> — tryb <code>aktualizacja</code> robi obok drugi plik <code>ebay-revise-stany.csv</code>: te same aukcje i ceny, ale ilości sprowadzone do 0 / 2 / 5 / 8 / 10. Wgrywasz jeden z dwóch, nigdy oba. Progi zmienisz w <code>config/settings.json</code> → <code>stany_ograniczone</code>.</li>
   <li><b>Test bez wystawiania</b> — tryb <code>test</code> generuje ten sam plik z akcją <code>VerifyAdd</code>.</li>
   <li>Po każdym wgraniu <code>Add</code> pobierz raport na nowo — dopiero wtedy narzędzie zobaczy nowe aukcje.</li>
 </ul>
@@ -138,6 +138,15 @@ function rysuj(r, baza) {
         ". Wgrywasz <b>jeden z dwóch</b>, nigdy oba.</p>";
     }
   }
+  // eBay zakłada oferty na 30 dni mimo GTC w pliku - bez tego o wygaśnięciu
+  // katalogu dowiadujesz się dopiero z nagle pustego raportu aktywnych.
+  const wyg = r.wygasaja;
+  if (wyg && wyg.ile > 0) {
+    tresc += "<p class='ostrz'><b>Uwaga na wygasanie:</b> " + wyg.ile + " z " +
+      wyg.z_ilu_aktywnych + " aktywnych aukcji kończy się w ciągu " + wyg.w_ciagu_dni +
+      " dni, najbliższa " + wyg.najblizsza + ". Wygasłe znikają z raportu aktywnych, " +
+      "więc tryb <code>nowe</code> wystawi je ponownie — pobierz wtedy świeży raport.</p>";
+  }
   ins.innerHTML = tresc; ins.style.display = "block";
 
   const w = [
@@ -145,6 +154,8 @@ function rysuj(r, baza) {
     ["Produktów w kategorii", r.produktow_w_kategorii],
     ["Z zapasem", r.produktow_z_zapasem],
     ["Aktywnych na eBay" + (r.kraj ? " (" + r.kraj + ")" : ""), r.aktywnych_na_ebay],
+    ...(r.wygasaja && r.wygasaja.ile ? [["Kończy się w ciągu " + r.wygasaja.w_ciagu_dni + " dni",
+        r.wygasaja.ile + " (najbliższa " + r.wygasaja.najblizsza + ")"]] : []),
     ["Do wystawienia", r.do_wystawienia],
     ["Do aktualizacji", r.do_aktualizacji + (r.w_tym_zerowanych ? " (w tym " + r.w_tym_zerowanych + " zerowanych)" : "")],
     ...(r.stany_ograniczone ? [["W pliku ze stanami", r.do_aktualizacji_ograniczone + " (" + r.stany_ograniczone.opis + ")"]] : []),
