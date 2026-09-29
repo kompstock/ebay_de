@@ -1099,7 +1099,7 @@ class StanyOgraniczone(unittest.TestCase):
         import generate
         regula = generate.regula_stanow(json.loads(
             (ROOT / "config" / "settings.json").read_text(encoding="utf-8")))
-        oczekiwane = {0: 0, 9: 0, 10: 8, 99: 8, 100: 15, 5000: 15}
+        oczekiwane = {0: 0, 9: 0, 10: 2, 24: 2, 25: 5, 50: 5, 51: 8, 99: 8, 100: 10, 5000: 10}
         self.assertEqual({ile: generate.ogranicz_stan(ile, regula) for ile in oczekiwane},
                          oczekiwane)
         # Kod i config musza mowic to samo - inaczej brak wpisu w configu
@@ -1173,6 +1173,51 @@ class StanyOgraniczone(unittest.TestCase):
             _, wynik, out = uruchom(tryb)
             self.assertFalse((out / "ebay-revise-stany.csv").exists(), tryb)
             self.assertIsNone(wynik["stany_ograniczone"], tryb)
+
+
+class Wygasanie(unittest.TestCase):
+    """eBay zaklada oferty na 30 dni, mimo ze plik prosi o GTC.
+
+    Bez ostrzegania o wygasnieciu dowiadujemy sie o nim dopiero z nagle
+    pustego raportu aktywnych - czyli juz po fakcie, gdy caly katalog zszedl.
+    """
+
+    def generate(self):
+        sys.path.insert(0, str(ROOT / "src"))
+        import generate
+        return generate
+
+    def test_czyta_format_daty_z_ebaya(self):
+        g = self.generate()
+        self.assertEqual(g.data_konca("Sep-25-26 03:26:55 PDT"),
+                         __import__("datetime").datetime(2026, 9, 25, 3, 26, 55))
+
+    def test_nieznana_data_nie_wywraca_przebiegu(self):
+        """Raport z eBaya potrafi zmienic format. Lepiej stracic ostrzezenie
+        niz caly przebieg, wiec nieparsowalna data ma dawac None."""
+        g = self.generate()
+        for zla in ("", None, "brak", "2026-09-25", "Sep-25-26"):
+            self.assertIsNone(g.data_konca(zla), repr(zla))
+
+    def test_liczy_tylko_te_z_najblizszych_dni(self):
+        from datetime import datetime, timedelta
+        g = self.generate()
+        teraz = datetime.now()
+        aktywne = {
+            "A": {"koniec": teraz + timedelta(days=1)},
+            "B": {"koniec": teraz + timedelta(days=6)},
+            "C": {"koniec": teraz + timedelta(days=30)},
+            "D": {"koniec": None},
+        }
+        wynik = g.wygasajace(aktywne, 7)
+        self.assertEqual(wynik["ile"], 2)
+        self.assertEqual(wynik["z_ilu_aktywnych"], 4)
+        self.assertEqual(wynik["bez_daty_zakonczenia"], 1)
+
+    def test_raport_niesie_ostrzezenie(self):
+        _, raport, _ = uruchom("aktualizacja")
+        self.assertIn("wygasaja", raport)
+        self.assertIn("w_ciagu_dni", raport["wygasaja"])
 
 
 class SkuReczne(unittest.TestCase):
@@ -1265,14 +1310,32 @@ class SkuReczne(unittest.TestCase):
         _, out = self.uruchom(raport, plik)
         self.assertEqual(self.ilosci(out, "ebay-revise-stany.csv")["RECZNY-1"][0], "20")
 
-    def test_feed_ma_pierwszenstwo_przed_lista(self):
+    def test_prawdziwy_plik_zawsze_mowi_prawde_o_magazynie(self):
         """SKU z listy, ktore JEST w feedzie, nie moze zamrozic prawdziwego
-        stanu - inaczej lista po cichu psulaby zwykly produkt."""
+        stanu w prawdziwym pliku - inaczej lista po cichu psulaby produkt."""
         raport, plik = self.srodowisko(self.AKTYWNE, lista="SKU;ilosc\n4220;20\nRECZNY-1;20\n")
         wynik, out = self.uruchom(raport, plik)
-        self.assertEqual(wynik["sku_reczne"]["pominieto_bo_sa_w_feedzie"], ["4220"])
-        # 4220 ma w fixture 51 sztuk i ma dostac 51, a nie 20 z listy.
+        self.assertEqual(wynik["sku_reczne"]["w_feedzie_wiec_prawdziwy_plik_bez_zmian"], ["4220"])
+        # 4220 ma w fixture 51 sztuk i w prawdziwym pliku ma dostac 51, nie 20.
         self.assertEqual(self.ilosci(out)["4220"][0], "51")
+
+    def test_wpis_nadpisuje_prog_w_pliku_stanow(self):
+        """To jest sens listy dla towaru, ktory schodzi lepiej: prog dalby 8
+        (51 szt. wpada w przedzial 51-99), a Ty chcesz pokazywac 20."""
+        raport, plik = self.srodowisko(self.AKTYWNE, lista="SKU;ilosc\n4220;20\n")
+        wynik, out = self.uruchom(raport, plik)
+        self.assertEqual(wynik["sku_reczne"]["nadpisaly_prog_w_pliku_stanow"], 1)
+        self.assertEqual(self.ilosci(out, "ebay-revise-stany.csv")["4220"][0], "20")
+        self.assertEqual(self.ilosci(out)["4220"][0], "51")
+
+    def test_wpis_nigdy_nie_przekroczy_stanu_magazynu(self):
+        """3809 ma w fixture 6 sztuk. Wpis '50' nie moze zrobic z tego 50 -
+        sprzedalibysmy czterdziesci cztery sztuki, ktorych nie ma."""
+        raport, plik = self.srodowisko(self.AKTYWNE, lista="SKU;ilosc\n3809;50\n")
+        wynik, out = self.uruchom(raport, plik)
+        self.assertEqual(self.ilosci(out, "ebay-revise-stany.csv")["3809"][0], "6")
+        self.assertTrue(any("3809" in x for x in wynik["sku_reczne"]["przyciete_do_stanu_magazynu"]),
+                        wynik["sku_reczne"])
 
     def test_nieliczbowa_ilosc_zatrzymuje_przebieg(self):
         raport, plik = self.srodowisko(self.AKTYWNE, lista="SKU;ilosc\nRECZNY-1;dwadziescia\n")
