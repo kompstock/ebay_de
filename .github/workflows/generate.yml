@@ -122,6 +122,9 @@ jobs:
               for typ, ile in r.get("produktow_z_zapasem_wg_typu", {}).items():
                   print(f"| &nbsp;&nbsp;{typ} | {ile} |")
               print(f"| Aktywnych na eBay | {r['aktywnych_na_ebay']} |")
+              if r.get("wygasaja", {}).get("ile"):
+                  print(f"| &nbsp;&nbsp;konczy sie w {r['wygasaja']['w_ciagu_dni']} dni | "
+                        f"**{r['wygasaja']['ile']}** (najblizsza {r['wygasaja']['najblizsza']}) |")
               print(f"| **Do wystawienia** | **{r['do_wystawienia']}** |")
               for kat, ile in r.get("do_wystawienia_wg_kategorii", {}).items():
                   print(f"| &nbsp;&nbsp;{kat} | {ile} |")
