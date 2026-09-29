@@ -34,13 +34,21 @@
         0
       ],
       [
+        25,
+        2
+      ],
+      [
+        51,
+        5
+      ],
+      [
         100,
         8
       ]
     ],
-    "powyzej": 15
+    "powyzej": 10
   },
-  "_uwaga_stany_ograniczone": "Drugi, opcjonalny plik trybu 'aktualizacja'. Te same wiersze co ebay-revise.csv, ale z podmieniona iloscia: progi to pary [granica, wartosc] dzialajace jako 'mniej niz granica', reszta dostaje 'powyzej'. Domyslnie ponizej 10 szt. -> 0, 10-99 -> 8, od 100 -> 15. Wgrywasz ALBO ten plik, ALBO prawdziwy - nie oba.",
+  "_uwaga_stany_ograniczone": "Drugi, opcjonalny plik trybu 'aktualizacja'. Te same wiersze co ebay-revise.csv, ale z podmieniona iloscia: progi to pary [granica, wartosc] dzialajace jako 'mniej niz granica', reszta dostaje 'powyzej'. Domyslnie ponizej 10 szt. -> 0, 10-24 -> 2, 25-50 -> 5, 51-99 -> 8, od 100 -> 10. Wgrywasz ALBO ten plik, ALBO prawdziwy - nie oba.",
   "product_safety_pictograms": "EBPSP201",
   "max_skipped_ratio": 0.3,
   "doplata_wysylka_eur": 20,
@@ -57,6 +65,8 @@
   },
   "min_produktow_w_feedzie": 150,
   "max_udzial_zerowanych": 0.35,
+  "ostrzegaj_o_wygasaniu_dni": 7,
+  "_uwaga_wygasanie": "eBay zaklada oferty na 30 dni, mimo ze plik prosi o GTC. Raport liczy, ile aktywnych aukcji konczy sie w tylu dniach - zeby o wygasnieciu katalogu wiedziec wczesniej niz z pustego raportu.",
   "listing_site": "DE",
   "raport_katalog": "input/ebay",
   "raport_wzorzec": "*.csv",
