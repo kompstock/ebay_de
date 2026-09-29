@@ -40,7 +40,7 @@ import allegro
 import duplikaty
 import gwarancja
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
@@ -1326,6 +1326,37 @@ def brakujace_kolumny_raportu(path: Path) -> list[str]:
     with path.open(encoding="utf-8-sig", newline="") as handle:
         naglowek = next(csv.reader(handle), [])
     return [k for k in KOLUMNY_RAPORTU if k not in naglowek]
+def data_konca(surowa: str | None) -> datetime | None:
+    """'Sep-25-26 03:26:55 PDT' -> datetime. Nieznany format = None, bez wyjatku.
+
+    Strefy nie tlumaczymy: przy ostrzeganiu z wyprzedzeniem kilku dni kilka
+    godzin roznicy nie ma znaczenia, a doklejanie pytz byloby zaleznoscia,
+    ktora GitHub Actions musialby instalowac.
+    """
+    czesci = (surowa or "").split()
+    if len(czesci) < 2:
+        return None
+    try:
+        return datetime.strptime(f"{czesci[0]} {czesci[1]}", "%b-%d-%y %H:%M:%S")
+    except ValueError:
+        return None
+def wygasajace(aktywne: dict, dni: int) -> dict:
+    """Ile aktywnych aukcji konczy sie w najblizszych 'dni' dniach.
+
+    Po co: eBay zaklada oferty na 30 dni, mimo ze plik prosi o GTC. Bez tego
+    o wygasnieciu calego katalogu dowiadujemy sie dopiero z pustego raportu.
+    """
+    teraz = datetime.now()
+    granica = teraz + timedelta(days=dni)
+    daty = [d["koniec"] for d in aktywne.values() if d.get("koniec")]
+    wkrotce = [d for d in daty if d <= granica]
+    return {
+        "w_ciagu_dni": dni,
+        "ile": len(wkrotce),
+        "z_ilu_aktywnych": len(aktywne),
+        "najblizsza": min(daty).date().isoformat() if daty else None,
+        "bez_daty_zakonczenia": len(aktywne) - len(daty),
+    }
 def wczytaj_raport(path: Path, site: str) -> tuple[dict[str, dict], list[str]]:
     """Raport aktywnych ofert z eBaya = nasza pamiec o tym, co juz wystawione.
     Zwraca (mapa SKU -> dane, lista SKU zdublowanych).
@@ -1349,6 +1380,7 @@ def wczytaj_raport(path: Path, site: str) -> tuple[dict[str, dict], list[str]]:
                 "ilosc": int(float(wiersz.get("Available quantity") or 0)),
                 "cena": float((wiersz.get("Start price") or "0").replace(",", ".")),
                 "waluta": (wiersz.get("Currency") or "EUR").strip(),
+                "koniec": data_konca(wiersz.get("End date")),
             }
     for sku in sku_zdublowane:
         mapa.pop(sku, None)
@@ -1584,8 +1616,8 @@ def wczytaj_sku_reczne(sciezka: Path) -> tuple[dict, str]:
 STANY_OGRANICZONE_DOMYSLNIE = {
     "plik": "ebay-revise-stany.csv",
     # [granica, wartosc] - ilosc mniejsza niz granica schodzi do wartosci.
-    "progi": [[10, 0], [100, 8]],
-    "powyzej": 15,
+    "progi": [[10, 0], [25, 2], [51, 5], [100, 8]],
+    "powyzej": 10,
 }
 def regula_stanow(settings: dict) -> dict:
     """Regula drugiego pliku aktualizacji. Brak wpisu w configu = wartosci domyslne,
@@ -1597,8 +1629,8 @@ def ogranicz_stan(ilosc: int, regula: dict) -> int:
     """Prawdziwy stan magazynowy -> stan pokazywany na eBayu w pliku pomocniczym.
 
     Progi dzialaja na zasadzie "mniej niz granica", od najnizszej w gore.
-    Domyslnie: ponizej 10 sztuk aukcja schodzi do zera, 10-99 pokazuje 8,
-    od 100 w gore pokazuje 15.
+    Domyslnie: ponizej 10 sztuk aukcja schodzi do zera, 10-24 pokazuje 2,
+    25-50 pokazuje 5, 51-99 pokazuje 8, od 100 w gore pokazuje 10.
     """
     for granica, wartosc in sorted(regula["progi"], key=lambda para: int(para[0])):
         if ilosc < int(granica):
@@ -1695,6 +1727,8 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
     if blad_recznych:
         blokady.append("lista recznych SKU: " + blad_recznych)
     reczne_poprawione = 0
+    reczne_z_feedu = 0
+    reczne_przyciete: list[str] = []
     # Zbior widoczny takze w raporcie, poza galezia 'aktualizacja'.
     w_feedzie_all: set = set()
     pliki_add: dict[str, list[dict]] = {}
@@ -1756,7 +1790,19 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
             # samym stanie w feedzie i na eBayu ograniczenie i tak bywa inne
             # (np. feed 50, aukcja 50, pokazujemy 10) - bez osobnego warunku taki
             # wiersz nigdy by do pliku nie trafil i limit nigdy by nie zadzialal.
-            ilosc_ograniczona = ogranicz_stan(nowa_ilosc, regula)
+            # SKU z listy recznej, ktore JEST w feedzie: Twoja liczba zastepuje
+            # prog - ale tylko w pliku pomocniczym. Prawdziwy plik dalej mowi
+            # prawde o magazynie, wiec nic sie nie zamraza.
+            wpisana = reczne.get(sku)
+            if wpisana is None:
+                ilosc_ograniczona = ogranicz_stan(nowa_ilosc, regula)
+            else:
+                # Nigdy wiecej, niz naprawde lezy w magazynie. Wpis "20" przy
+                # trzech sztukach na stanie sprzedalby siedemnascie nieistniejacych.
+                ilosc_ograniczona = min(wpisana, nowa_ilosc)
+                reczne_z_feedu += 1
+                if wpisana > nowa_ilosc:
+                    reczne_przyciete.append(f"{sku}: wpisane {wpisana}, w magazynie {nowa_ilosc}")
             zmiana_ograniczona = ilosc_ograniczona != biezaca["ilosc"]
             if not (zmiana_ceny or zmiana_ilosci):
                 skipped["bez_zmian"] += 1
@@ -1837,6 +1883,7 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
         "produktow_w_kategorii": skipped["w_kategorii"],
         "produktow_z_zapasem": len(produkty),
         "aktywnych_na_ebay": len(aktywne),
+        "wygasaja": wygasajace(aktywne, int(settings.get("ostrzegaj_o_wygasaniu_dni", 7))),
         "sku_zdublowane": sku_zdublowane,
         "do_wystawienia": len(wiersze_add),
         "produktow_z_zapasem_wg_typu": licz_wg_typu(produkty, settings),
@@ -1850,9 +1897,11 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
             "wpisow": len(reczne),
             "chronionych_przed_zerowaniem": sorted(s for s in reczne if s in aktywne),
             "poprawiono_ilosc": reczne_poprawione,
+            "nadpisaly_prog_w_pliku_stanow": reczne_z_feedu,
+            "przyciete_do_stanu_magazynu": reczne_przyciete[:20],
             # Feed ma pierwszenstwo - inaczej lista po cichu zamrazalaby stan
             # prawdziwego produktu, gdyby jego kategoria kiedys doszla do feedu.
-            "pominieto_bo_sa_w_feedzie": sorted(s for s in reczne if s in w_feedzie_all),
+            "w_feedzie_wiec_prawdziwy_plik_bez_zmian": sorted(s for s in reczne if s in w_feedzie_all),
             "nie_ma_ich_wsrod_aktywnych": sorted(s for s in reczne if s not in aktywne),
         } if reczne else "lista pusta albo brak pliku"),
         "stany_ograniczone": (dict(regula, opis=opis_reguly_stanow(regula))
