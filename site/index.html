@@ -160,7 +160,7 @@ function rysuj(r, baza) {
     ["Do aktualizacji", r.do_aktualizacji + (r.w_tym_zerowanych ? " (w tym " + r.w_tym_zerowanych + " zerowanych)" : "")],
     ...(r.stany_ograniczone ? [["W pliku ze stanami", r.do_aktualizacji_ograniczone + " (" + r.stany_ograniczone.opis + ")"]] : []),
     ["Kurs NBP", r.nbp.rate + " (" + r.nbp.effective_date + ")"],
-    ["Doliczana wysyłka", r.kurs_z_doplata_eur + " EUR"],
+    ...(r.model_ceny ? [["Model ceny", r.model_ceny.opis]] : []),
     ["Pozycji do uzupełnienia", r.review_items]
   ];
   document.getElementById("liczby").innerHTML =
