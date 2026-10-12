@@ -51,7 +51,15 @@
   "_uwaga_stany_ograniczone": "Drugi, opcjonalny plik trybu 'aktualizacja'. Te same wiersze co ebay-revise.csv, ale z podmieniona iloscia: progi to pary [granica, wartosc] dzialajace jako 'mniej niz granica', reszta dostaje 'powyzej'. Domyslnie ponizej 10 szt. -> 0, 10-24 -> 2, 25-50 -> 5, 51-99 -> 8, od 100 -> 10. Wgrywasz ALBO ten plik, ALBO prawdziwy - nie oba.",
   "product_safety_pictograms": "EBPSP201",
   "max_skipped_ratio": 0.3,
-  "doplata_wysylka_eur": 20,
+  "cena": {
+    "vat_zrodla": 23,
+    "vat_wzoru": 23,
+    "wysylka_eur": 9,
+    "prowizja": 0,
+    "ads": 0.05,
+    "dopisek_eur": 0
+  },
+  "_uwaga_cena": "Cena liczy sie OD KONCA: zaczynamy od wartosci towaru i pytamy, jaka cena odda ja po VAT, oplatach i wysylce. vat_zrodla to polski VAT w cenie z feedu (1499 zl brutto / 1,23). vat_wzoru to ZALOZENIE cenowe, nie stawka na fakturze - oferta ma jedna cene, a VAT zalezy od kraju kupujacego (19-27%), wiec 23% pokrywa okolo 90% zamowien. prowizja 0, bo pakiet powitalny; wpisz 0.05, gdy sie skonczy. ads to promowanie ofert; warianty GW24 maja wlasne 0.10 w profilu. dopisek_eur nadpisuje kraj (Wlochy +1), zeby ceny sie rozniy miedzy rynkami.",
   "prog_zmiany_ceny_eur": 3,
   "kategorie": {
     "apple": "111422",
@@ -447,7 +455,8 @@
       "_uwaga_dopisek": "Chroniony przed obcieciem tytulu do 80 znakow. Gdyby wypadl, tytul bylby identyczny z oryginalem - czyli prawdziwy duplikat.",
       "mnoznik_ceny": 1.2,
       "_uwaga_mnoznik": "Dziala na cenie KONCOWEJ, tej ktora widzi kupujacy. 279 EUR -> 335 EUR, zawsze rowno +20%.",
-      "gwarancja": "24 Monate Garantie"
+      "gwarancja": "24 Monate Garantie",
+      "ads": 0.1
     },
     "Desktop-PC GW24": {
       "_zrodlo": "Wylacznie XML sklepowy (feed_url). Komputery z Allegro nie wchodza - pilnuje tego allegro.kategorie_zrodlowe plus straznik w src/allegro.py.",
@@ -535,7 +544,8 @@
       "mnoznik_ceny": 1.2,
       "_uwaga_gwarancja": "C:Herstellergarantie zostaje puste - to pole gwarancji PRODUCENTA, a nasza jest gwarancja sprzedawcy. Mowi o niej opis.",
       "gwarancja": "24 Monate Garantie",
-      "zdania_wiodace": "zdania_wiodace_pecety"
+      "zdania_wiodace": "zdania_wiodace_pecety",
+      "ads": 0.1
     },
     "Desktop-PC nowy GW24": {
       "_about": "Nowy zestaw skladany - blizniak z wyzsza cena. Szablon i gwarancja te same co w oryginale (nowy zestaw ma 24 miesiace prosto z feedu), rozni go SKU, dopisek w tytule i cena.",
@@ -634,7 +644,8 @@
       },
       "_uwaga_roznica": "UWAGA: oryginal ma juz 24 miesiace, wiec blizniak NIE oferuje wiecej gwarancji - tylko ja nazywa w tytule i kosztuje 20% wiecej. To swiadoma decyzja handlowa; jesli eBay uzna to za duplikat, usun SKU z listy.",
       "dopisek_tytulu": "24 Monate Garantie",
-      "mnoznik_ceny": 1.2
+      "mnoznik_ceny": 1.2,
+      "ads": 0.1
     }
   },
   "sekcja_business_notebook": "<div class=\"kpx-sec\"><h2 class=\"kpx-h2\"><span>Warum ein Business-Notebook?</span></h2><p>Ger&auml;te aus der Business-Serie werden f&uuml;r Unternehmen gebaut, nicht f&uuml;r den Elektromarkt. Das merkt man jeden Tag.</p><ul class=\"kpx-ul\"><li>Robustes Geh&auml;use aus Magnesium oder Karbon statt d&uuml;nnem Kunststoff.</li><li>F&uuml;r den t&auml;glichen Dauereinsatz entwickelt und entsprechend getestet.</li><li>Hochwertige Tastatur mit sp&uuml;rbarem Druckpunkt.</li><li>Langlebige Komponenten und lange Ersatzteilverf&uuml;gbarkeit.</li><li>Wartungsfreundlich konstruiert &ndash; Servicearbeiten sind ohne Spezialwerkzeug m&ouml;glich.</li></ul></div>",
