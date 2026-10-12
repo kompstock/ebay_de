@@ -2,6 +2,7 @@
 import csv
 import html
 import json
+import math
 import re
 import subprocess
 import sys
@@ -78,11 +79,17 @@ class Wystawianie(unittest.TestCase):
             else:
                 self.assertEqual(w["*Category"], "177")
 
-    def test_cena_zawiera_doplate(self):
-        doplata = json.loads((ROOT / "config" / "settings.json").read_text(
-            encoding="utf-8"))["doplata_wysylka_eur"]
+    def test_cena_pokrywa_wysylke_i_oplaty(self):
+        """Cena liczy sie od konca: ma oddac wartosc towaru PO VAT, oplatach
+        i wysylce. Minimum, ktore musi byc prawda zawsze: sama wysylka plus
+        oplaty nie moga zjesc calej ceny."""
+        c = json.loads((ROOT / "config" / "settings.json").read_text(
+            encoding="utf-8"))["cena"]
+        zostaje = 1/(1 + c["vat_wzoru"]/100) - c["prowizja"] - c["ads"]
         for w in self.wiersze:
-            self.assertGreater(float(w["*StartPrice"]), doplata)
+            cena = float(w["*StartPrice"])
+            self.assertGreater(cena * zostaje, c["wysylka_eur"],
+                               f"{w['CustomLabel']}: cena {cena} € nie pokrywa wysylki")
 
     def test_gpsr_kompletny(self):
         for w in self.wiersze:
@@ -575,8 +582,8 @@ class WariantGwarancyjny(unittest.TestCase):
         o, g = self.wg_sku["10362"], self.wg_sku["10362GW24"]
         self.assertNotEqual(o["*Title"], g["*Title"], "blizniak bez roznicy w tytule")
         self.assertIn("24 Monate Garantie", g["*Title"])
-        self.assertAlmostEqual(float(g["*StartPrice"]) / float(o["*StartPrice"]), 1.20,
-                               delta=0.01, msg="blizniak musi byc drozszy")
+        self.assertGreater(float(g["*StartPrice"]), float(o["*StartPrice"]),
+                           "blizniak musi byc drozszy")
         self.assertEqual(g["*ConditionID"], "1000", "nowy zestaw zostaje nowy")
 
     def test_kazdy_blizniak_rozni_sie_od_oryginalu(self):
@@ -632,14 +639,21 @@ class WariantGwarancyjny(unittest.TestCase):
         self.assertNotIn("12 Monate Garantie", tekst)
         self.assertNotIn("Tastatur-Layout", tekst, "pecet nadal bez klawiatury")
 
-    def test_cena_rosnie_rowno_o_mnoznik(self):
-        """Mnoznik dziala na cenie koncowej, wiec procent jest ten sam dla
-        kazdej oferty - niezaleznie od tego, ile kosztuje sprzet."""
+    def test_blizniak_zarabia_rowno_mnoznik_razy_wiecej(self):
+        """Mnoznik dziala na WARTOSCI NETTO, nie na cenie. Cena blizniaka rosnie
+        mocniej niz o 20%, bo ma wlasna stawke ADS (10% zamiast 5%) i ta roznica
+        tez musi sie w niej zmiescic. Pilnujemy tego, co jest regula - zysku."""
+        c = json.loads((ROOT / "config" / "settings.json").read_text(encoding="utf-8"))["cena"]
+        settings = json.loads((ROOT / "config" / "settings.json").read_text(encoding="utf-8"))
+        def zostaje(cena, ads):
+            return cena/(1 + c["vat_wzoru"]/100) - cena*(c["prowizja"] + ads) - c["wysylka_eur"]
+        ads_gw = settings["profile_produktu"]["Notebook GW24"]["ads"]
         for oryginal in (self.ORYGINAL, "3959"):
             o = float(self.wg_sku[oryginal]["*StartPrice"])
             g = float(self.wg_sku[oryginal + "GW24"]["*StartPrice"])
-            self.assertAlmostEqual(g / o, 1.20, delta=0.01,
-                                   msg=f"{oryginal}: {o} -> {g}")
+            self.assertGreater(g, o, f"{oryginal}: blizniak musi byc drozszy")
+            self.assertAlmostEqual(zostaje(g, ads_gw) / zostaje(o, c["ads"]), 1.20, delta=0.02,
+                                   msg=f"{oryginal}: cena {o} -> {g}, ale zysk nie rosnie o 20%")
 
     def test_sku_spoza_feedu_jest_raportowane(self):
         """Bez tego lista po cichu gnije - produkt wychodzi ze sprzedazy,
@@ -1064,6 +1078,18 @@ class StanyOgraniczone(unittest.TestCase):
     def ilosci(self, sciezka):
         return {w["Custom label (SKU)"]: w["Available quantity"] for w in self.czytaj(sciezka)}
 
+    def cena_modelu(self, sku):
+        """Cena, ktora generator policzy dla tego SKU przy kursie z uruchom().
+        Liczona modelem, nie wpisana na sztywno - inaczej kazda zmiana wzoru
+        cenowego wywracalaby testy, ktore o cene wcale nie pytaja."""
+        import xml.etree.ElementTree as ET
+        sys.path.insert(0, str(ROOT / "src"))
+        import generate
+        settings = json.loads((ROOT / "config" / "settings.json").read_text(encoding="utf-8"))
+        oferta = next(o for o in ET.parse(FIXTURE).getroot().findall("./o")
+                      if {a.get("name"): a.text for a in o.findall("./attrs/a")}.get("SKU") == sku)
+        return f"{generate.cena_eur(oferta, {'settings': settings, 'rate': 4.26}):.1f}"
+
     def mapuj(self, ile):
         """Czego oczekujemy wg aktualnej reguly z configu. Testy integracyjne
         pilnuja, czy generator w ogole stosuje ograniczenie i do wlasciwej
@@ -1126,7 +1152,7 @@ class StanyOgraniczone(unittest.TestCase):
         plik nie ma czego poprawiac, ale limit 10 dopiero trzeba ustawic. Gdyby
         plik pomocniczy dziedziczyl warunek 'bez_zmian', limit nigdy by nie
         zadzialal - plik wychodzilby pusty przy kazdym przebiegu."""
-        raport = self.aktywne([("4220", 51, "279.0")])
+        raport = self.aktywne([("4220", 51, self.cena_modelu("4220"))])
         _, wynik, out = uruchom("aktualizacja", raport=raport)
         self.assertEqual(wynik["do_aktualizacji"], 0)
         self.assertEqual(self.czytaj(out / "ebay-revise.csv"), [])
@@ -1173,6 +1199,105 @@ class StanyOgraniczone(unittest.TestCase):
             _, wynik, out = uruchom(tryb)
             self.assertFalse((out / "ebay-revise-stany.csv").exists(), tryb)
             self.assertIsNone(wynik["stany_ograniczone"], tryb)
+
+
+class ModelCeny(unittest.TestCase):
+    """Cena liczona od konca: od tego, ile ma zostac na koncie.
+
+    Stara metoda brala cene z feedu / kurs + stala doplata 20 €. Na tanim
+    sprzecie doplata byla za duza, na drogim nie pokrywala nawet prowizji -
+    przy ofercie za 1254 € brakowalo 69 €.
+    """
+
+    def ustawienia(self):
+        sys.path.insert(0, str(ROOT / "src"))
+        import generate
+        s = json.loads((ROOT / "config" / "settings.json").read_text(encoding="utf-8"))
+        return generate, s
+
+    def oferta(self, pln):
+        import xml.etree.ElementTree as ET
+        return ET.fromstring(f'<o price="{pln}" stock="1"><cat>Laptopy</cat></o>')
+
+    def test_cena_oddaje_wartosc_towaru(self):
+        """Sedno modelu. Po oddaniu VAT, oplat i wysylki ma zostac dokladnie
+        tyle, ile towar jest wart netto - czyli cena z feedu bez polskiego VAT."""
+        generate, s = self.ustawienia()
+        c, kurs = s["cena"], 4.3775
+        for pln in (59, 799, 1499, 5399):
+            cena = generate.cena_eur(self.oferta(pln), {"settings": s, "rate": kurs})
+            cel = pln / (1 + c["vat_zrodla"]/100) / kurs
+            zostaje = (cena / (1 + c["vat_wzoru"]/100)
+                       - cena * (c["prowizja"] + c["ads"]) - c["wysylka_eur"])
+            # zaokraglenie ceny w gore do pelnego euro daje co najwyzej 1 € nadwyzki
+            self.assertGreaterEqual(zostaje, cel - 0.01, f"{pln} zl: {zostaje:.2f} < cel {cel:.2f}")
+            self.assertLess(zostaje - cel, 1.0, f"{pln} zl: nadwyzka {zostaje-cel:.2f} € za duza")
+
+    def test_polski_vat_jest_zdejmowany(self):
+        """Mutacja, ktora wczesniej przechodzila niezauwazona: bez dzielenia
+        przez vat_zrodla kazda cena rosla o 23% i nikt by tego nie zlapal."""
+        generate, s = self.ustawienia()
+        cena = generate.cena_eur(self.oferta(1499), {"settings": s, "rate": 4.3775})
+        bez_vat = 1499 / 4.3775
+        z_vat = 1499 / (1 + s["cena"]["vat_zrodla"]/100) / 4.3775
+        m = 1/(1 + s["cena"]["vat_wzoru"]/100) - s["cena"]["prowizja"] - s["cena"]["ads"]
+        self.assertAlmostEqual(cena, math.ceil((z_vat + s["cena"]["wysylka_eur"])/m), delta=1)
+        self.assertLess(cena, math.ceil((bez_vat + s["cena"]["wysylka_eur"])/m) - 50,
+                        "cena wyglada, jakby polski VAT nie byl zdejmowany")
+
+    def test_dopisek_kraju_rozroznia_rynki(self):
+        generate, s = self.ustawienia()
+        wyniki = {}
+        for kod in ("de", "it"):
+            kraj = json.loads((ROOT / "config" / "kraje" / f"{kod}.json").read_text(encoding="utf-8"))
+            ust = dict(s, cena={**s["cena"], **(kraj.get("cena") or {})})
+            wyniki[kod] = generate.cena_eur(self.oferta(1499), {"settings": ust, "rate": 4.3775})
+        self.assertEqual(wyniki["it"] - wyniki["de"], 1, f"{wyniki}")
+
+    def test_wraca_ta_sama_kwota_w_zlotowkach(self):
+        """Pelna petla: zlotowki -> euro -> cena -> sprzedaz -> z powrotem zlotowki.
+
+        Sprawdzane na cenach z prawdziwego feedu, od 59 zl do 5399 zl. Przy
+        kupujacym ze stawka rowna zalozeniu cenowemu ma wrocic dokladnie tyle,
+        ile towar jest wart netto - z dokladnoscia do zaokraglenia ceny w gore.
+        """
+        generate, s = self.ustawienia()
+        c, kurs = s["cena"], 4.3775
+        for pln in (59, 299, 799, 1149, 1499, 2999, 5399):
+            cena = generate.cena_eur(self.oferta(pln), {"settings": s, "rate": kurs})
+            netto_pln = pln / (1 + c["vat_zrodla"] / 100)
+            wraca = (cena / (1 + c["vat_wzoru"] / 100)
+                     - cena * (c["prowizja"] + c["ads"]) - c["wysylka_eur"]) * kurs
+            self.assertGreaterEqual(wraca, netto_pln - 0.01,
+                                    f"{pln} zl -> wraca {wraca:.2f} zl, czyli MNIEJ")
+            # zaokraglenie w gore do pelnego euro to najwyzej 1 € nadwyzki
+            self.assertLess(wraca - netto_pln, kurs,
+                            f"{pln} zl -> nadwyzka {wraca-netto_pln:.2f} zl za duza")
+
+    def test_nizszy_vat_kupujacego_daje_wiecej_nigdy_mniej(self):
+        """Oferta ma jedna cene, a VAT zalezy od kraju kupujacego. Zalozenie
+        cenowe 23% ma byc BEZPIECZNE: kazdy rynek ponizej tej stawki musi dac
+        nadwyzke, nie niedobor."""
+        generate, s = self.ustawienia()
+        c, kurs = s["cena"], 4.3775
+        cena = generate.cena_eur(self.oferta(1499), {"settings": s, "rate": kurs})
+        netto_pln = 1499 / (1 + c["vat_zrodla"] / 100)
+        poprzednia = None
+        for vat in (19, 20, 21, 22, 23):
+            wraca = (cena / (1 + vat / 100)
+                     - cena * (c["prowizja"] + c["ads"]) - c["wysylka_eur"]) * kurs
+            self.assertGreaterEqual(wraca, netto_pln - 0.01, f"VAT {vat}%: niedobor")
+            if poprzednia is not None:
+                self.assertLess(wraca, poprzednia, f"VAT {vat}%: wyzszy VAT ma dawac mniej")
+            poprzednia = wraca
+
+    def test_oplaty_ponad_marze_zatrzymuja_przebieg(self):
+        """Gdyby ktos wpisal prowizje 90%, cena nie istnieje. Lepiej wyjatek
+        z nazwanym powodem niz ujemna albo absurdalna liczba w pliku."""
+        generate, s = self.ustawienia()
+        chore = dict(s, cena={**s["cena"], "prowizja": 0.9})
+        with self.assertRaises(ValueError):
+            generate.cena_eur(self.oferta(1499), {"settings": chore, "rate": 4.3775})
 
 
 class Wygasanie(unittest.TestCase):
