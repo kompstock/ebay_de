@@ -87,7 +87,8 @@ def wzorzec_polskiego(wyjatki=()) -> re.Pattern:
 
 POLISH_WORDS = wzorzec_polskiego()
 WYMAGANE_KLUCZE = {
-    "settings": ["zdania_wiodace", "typ_produktu", "doplata_wysylka_eur", "kategorie",
+    "settings": ["zdania_wiodace", "typ_produktu", "cena.vat_zrodla", "cena.vat_wzoru",
+                 "cena.wysylka_eur", "cena.prowizja", "cena.ads", "kategorie",
                  "sekcja_business_notebook", "min_produktow_w_feedzie", "company_since",
                  "profile_produktu"],
     "aspects": ["konnektivitaet.etykieta_na_aspekt", "porty_reguly", "klawiatura_czesci",
@@ -1386,16 +1387,37 @@ def wczytaj_raport(path: Path, site: str) -> tuple[dict[str, dict], list[str]]:
         mapa.pop(sku, None)
     return mapa, sorted(sku_zdublowane)
 def cena_eur(offer, cfg, profil: dict | None = None) -> int:
-    """PLN z feedu -> EUR po kursie NBP, w gore, plus ukryta doplata za wysylke.
+    """Cena na eBayu wyliczona z tego, ile ma zostac na koncie.
 
-    Wariant moze miec mnoznik - dziala na CENIE KONCOWEJ, czyli tej, ktora widzi
-    kupujacy. Mnozenie samej ceny towaru dawalo wzrost zalezny od wartosci
-    sprzetu (od +13% do +20%), co bylo nie do wytlumaczenia.
+    Odwrotnie niz dawniej. Stara metoda brala cene z feedu, dzielila przez kurs
+    i doklejala stala doplate 20 EUR - przez co na tanim sprzecie doplata byla
+    za duza, a na drogim nie pokrywala nawet prowizji (przy 1254 EUR brakowalo
+    69 EUR). Teraz zaczynamy od wartosci towaru i pytamy, jaka cena da nam ja
+    z powrotem po oddaniu VAT-u, oplat eBaya i kosztu wysylki:
+
+        cel  = cena z feedu / (1 + vat_zrodla) / kurs      <- tyle ma zostac
+        cena = (cel * mnoznik + wysylka) / (1/(1+vat_wzoru) - oplaty)
+
+    'vat_wzoru' to zalozenie cenowe, a nie stawka na fakturze. Oferta ma jedna
+    cene, a VAT zalezy od kraju kupujacego (19% do 27%), wiec przyjmujemy 23% -
+    pokrywa to okolo 90% zamowien. Deklaracja dla eBaya zostaje bez zmian,
+    w 'vat_percent' kraju.
+
+    Mnoznik wariantu dziala na WARTOSCI NETTO, nie na cenie koncowej: GW24 ma
+    zarobic 1,2 raza tyle co oryginal, a o ile przez to podrozeje, wynika juz
+    z jego wlasnej stawki ADS.
     """
+    c = cfg["settings"]["cena"]
     pln = float((offer.get("price") or "0").replace(",", "."))
-    eur = math.ceil(pln / cfg["rate"]) + int(cfg["settings"]["doplata_wysylka_eur"])
-    mnoznik = float((profil or {}).get("mnoznik_ceny", 1))
-    return math.ceil(eur * mnoznik) if mnoznik != 1 else eur
+    cel = pln / (1 + float(c["vat_zrodla"]) / 100) / cfg["rate"]
+    cel *= float((profil or {}).get("mnoznik_ceny", 1))
+    oplaty = float(c["prowizja"]) + float((profil or {}).get("ads", c["ads"]))
+    zostaje_z_euro = 1 / (1 + float(c["vat_wzoru"]) / 100) - oplaty
+    if zostaje_z_euro <= 0:
+        raise ValueError(f"oplaty {oplaty:.0%} zjadaja cala cene przy VAT "
+                         f"{c['vat_wzoru']}% - cena nie istnieje")
+    return (math.ceil((cel + float(c["wysylka_eur"])) / zostaje_z_euro)
+            + int(c.get("dopisek_eur", 0)))
 def wczytaj_szablony(settings: dict, katalog: Path | None = None) -> dict[str, str]:
     """Jeden szablon opisu na typ towaru, z doklejonym wspolnym CSS.
 
@@ -1619,6 +1641,15 @@ STANY_OGRANICZONE_DOMYSLNIE = {
     "progi": [[10, 0], [25, 2], [51, 5], [100, 8]],
     "powyzej": 10,
 }
+def opis_modelu_ceny(c: dict) -> str:
+    """Model cenowy slowami. Idzie do raportu i na strone, zeby nie trzeba bylo
+    go odtwarzac z configu."""
+    oplaty = float(c["prowizja"]) + float(c["ads"])
+    dop = int(c.get("dopisek_eur", 0))
+    return (f"cel netto = cena z feedu / {1 + float(c['vat_zrodla'])/100:.2f} / kurs; "
+            f"cena = (cel + {c['wysylka_eur']} € wysyłki) / "
+            f"(1/{1 + float(c['vat_wzoru'])/100:.2f} − {oplaty:.0%} opłat)"
+            + (f" + {dop} €" if dop else ""))
 def regula_stanow(settings: dict) -> dict:
     """Regula drugiego pliku aktualizacji. Brak wpisu w configu = wartosci domyslne,
     zeby stary plik konfiguracyjny nie zatrzymywal przebiegu."""
@@ -1910,7 +1941,7 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
         "review_items": len(review.rows()),
         "duplikaty": dupl or "wylaczone",
         "nbp": nbp,
-        "kurs_z_doplata_eur": settings["doplata_wysylka_eur"],
+        "model_ceny": dict(settings["cena"], opis=opis_modelu_ceny(settings["cena"])),
         "do_uzupelnienia": {
             "marki_bez_gpsr": review.top("gpsr", by="field"),
             "brakujace_tlumaczenia": review.top("tlumaczenie"),
@@ -1951,8 +1982,12 @@ def main() -> int:
     kraj = wczytaj_kraj(args.kraj)
     # Kraj nadpisuje settings, a nie odwrotnie: to rynek decyduje o VAT, profilach
     # handlowych i serwisie. Klucze zaczynajace sie od '_' to komentarze.
+    bazowa_cena = dict(settings.get("cena") or {})
     settings.update({k: v for k, v in kraj.items()
                      if not k.startswith("_") and k not in ("pliki", "katalog_szablonow")})
+    # 'cena' scalamy po kluczach: kraj zwykle nadpisuje jedna pozycje (dopisek,
+    # wysylke), a plytkie update() skasowaloby mu cala reszte bloku.
+    settings["cena"] = {**bazowa_cena, **(kraj.get("cena") or {})}
     if args.sku_reczne:
         settings["sku_reczne_plik"] = str(args.sku_reczne)
     if args.min_produktow is not None:
