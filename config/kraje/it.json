@@ -5,8 +5,6 @@
   "listing_site": "IT",
   "naglowek_site_id": "Italy",
   "vat_percent": "22",
-  "doplata_wysylka_eur": 21,
-  "_doplata": "Kwota STALA doliczana do kazdej ceny, niezalezna od wartosci sprzetu - wysylka jest dla kupujacego darmowa, koszt siedzi w cenie. Wlochy maja 21 EUR, Niemcy 20. Decyzja Marka z 21.09.2026. Mnoznik GW24 dziala PO doplacie, wiec blizniak rosnie o 1,20 zamiast o 1 EUR.",
   "sufiks_sku": "ITT",
   "_sufiks_sku": "Decyzja Marka. Doklejany po bliznakach GW24, wiec 4220 -> 4220ITT, a 4220GW24 -> 4220GW24ITT. Przy wracaniu do numeru magazynowego obcina sie od konca: najpierw ITT, potem GW24.",
   "shipping_profile_name": "9B27: Free / 2-10d / 30d return - (ID: 263690824019)",
@@ -280,5 +278,9 @@
       "La costruzione di livello professionale e i componenti potenti rendono questo computer uno strumento di lavoro affidabile per molti anni.",
       "Per chi tiene alla velocità, a prestazioni affidabili e a un computer facile da mantenere. Ideale per il funzionamento continuo in ufficio."
     ]
-  }
+  },
+  "cena": {
+    "dopisek_eur": 1
+  },
+  "_cena": "Nadpisuje wybrane pozycje bloku 'cena' z settings.json - reszta sie dziedziczy. Tu tylko dopisek, zeby ceny rynkow sie od siebie roznily. Nowy kraj moze tu nadpisac tez wysylke albo ADS."
 }

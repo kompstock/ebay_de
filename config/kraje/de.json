@@ -7,7 +7,6 @@
   "naglowek_site_id": "Germany",
   "_naglowek_site_id": "Musi sie zgadzac z SiteID w pierwszej kolumnie ebay-header.csv. Bramka porownuje jedno z drugim, zeby nie dalo sie wyslac wloskiego pliku na niemieckie konto.",
   "vat_percent": "19",
-  "doplata_wysylka_eur": 20,
   "sufiks_sku": "",
   "_sufiks_sku": "Doklejany do SKU jako OSTATNI krok budowania feedu, juz po bliznakach GW24 - lista gwarancyjna trzyma gole SKU i musi trafiac. Niemcy zostaja bez sufiksu, bo tak wygladaja wszystkie dzisiejsze aukcje i zmiana zerwalaby powiazanie z nimi.",
   "shipping_profile_name": "9B27: Free / 2-10d / 14d return / D2C3DAE5 / 20-21 EUR/2-10d ... - (ID: 263690853019)",
@@ -96,5 +95,9 @@
   "_ean_dla_stanow": "ConditionID, przy ktorych eBay zada identyfikatora produktu: nowy i cala rodzina odnowionych. Uzywany (3000) go nie potrzebuje i celowo zostaje pusty - 948 dzialajacych ofert niemieckich nie ruszamy bez powodu. Wartosc bierze sie z slowa.nie_dotyczy, wiec jest w jezyku rynku.",
   "opis_generacji_cpu": "{n}. Generation",
   "opis_cache_cpu": "{n} MB Cache",
-  "_opis_cpu": "Slowa w nawiasie przy procesorze - ida do naglowka opisu i do tabelki. To NIE to samo co 'format_generacji_cpu', ktory sluzy do dopasowania w slowniku eBaya."
+  "_opis_cpu": "Slowa w nawiasie przy procesorze - ida do naglowka opisu i do tabelki. To NIE to samo co 'format_generacji_cpu', ktory sluzy do dopasowania w slowniku eBaya.",
+  "cena": {
+    "dopisek_eur": 0
+  },
+  "_cena": "Nadpisuje wybrane pozycje bloku 'cena' z settings.json - reszta sie dziedziczy. Tu tylko dopisek, zeby ceny rynkow sie od siebie roznily. Nowy kraj moze tu nadpisac tez wysylke albo ADS."
 }
