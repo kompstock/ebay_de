@@ -57,9 +57,12 @@
     "wysylka_eur": 9,
     "prowizja": 0,
     "ads": 0.05,
-    "dopisek_eur": 0
+    "dopisek_eur": 0,
+    "kupon": 0,
+    "kupon_max_eur": 50
   },
   "_uwaga_cena": "Cena liczy sie OD KONCA: zaczynamy od wartosci towaru i pytamy, jaka cena odda ja po VAT, oplatach i wysylce. vat_zrodla to polski VAT w cenie z feedu (1499 zl brutto / 1,23). vat_wzoru to ZALOZENIE cenowe, nie stawka na fakturze - oferta ma jedna cene, a VAT zalezy od kraju kupujacego (19-27%), wiec 23% pokrywa okolo 90% zamowien. prowizja 0, bo pakiet powitalny; wpisz 0.05, gdy sie skonczy. ads to promowanie ofert; warianty GW24 maja wlasne 0.10 w profilu. dopisek_eur nadpisuje kraj (Wlochy +1), zeby ceny sie rozniy miedzy rynkami.",
+  "_uwaga_kupon": "kupon to rabat FINANSOWANY PRZEZ NAS, ktory kupujacy odlicza przy kasie - 0.10 znaczy 10%. UWAGA: nie podnosi ceny o 10%, a o 11,11%, bo rabat schodzi z ceny JUZ podniesionej; mnoznik to 1/(1-kupon). Jesli kupon finansuje eBay (akcja platformy, dostajemy pelna cene), zostaw 0 - inaczej po prostu podnosisz ceny. kupon_max_eur to gorny limit rabatu w euro, 50 wg warunkow akcji 12-30.11 ('10%, maks. 50 EUR'); 0 = bez limitu. Dziala dopiero przy kuponie wiekszym od zera, wiec samo 50 nic nie zmienia. Powyzej ceny limit/kupon (przy 10% i 50 EUR to 500 EUR) rabat przestaje rosnac, wiec cena idzie w gore tylko o sam limit, nie o 11,11%. Oba pola nadpisuje kraj (config/kraje/<kod>.json, blok cena), wiec promocje mozna robic na jednym rynku. PO AKCJI WROC NA 0 i puscic aktualizacje, inaczej ceny zostana podniesione na stale.",
   "prog_zmiany_ceny_eur": 3,
   "kategorie": {
     "apple": "111422",
