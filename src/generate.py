@@ -1406,6 +1406,19 @@ def cena_eur(offer, cfg, profil: dict | None = None) -> int:
     Mnoznik wariantu dziala na WARTOSCI NETTO, nie na cenie koncowej: GW24 ma
     zarobic 1,2 raza tyle co oryginal, a o ile przez to podrozeje, wynika juz
     z jego wlasnej stawki ADS.
+
+    'kupon' to rabat, ktory kupujacy odliczy sobie przy kasie i ktory placimy MY.
+    Podniesienie ceny o te same 10% NIE wystarcza: rabat schodzi z ceny
+    podniesionej, wiec 10% rabatu zjada wiecej niz 10% podwyzki. Prawidlowy
+    mnoznik to 1/(1 - kupon), czyli dla 10% rabatu +11,11%. Dzieli sie przez to
+    'zostaje_z_euro', bo z kazdego wystawionego euro na konto wplywa tylko
+    (1 - kupon) euro - dokladnie tak samo jak przy oplacie procentowej.
+
+    'kupon_max_eur' to gorny limit rabatu ("10%, maksymalnie 50 EUR"). Powyzej
+    progu rabat przestaje rosnac, wiec cene wystarczy podniesc o sam limit:
+    (P - limit) * zostaje = cel + wysylka, czyli P = cena_bez_kuponu + limit.
+    Obie galezie sa tym samym minimum, bo przecinaja sie wlasnie tam, gdzie
+    procent rabatu dobija do limitu.
     """
     c = cfg["settings"]["cena"]
     pln = float((offer.get("price") or "0").replace(",", "."))
@@ -1416,8 +1429,19 @@ def cena_eur(offer, cfg, profil: dict | None = None) -> int:
     if zostaje_z_euro <= 0:
         raise ValueError(f"oplaty {oplaty:.0%} zjadaja cala cene przy VAT "
                          f"{c['vat_wzoru']}% - cena nie istnieje")
-    return (math.ceil((cel + float(c["wysylka_eur"])) / zostaje_z_euro)
-            + int(c.get("dopisek_eur", 0)))
+    bez_kuponu = (cel + float(c["wysylka_eur"])) / zostaje_z_euro
+    kupon = float(c.get("kupon", 0) or 0)
+    if not 0 <= kupon < 1:
+        raise ValueError(f"kupon {kupon} poza zakresem - musi byc >= 0 i < 1")
+    cena = bez_kuponu
+    if kupon:
+        cena = bez_kuponu / (1 - kupon)
+        limit = float(c.get("kupon_max_eur", 0) or 0)
+        if limit:
+            cena = min(cena, bez_kuponu + limit)
+    # Dopisek kraju zostaje POZA kuponem swiadomie: to kosmetyczna roznica miedzy
+    # rynkami, a nie koszt do odzyskania, wiec nie ma go po co podnosic.
+    return math.ceil(cena) + int(c.get("dopisek_eur", 0))
 def wczytaj_szablony(settings: dict, katalog: Path | None = None) -> dict[str, str]:
     """Jeden szablon opisu na typ towaru, z doklejonym wspolnym CSS.
 
@@ -1646,9 +1670,13 @@ def opis_modelu_ceny(c: dict) -> str:
     go odtwarzac z configu."""
     oplaty = float(c["prowizja"]) + float(c["ads"])
     dop = int(c.get("dopisek_eur", 0))
+    kupon = float(c.get("kupon", 0) or 0)
+    limit = float(c.get("kupon_max_eur", 0) or 0)
     return (f"cel netto = cena z feedu / {1 + float(c['vat_zrodla'])/100:.2f} / kurs; "
             f"cena = (cel + {c['wysylka_eur']} € wysyłki) / "
             f"(1/{1 + float(c['vat_wzoru'])/100:.2f} − {oplaty:.0%} opłat)"
+            + (f" / {1 - kupon:.2f} (kupon {kupon:.0%}"
+               + (f", maks. {limit:g} €)" if limit else ")") if kupon else "")
             + (f" + {dop} €" if dop else ""))
 def regula_stanow(settings: dict) -> dict:
     """Regula drugiego pliku aktualizacji. Brak wpisu w configu = wartosci domyslne,
