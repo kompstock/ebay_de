@@ -1300,6 +1300,194 @@ class ModelCeny(unittest.TestCase):
             generate.cena_eur(self.oferta(1499), {"settings": chore, "rate": 4.3775})
 
 
+class KuponPromocyjny(unittest.TestCase):
+    """Rabat, ktory kupujacy odlicza przy kasie i ktory placimy MY.
+
+    Pulapka, pod ktora ten test jest podstawiony: podniesienie ceny o te same
+    10% NIE pokrywa 10% rabatu, bo rabat schodzi z ceny JUZ podniesionej.
+    Prawidlowa podwyzka to 1/(1-kupon), czyli 11,11% przy rabacie 10%.
+    """
+
+    def ustawienia(self, **kupon):
+        sys.path.insert(0, str(ROOT / "src"))
+        import generate
+        s = json.loads((ROOT / "config" / "settings.json").read_text(encoding="utf-8"))
+        return generate, dict(s, cena={**s["cena"], **kupon})
+
+    def oferta(self, pln):
+        import xml.etree.ElementTree as ET
+        return ET.fromstring(f'<o price="{pln}" stock="1"><cat>Laptopy</cat></o>')
+
+    def zostaje(self, cena_wystawiona, c, kupon, kurs=4.3775, ads=None):
+        """Ile wplywa na konto netto, gdy kupujacy uzyl kuponu.
+
+        Limit czytamy z przekazanego bloku 'cena', nie z repo - inaczej wpisanie
+        limitu do settings.json podmieniloby testom scenariusz pod nogami
+        (raz sie to stalo: test GW24 liczyl rabat 10%, a akcja obcinala go do
+        limitu, wiec oblal sie mimo poprawnego kodu).
+        """
+        limit = float(c.get("kupon_max_eur", 0) or 0)
+        rabat = cena_wystawiona * kupon
+        if limit:
+            rabat = min(rabat, limit)
+        placi = cena_wystawiona - rabat
+        return (placi / (1 + c["vat_wzoru"] / 100)
+                - placi * (c["prowizja"] + (c["ads"] if ads is None else ads))
+                - c["wysylka_eur"]) * kurs
+
+    def test_zero_nie_zmienia_niczego(self):
+        """Pole wlasnie tak stoi w repo. Gdyby samo jego istnienie ruszalo ceny,
+        kazdy przebieg przecenialby caly katalog bez powodu."""
+        generate, s = self.ustawienia()
+        self.assertEqual(s["cena"]["kupon"], 0, "w repo kupon ma byc wylaczony")
+        bez = dict(s, cena={k: v for k, v in s["cena"].items() if k != "kupon"})
+        for pln in (59, 799, 1499, 5399):
+            self.assertEqual(
+                generate.cena_eur(self.oferta(pln), {"settings": s, "rate": 4.3775}),
+                generate.cena_eur(self.oferta(pln), {"settings": bez, "rate": 4.3775}),
+                f"{pln} zl")
+
+    def test_po_rabacie_wraca_wartosc_towaru(self):
+        """Sedno. Kupujacy uzywa kuponu, a na koncie ma zostac dokladnie tyle,
+        ile towar jest wart netto w zlotowkach.
+
+        'kupon_max_eur=0' podane WPROST, bo ten test bada czysta sciezke
+        procentowa - limit ma swoje wlasne testy.
+        """
+        generate, s = self.ustawienia(kupon=0.10, kupon_max_eur=0)
+        c, kurs = s["cena"], 4.3775
+        for pln in (59, 299, 799, 1149, 1499, 2999, 5399):
+            cena = generate.cena_eur(self.oferta(pln), {"settings": s, "rate": kurs})
+            netto_pln = pln / (1 + c["vat_zrodla"] / 100)
+            wraca = self.zostaje(cena, c, 0.10, kurs)
+            self.assertGreaterEqual(wraca, netto_pln - 0.01,
+                                    f"{pln} zl: po kuponie wraca {wraca:.2f} zl, czyli MNIEJ")
+            self.assertLess(wraca - netto_pln, kurs + 1,
+                            f"{pln} zl: nadwyzka {wraca-netto_pln:.2f} zl za duza")
+
+    def test_podwyzka_o_sam_procent_kuponu_jest_za_mala(self):
+        """Mutacja, ktora musi oblac: 'cena * (1 + kupon)' zamiast
+        'cena / (1 - kupon)'. Rozni sie o niecale 1,3% i wlasnie dlatego
+        latwo ja przegapic okiem."""
+        generate, s = self.ustawienia(kupon=0.10, kupon_max_eur=0)
+        c, kurs = s["cena"], 4.3775
+        baza = generate.cena_eur(self.oferta(1499), {"settings": dict(s, cena={**c, "kupon": 0}),
+                                                     "rate": kurs})
+        naiwna = math.ceil(baza * 1.10)
+        poprawna = generate.cena_eur(self.oferta(1499), {"settings": s, "rate": kurs})
+        self.assertGreater(poprawna, naiwna, "poprawna podwyzka musi byc wyzsza niz +10%")
+        netto_pln = 1499 / (1 + c["vat_zrodla"] / 100)
+        self.assertLess(self.zostaje(naiwna, c, 0.10, kurs), netto_pln,
+                        "test nie dowodzi niczego: +10% wystarczylo")
+        self.assertGreaterEqual(self.zostaje(poprawna, c, 0.10, kurs), netto_pln - 0.01)
+
+    def test_limit_rabatu_podnosi_cene_tylko_o_limit(self):
+        """'10%, maksymalnie 50 EUR'. Drogi sprzet dostaje rabat kwotowy, wiec
+        nie ma po co podnosic go procentowo - wystarczy doliczyc limit."""
+        generate, s = self.ustawienia(kupon=0.10, kupon_max_eur=50)
+        c, kurs = s["cena"], 4.3775
+        bez = dict(s, cena={**c, "kupon": 0})
+        for pln in (999, 1499, 4999, 9999):
+            baza = generate.cena_eur(self.oferta(pln), {"settings": bez, "rate": kurs})
+            cena = generate.cena_eur(self.oferta(pln), {"settings": s, "rate": kurs})
+            self.assertLessEqual(cena - baza, 51, f"{pln} zl: podwyzka {cena-baza} € ponad limit")
+            netto_pln = pln / (1 + c["vat_zrodla"] / 100)
+            self.assertGreaterEqual(self.zostaje(cena, c, 0.10, kurs), netto_pln - 0.01,
+                                    f"{pln} zl: niedobor przy limicie rabatu")
+
+    def test_limit_nie_rusza_taniego_sprzetu(self):
+        """Ponizej progu limit nie dziala, wiec cena ma byc identyczna jak bez
+        limitu. Inaczej 'maks. 50 €' podnosiloby kazda cene o 50 €.
+
+        Oba warianty podaja limit WPROST (50 kontra 0). Wczesniej strona 'bez
+        limitu' brala go z repo i w chwili, gdy limit tam wpisano, test
+        porownywal dwa identyczne ustawienia - czyli nie sprawdzal nic.
+        """
+        generate, s = self.ustawienia(kupon=0.10, kupon_max_eur=50)
+        _, bez_limitu = self.ustawienia(kupon=0.10, kupon_max_eur=0)
+        prog = 50 / 0.10
+        for pln in (59, 299, 799):
+            cena = generate.cena_eur(self.oferta(pln), {"settings": s, "rate": 4.3775})
+            self.assertLess(cena, prog, f"{pln} zl: cena {cena} € nie jest ponizej progu limitu")
+            self.assertEqual(
+                cena,
+                generate.cena_eur(self.oferta(pln), {"settings": bez_limitu, "rate": 4.3775}),
+                f"{pln} zl")
+
+    def test_kupon_dziala_na_wariancie_gw24(self):
+        """GW24 ma wlasne ADS 10%. Kupon musi liczyc sie PO oplatach wariantu,
+        inaczej blizniak traci wiecej niz oryginal.
+
+        Liczone z limitem i bez. GW24 jest drozszy od oryginalu, wiec wpada
+        w limit najszybciej - i wlasnie tu kiedys oblal sie test, ktory mial
+        rabat 10% zaszyty na sztywno.
+        """
+        for limit in (0, 50):
+            generate, s = self.ustawienia(kupon=0.10, kupon_max_eur=limit)
+            c, kurs = s["cena"], 4.3775
+            profil = {"mnoznik_ceny": 1.2, "ads": 0.10}
+            cena = generate.cena_eur(self.oferta(1499), {"settings": s, "rate": kurs}, profil)
+            wraca = self.zostaje(cena, c, 0.10, kurs, ads=profil["ads"])
+            cel = 1499 / (1 + c["vat_zrodla"] / 100) * 1.2
+            self.assertGreaterEqual(wraca, cel - 0.01,
+                                    f"GW24, limit {limit}: wraca {wraca:.2f}, cel {cel:.2f}")
+
+    def test_limit_z_repo_trzyma_sie_kupy(self):
+        """Pilnuje LICZBY, ktora stoi w settings.json - nie wymyslonego przykladu.
+
+        Limit bierzemy z repo i wlaczamy do niego kupon 10%: na calej rozpietosci
+        cen musi dalej wracac wartosc netto towaru. Gdyby ktos wpisal limit
+        bezsensowny, ten test ma oblac zanim pojdzie to na eBaya.
+        """
+        generate, czysty = self.ustawienia()
+        limit = float(czysty["cena"].get("kupon_max_eur", 0) or 0)
+        generate, s = self.ustawienia(kupon=0.10)
+        c, kurs = s["cena"], 4.3775
+        self.assertEqual(float(c["kupon_max_eur"]), limit, "limit ma pochodzic z repo")
+        for pln in (59, 299, 799, 1499, 2999, 5399, 9999):
+            cena = generate.cena_eur(self.oferta(pln), {"settings": s, "rate": kurs})
+            netto_pln = pln / (1 + c["vat_zrodla"] / 100)
+            wraca = self.zostaje(cena, c, 0.10, kurs)
+            self.assertGreaterEqual(wraca, netto_pln - 0.01,
+                                    f"{pln} zl przy limicie {limit} €: wraca {wraca:.2f} zl, "
+                                    f"czyli MNIEJ niz {netto_pln:.2f} zl")
+            if limit:
+                bez = generate.cena_eur(
+                    self.oferta(pln), {"settings": dict(s, cena={**c, "kupon": 0})}
+                    | {"rate": kurs})
+                self.assertLessEqual(cena - bez, limit + 1,
+                                     f"{pln} zl: podwyzka {cena-bez} € ponad limit {limit} €")
+
+    def test_bledny_kupon_zatrzymuje_przebieg(self):
+        """Kupon 1.0 to cena nieskonczona, ujemny to obnizka w przebraniu.
+        Lepiej wyjatek niz absurdalna liczba w pliku na eBaya."""
+        generate, _ = self.ustawienia()
+        for zly in (1, 1.5, -0.1):
+            _, s = self.ustawienia(kupon=zly)
+            with self.assertRaises(ValueError, msg=f"kupon {zly} przeszedl"):
+                generate.cena_eur(self.oferta(1499), {"settings": s, "rate": 4.3775})
+
+    def test_kraj_moze_miec_wlasny_kupon(self):
+        """Promocja bywa na jednym rynku. Blok 'cena' kraju nadpisuje baze,
+        wiec DE moze miec kupon, a IT nie - bez zmian w kodzie."""
+        generate, s = self.ustawienia()
+        baza = generate.cena_eur(self.oferta(1499), {"settings": s, "rate": 4.3775})
+        z_kuponem = dict(s, cena={**s["cena"], "kupon": 0.10})
+        self.assertGreater(
+            generate.cena_eur(self.oferta(1499), {"settings": z_kuponem, "rate": 4.3775}),
+            baza)
+
+    def test_opis_modelu_mowi_o_kuponie(self):
+        """Opis idzie na strone i do raportu. Podniesione ceny bez slowa
+        wyjasnienia to pulapka na samego siebie za miesiac."""
+        generate, s = self.ustawienia(kupon=0.10, kupon_max_eur=50)
+        opis = generate.opis_modelu_ceny(s["cena"])
+        self.assertIn("kupon 10%", opis)
+        self.assertIn("50 €", opis)
+        generate, czysty = self.ustawienia()
+        self.assertNotIn("kupon", generate.opis_modelu_ceny(czysty["cena"]))
+
+
 class Wygasanie(unittest.TestCase):
     """eBay zaklada oferty na 30 dni, mimo ze plik prosi o GTC.
 
