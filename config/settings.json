@@ -58,7 +58,7 @@
     "prowizja": 0,
     "ads": 0.05,
     "dopisek_eur": 0,
-    "kupon": 0,
+    "kupon": 0.05,
     "kupon_max_eur": 50
   },
   "_uwaga_cena": "Cena liczy sie OD KONCA: zaczynamy od wartosci towaru i pytamy, jaka cena odda ja po VAT, oplatach i wysylce. vat_zrodla to polski VAT w cenie z feedu (1499 zl brutto / 1,23). vat_wzoru to ZALOZENIE cenowe, nie stawka na fakturze - oferta ma jedna cene, a VAT zalezy od kraju kupujacego (19-27%), wiec 23% pokrywa okolo 90% zamowien. prowizja 0, bo pakiet powitalny; wpisz 0.05, gdy sie skonczy. ads to promowanie ofert; warianty GW24 maja wlasne 0.10 w profilu. dopisek_eur nadpisuje kraj (Wlochy +1), zeby ceny sie rozniy miedzy rynkami.",
