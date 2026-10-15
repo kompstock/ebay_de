@@ -646,7 +646,17 @@ class WariantGwarancyjny(unittest.TestCase):
         c = json.loads((ROOT / "config" / "settings.json").read_text(encoding="utf-8"))["cena"]
         settings = json.loads((ROOT / "config" / "settings.json").read_text(encoding="utf-8"))
         def zostaje(cena, ads):
-            return cena/(1 + c["vat_wzoru"]/100) - cena*(c["prowizja"] + ads) - c["wysylka_eur"]
+            # Kupon musi byc wliczony, bo ceny powyzej pochodza z prawdziwego
+            # przebiegu na konfiguracji z repo. Bez tego test oblatywal w trakcie
+            # akcji: limit rabatu obcina blizniaka inaczej niz oryginal, wiec
+            # stosunek zyskow przestawal wychodzic 1,20.
+            kupon = float(c.get("kupon", 0) or 0)
+            limit = float(c.get("kupon_max_eur", 0) or 0)
+            rabat = cena * kupon
+            if limit:
+                rabat = min(rabat, limit)
+            placi = cena - rabat
+            return placi/(1 + c["vat_wzoru"]/100) - placi*(c["prowizja"] + ads) - c["wysylka_eur"]
         ads_gw = settings["profile_produktu"]["Notebook GW24"]["ads"]
         for oryginal in (self.ORYGINAL, "3959"):
             o = float(self.wg_sku[oryginal]["*StartPrice"])
@@ -1213,7 +1223,11 @@ class ModelCeny(unittest.TestCase):
         sys.path.insert(0, str(ROOT / "src"))
         import generate
         s = json.loads((ROOT / "config" / "settings.json").read_text(encoding="utf-8"))
-        return generate, s
+        # Kupon promocyjny ZERUJEMY: ta klasa bada model bazowy, a nie akcje.
+        # W czasie promocji w repo stoi np. 0.05 i bez tego trzy ponizsze testy
+        # oblatuja - czyli workflow pada na kroku "Uruchom testy" i przebieg nie
+        # generuje nic. Zdarzylo sie 15.10.2026. Kupon ma wlasna klase testow.
+        return generate, dict(s, cena={**s["cena"], "kupon": 0})
 
     def oferta(self, pln):
         import xml.etree.ElementTree as ET
@@ -1336,10 +1350,13 @@ class KuponPromocyjny(unittest.TestCase):
                 - c["wysylka_eur"]) * kurs
 
     def test_zero_nie_zmienia_niczego(self):
-        """Pole wlasnie tak stoi w repo. Gdyby samo jego istnienie ruszalo ceny,
-        kazdy przebieg przecenialby caly katalog bez powodu."""
-        generate, s = self.ustawienia()
-        self.assertEqual(s["cena"]["kupon"], 0, "w repo kupon ma byc wylaczony")
+        """Kupon rowny zero ma dawac ceny identyczne jak brak tego pola.
+
+        NIE sprawdzamy, jaka liczba stoi w repo. Taki warunek tu kiedys byl
+        i w dniu wlaczenia akcji zablokowal caly workflow - test przechodzil
+        tylko wtedy, gdy promocji nie bylo.
+        """
+        generate, s = self.ustawienia(kupon=0)
         bez = dict(s, cena={k: v for k, v in s["cena"].items() if k != "kupon"})
         for pln in (59, 799, 1499, 5399):
             self.assertEqual(
@@ -1432,6 +1449,27 @@ class KuponPromocyjny(unittest.TestCase):
             self.assertGreaterEqual(wraca, cel - 0.01,
                                     f"GW24, limit {limit}: wraca {wraca:.2f}, cel {cel:.2f}")
 
+    def test_zywa_konfiguracja_z_repo_trzyma_sie_kupy(self):
+        """Bierze kupon i limit DOKLADNIE takie, jakie stoja w repo.
+
+        Jedyny test liczacy na wartosciach uzywanych w prawdziwym przebiegu.
+        Musi przechodzic i przy kuponie wylaczonym, i w trakcie akcji - a oblac
+        wtedy, gdy ktos wpisze wartosc, przy ktorej nie wraca wartosc netto
+        towaru. Reszta klasy podaje kupon wprost, wiec bez tego testu zadna
+        liczba z repo nie byla sprawdzana.
+        """
+        generate, s = self.ustawienia()
+        c, kurs = s["cena"], 4.3775
+        kupon = float(c.get("kupon", 0) or 0)
+        for pln in (59, 299, 799, 1499, 2999, 5399, 9999):
+            cena = generate.cena_eur(self.oferta(pln), {"settings": s, "rate": kurs})
+            netto_pln = pln / (1 + c["vat_zrodla"] / 100)
+            wraca = self.zostaje(cena, c, kupon, kurs)
+            self.assertGreaterEqual(
+                wraca, netto_pln - 0.01,
+                f"{pln} zl przy kuponie {kupon:.0%} z repo: wraca {wraca:.2f} zl, "
+                f"czyli MNIEJ niz {netto_pln:.2f} zl")
+
     def test_limit_z_repo_trzyma_sie_kupy(self):
         """Pilnuje LICZBY, ktora stoi w settings.json - nie wymyslonego przykladu.
 
@@ -1469,8 +1507,12 @@ class KuponPromocyjny(unittest.TestCase):
 
     def test_kraj_moze_miec_wlasny_kupon(self):
         """Promocja bywa na jednym rynku. Blok 'cena' kraju nadpisuje baze,
-        wiec DE moze miec kupon, a IT nie - bez zmian w kodzie."""
-        generate, s = self.ustawienia()
+        wiec DE moze miec kupon, a IT nie - bez zmian w kodzie.
+
+        Baza podaje kupon 0 WPROST: gdy repo mialo juz 0.10, test porownywal
+        dwa identyczne ustawienia i oblatywal.
+        """
+        generate, s = self.ustawienia(kupon=0)
         baza = generate.cena_eur(self.oferta(1499), {"settings": s, "rate": 4.3775})
         z_kuponem = dict(s, cena={**s["cena"], "kupon": 0.10})
         self.assertGreater(
@@ -1484,7 +1526,8 @@ class KuponPromocyjny(unittest.TestCase):
         opis = generate.opis_modelu_ceny(s["cena"])
         self.assertIn("kupon 10%", opis)
         self.assertIn("50 €", opis)
-        generate, czysty = self.ustawienia()
+        # Kupon wylaczony podajemy WPROST - w czasie akcji repo ma go wlaczonego.
+        generate, czysty = self.ustawienia(kupon=0)
         self.assertNotIn("kupon", generate.opis_modelu_ceny(czysty["cena"]))
 
 
