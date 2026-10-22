@@ -1,4 +1,35 @@
-SKU;ilosc
+# SKU;ilosc;cena
+#
+# ILOSC - ile sztuk pokazuje aukcja
+#   3888;        puste = nie ruszaj tej aukcji (chroni przed zdjeciem)
+#   3888;10      pokazuj 10 sztuk
+#   3888;0       pokazuj 0 - aukcja zostaje, nikt nie kupi
+#   Nigdy nie pokaze wiecej, niz jest w magazynie.
+#   Ilosc trafia tylko do ebay-revise-stany.csv.
+#
+# CENA - wpisujesz ZLOTOWKI, nie euro
+#   3888;;1699   licz tak, jakby w sklepie bylo 1699 zl
+#   3888;;x1.15  o 15% drozej niz w sklepie
+#   Generator sam przeliczy na euro - kurs, VAT, prowizja, kupon, GW24.
+#   DZIALA TYLKO W GORE. Mniej niz w sklepie = wpis pominiety.
+#   Chcesz taniej - zmien cene w sklepie albo daj kupon.
+#
+# CZTERY NUMERY JEDNEGO PRODUKTU (GW24 przed koncowka kraju)
+#   3888          Niemcy            3888ITT       Wlochy
+#   3888GW24      Niemcy + gw. 24   3888GW24ITT   Wlochy + gw. 24
+#
+# CENA: krotszy numer obejmuje dluzsze, dopoki nie ma blizszego wpisu
+#   3888        -> wszystko zmienia 
+#   3888GW24    -> GW24 i GW24ITT (nie zmieni bazowego SKU, tylko w górę)
+#   3888GW24ITT -> tylko ta jedna (najdłuższe SKU)
+#   Wpis na wariant NIGDY nie wraca na bazowa.
+#
+# ILOSC: nie dziedziczy. Osobna linijka na kazdy numer.
+#
+# Linijki od # i puste linie sa pomijane.
+# Zly numer niczego nie psuje - widac go w raporcie
+# jako "nie_ma_ich_wsrod_aktywnych".
+#
 18528020967;0
 3888_20260526083738;0
 18528012798;0
