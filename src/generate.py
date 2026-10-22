@@ -1613,52 +1613,147 @@ KOLUMNY_REVISE = ["Action", "Category name", "Item number", "Title", "Listing si
                   "Start price", "Buy It Now price", "Available quantity", "Relationship",
                   "Relationship details", "Custom label (SKU)"]
 SKU_RECZNE_DOMYSLNIE = "config/sku-reczne.csv"
-def wczytaj_sku_reczne(sciezka: Path) -> tuple[dict, str]:
-    """Aukcje prowadzone poza generatorem: {SKU: ilosc albo None}.
+def wczytaj_sku_reczne(sciezka: Path) -> tuple[dict, dict, str]:
+    """Lista recznych SKU: zwraca (ilosci, ceny, blad).
 
     Po co to istnieje: tryb 'aktualizacja' zeruje kazde aktywne SKU, ktorego
     nie ma w feedzie. Oferta wystawiona recznie (np. tablet, ktorego kategorii
     generator jeszcze nie obsluguje) nie ma jak sie w feedzie znalezc, wiec
     pierwszy przebieg po jej wystawieniu zdjalby ja z eBaya.
 
-    Pusta ilosc = "nie ruszaj tej aukcji wcale", czyli samo zabezpieczenie
-    przed zerowaniem. Liczba = pilnuj, zeby aukcja pokazywala wlasnie tyle.
+    Kolumna 'ilosc': pusta = "nie ruszaj tej aukcji wcale", czyli samo
+    zabezpieczenie przed zerowaniem. Liczba = pilnuj, zeby aukcja pokazywala
+    wlasnie tyle.
+
+    Kolumna 'cena': ZLOTOWKI BRUTTO, czyli to samo, co stoi w feedzie - nie
+    cena w euro. Podmieniamy WEJSCIE do wzoru, nie jego wynik, wiec kurs, VAT,
+    oplaty, kupon i mnoznik GW24 licza sie dalej same. '1699' znaczy "licz tak,
+    jakby w feedzie bylo 1699 zl", 'x1.15' znaczy "o 15% wiecej niz w feedzie".
     Brak pliku = funkcja uspiona, tak samo jak przy liscie GW24.
+
+    Plik czytamy ODPORNIE, bo wpisuje sie go recznie i przeplata nazwami
+    modeli: separator bierzemy z linii naglowka zamiast zgadywac go z calego
+    pliku, a puste wiersze i wiersze zaczynajace sie od '#' pomijamy. Wczesniej
+    jeden wiersz bez srednika albo jedna pusta linia sprawialy, ze csv.Sniffer
+    wybieral przecinek, caly naglowek stawal sie jedna kolumna i przebieg padal
+    z komunikatem "brak kolumny 'SKU'" - mylacym, bo ta kolumna tam byla.
     """
     if not sciezka.is_file():
-        return {}, ""
-    with sciezka.open(encoding="utf-8-sig", newline="") as handle:
-        proba = handle.read(4096)
-        handle.seek(0)
-        try:                                  # Excel zapisuje raz ',' raz ';'
-            dialekt = csv.Sniffer().sniff(proba, delimiters=",;\t")
-        except csv.Error:
-            dialekt = csv.excel
-        wiersze = list(csv.DictReader(handle, dialect=dialekt))
-    if not wiersze:
-        return {}, ""
-    naglowki = {(k or "").strip().lower(): k for k in wiersze[0]}
-    kol_sku = naglowki.get("sku")
-    if kol_sku is None:
-        return {}, (f"{sciezka.name}: brak kolumny 'SKU' "
-                    f"(sa: {', '.join(str(k) for k in wiersze[0])})")
-    kol_ilosc = naglowki.get("ilosc") or naglowki.get("ilość")
-    out: dict = {}
-    for wiersz in wiersze:
-        sku = (wiersz.get(kol_sku) or "").strip()
+        return {}, {}, ""
+    tekst = sciezka.read_text(encoding="utf-8-sig").replace("\r\n", "\n").replace("\r", "\n")
+    linie = [l for l in tekst.split("\n") if l.strip()]
+    if not linie:
+        return {}, {}, ""
+    naglowek_linia = linie[0]
+    sep = max(";,\t", key=naglowek_linia.count)
+    if naglowek_linia.count(sep) == 0:
+        sep = ";"
+    kolumny = [k.strip().lower() for k in next(csv.reader([naglowek_linia], delimiter=sep))]
+    if "sku" not in kolumny:
+        return {}, {}, (f"{sciezka.name}: brak kolumny 'SKU' "
+                        f"(naglowek: {naglowek_linia.strip()})")
+    i_sku = kolumny.index("sku")
+    i_ilosc = next((kolumny.index(n) for n in ("ilosc", "ilość") if n in kolumny), None)
+    i_cena = next((kolumny.index(n) for n in ("cena", "cena pln", "cena_pln") if n in kolumny), None)
+    ilosci: dict = {}
+    ceny: dict = {}
+    for wiersz in csv.reader(linie[1:], delimiter=sep):
+        def pole(i):
+            return (wiersz[i].strip() if i is not None and i < len(wiersz) else "")
+        sku = pole(i_sku)
+        # Pusty SKU albo '#' na poczatku to wiersz-naglowek grupy ("# ThinkPad T14"),
+        # a nie produkt. Pomijamy, zeby dalo sie trzymac liste poukladana.
+        if not sku or sku.startswith("#"):
+            continue
+        surowa = pole(i_ilosc)
+        if not surowa:
+            ilosci[sku] = None
+        else:
+            try:
+                ilosci[sku] = max(0, int(float(surowa.replace(",", "."))))
+            except ValueError:
+                # Twarda blokada, nie ciche pominiecie: literowka w ilosci znaczylaby
+                # "nie ruszaj", a wtedy aukcja po cichu zostawalaby ze starym stanem.
+                return {}, {}, f"{sciezka.name}: SKU {sku} ma nieliczbowa ilosc '{surowa}'"
+        surowa_cena = pole(i_cena)
+        if surowa_cena:
+            tryb_ceny = "mnoznik" if surowa_cena[0] in "xX*" else "pln"
+            liczba = surowa_cena.lstrip("xX*").replace(",", ".").replace(" ", "")
+            try:
+                wartosc = float(liczba)
+            except ValueError:
+                return {}, {}, f"{sciezka.name}: SKU {sku} ma nieliczbowa cene '{surowa_cena}'"
+            if wartosc <= 0:
+                return {}, {}, f"{sciezka.name}: SKU {sku} ma cene '{surowa_cena}' - musi byc dodatnia"
+            ceny[sku] = (tryb_ceny, wartosc)
+    return ilosci, ceny, ""
+def warianty_sku(sku: str, sufiks_kraju: str, sufiks_gw: str) -> list[str]:
+    """Po czym szukac wpisu w liscie recznej, od najbardziej szczegolowego.
+
+    Jeden produkt ma na eBayu do czterech SKU: 3888, 3888ITT, 3888GW24
+    i 3888GW24ITT. Cena w zlotowkach jest dla nich wspolna, wiec zamiast
+    czterech identycznych linijek wystarczy jedna na numer magazynowy.
+    Dokladne trafienie zawsze wygrywa, wiec '3888ITT' nadal moze miec
+    wlasna cene. Kolejnosc obcinania jak w config: najpierw rynek, potem GW24.
+    """
+    kandydaci = [sku]
+    reszta = sku
+    if sufiks_kraju and reszta.endswith(sufiks_kraju):
+        reszta = reszta[:-len(sufiks_kraju)]
+        kandydaci.append(reszta)
+    if sufiks_gw and reszta.endswith(sufiks_gw):
+        reszta = reszta[:-len(sufiks_gw)]
+        kandydaci.append(reszta)
+    return kandydaci
+def nadpisz_ceny_reczne(feed_bytes: bytes, ceny: dict, sufiks_kraju: str,
+                        sufiks_gw: str) -> tuple[bytes, dict]:
+    """Podmienia cene w feedzie na reczna - ale TYLKO gdy jest wyzsza.
+
+    Robimy to na feedzie, tak samo jak sufiks rynku i bliznaki GW24, wiec
+    cena_eur() nie musi o niczym wiedziec, a bliznak GW24 (powstaly wczesniej,
+    z ta sama cena) dostaje podniesiona wartosc razem z oryginalem.
+
+    "Tylko w gore" to decyzja Marka: gdy dostawca podniesie cene w Shoperze
+    powyzej recznej, wygrywa feed - inaczej sprzedawaloby sie ponizej biezacej
+    wartosci towaru. Wpisy nizsze od feedu nie znikaja po cichu, tylko wracaja
+    w raporcie jako 'zignorowane'.
+    """
+    if not ceny:
+        return feed_bytes, {"zastosowane": [], "zignorowane": [], "poza_feedem": sorted(ceny)}
+    root = ET.fromstring(feed_bytes)
+    zastosowane, zignorowane, trafione = [], [], set()
+    for oferta in root.findall("./o"):
+        sku = ""
+        for element in oferta.findall("./attrs/a"):
+            if element.get("name") == "SKU":
+                sku = (element.text or "").strip()
+                break
         if not sku:
             continue
-        surowa = (wiersz.get(kol_ilosc) or "").strip() if kol_ilosc else ""
-        if not surowa:
-            out[sku] = None
+        wpis = klucz = None
+        for kandydat in warianty_sku(sku, sufiks_kraju, sufiks_gw):
+            if kandydat in ceny:
+                wpis, klucz = ceny[kandydat], kandydat
+                break
+        if wpis is None:
             continue
+        trafione.add(klucz)
         try:
-            out[sku] = max(0, int(float(surowa.replace(",", "."))))
+            z_feedu = float((oferta.get("price") or "0").replace(",", "."))
         except ValueError:
-            # Twarda blokada, nie ciche pominiecie: literowka w ilosci znaczylaby
-            # "nie ruszaj", a wtedy aukcja po cichu zostawalaby ze starym stanem.
-            return {}, f"{sciezka.name}: SKU {sku} ma nieliczbowa ilosc '{surowa}'"
-    return out, ""
+            continue
+        tryb_ceny, wartosc = wpis
+        reczna = z_feedu * wartosc if tryb_ceny == "mnoznik" else wartosc
+        opis = f"{sku}: feed {z_feedu:.2f} zl, recznie {reczna:.2f} zl (wpis {klucz})"
+        if reczna > z_feedu:
+            oferta.set("price", f"{reczna:.2f}")
+            zastosowane.append(opis)
+        else:
+            zignorowane.append(opis + " - nie wyzsza, zostaje cena z feedu")
+    return ET.tostring(root, encoding="utf-8"), {
+        "zastosowane": sorted(zastosowane),
+        "zignorowane": sorted(zignorowane),
+        "poza_feedem": sorted(set(ceny) - trafione)}
 STANY_OGRANICZONE_DOMYSLNIE = {
     "plik": "ebay-revise-stany.csv",
     # [granica, wartosc] - ilosc mniejsza niz granica schodzi do wartosci.
@@ -1719,10 +1814,22 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
     headers = cfg["headers"]
     cfg["rate"] = nbp["rate"]
     settings = cfg["settings"]
-    root = ET.fromstring(feed_bytes)
     review = Review()
     skipped: Counter = Counter()
     blokady: list[str] = []
+    # Liste reczna wczytujemy PRZED sparsowaniem feedu, bo reczne ceny podmieniaja
+    # feed, a nie wynik liczenia. Dzieki temu cena_eur() zostaje nietknieta,
+    # a bliznaki GW24 (juz w feedzie) dostaja podniesiona cene razem z oryginalem.
+    reczne, reczne_ceny, blad_recznych = wczytaj_sku_reczne(
+        ROOT / settings.get("sku_reczne_plik", SKU_RECZNE_DOMYSLNIE))
+    if blad_recznych:
+        blokady.append("lista recznych SKU: " + blad_recznych)
+        reczne, reczne_ceny = {}, {}
+    SUFIKS_KRAJU = (cfg.get("kraj") or {}).get("sufiks_sku", "")
+    SUFIKS_GW = (settings.get("gwarancja_rozszerzona") or {}).get("sufiks_sku", "")
+    feed_bytes, raport_cen = nadpisz_ceny_reczne(
+        feed_bytes, reczne_ceny, SUFIKS_KRAJU, SUFIKS_GW)
+    root = ET.fromstring(feed_bytes)
     braki_konfiguracji = sprawdz_konfiguracje(cfg)
     if braki_konfiguracji:
         blokady.append("pliki konfiguracyjne sa starsze niz kod - " +
@@ -1781,10 +1888,6 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
     wiersze_ograniczone: list[dict] = []
     regula = regula_stanow(settings)
     zerowane = 0
-    reczne, blad_recznych = wczytaj_sku_reczne(
-        ROOT / settings.get("sku_reczne_plik", SKU_RECZNE_DOMYSLNIE))
-    if blad_recznych:
-        blokady.append("lista recznych SKU: " + blad_recznych)
     reczne_poprawione = 0
     reczne_z_feedu = 0
     reczne_przyciete: list[str] = []
@@ -1852,6 +1955,11 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
             # SKU z listy recznej, ktore JEST w feedzie: Twoja liczba zastepuje
             # prog - ale tylko w pliku pomocniczym. Prawdziwy plik dalej mowi
             # prawde o magazynie, wiec nic sie nie zamraza.
+            # ILOSC dopasowujemy DOKLADNIE, bez obcinania sufiksow. Cena w zlotowkach
+            # jest wspolna dla rynkow, ilosc nie: w liscie prawie wszystkie wpisy maja
+            # zero, wiec dziedziczenie po numerze bazowym nie chronilo by wloskiej
+            # aukcji, tylko ja zerowalo. Sprawdzone na raporcie z 21.10.2026: zdjeloby
+            # 3 zywe aukcje IT, ktore maja wpis bazowy (DE wycofane), a wloskiego nie.
             wpisana = reczne.get(sku)
             if wpisana is None:
                 ilosc_ograniczona = ogranicz_stan(nowa_ilosc, regula)
@@ -1963,6 +2071,14 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
             "w_feedzie_wiec_prawdziwy_plik_bez_zmian": sorted(s for s in reczne if s in w_feedzie_all),
             "nie_ma_ich_wsrod_aktywnych": sorted(s for s in reczne if s not in aktywne),
         } if reczne else "lista pusta albo brak pliku"),
+        # Ceny reczne dzialaja TYLKO w gore. Wpis nizszy od feedu nie znika po
+        # cichu - stoi tutaj jako 'zignorowane_bo_nizsze_od_feedu'.
+        "ceny_reczne": ({
+            "wpisow": len(reczne_ceny),
+            "zastosowane": raport_cen["zastosowane"][:30],
+            "zignorowane_bo_nizsze_od_feedu": raport_cen["zignorowane"][:30],
+            "sku_spoza_feedu": raport_cen["poza_feedem"][:30],
+        } if reczne_ceny else "brak recznych cen"),
         "stany_ograniczone": (dict(regula, opis=opis_reguly_stanow(regula))
                               if tryb == "aktualizacja" else None),
         "pominieto": dict(skipped),
