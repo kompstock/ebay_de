@@ -1707,6 +1707,156 @@ class SkuReczne(unittest.TestCase):
         self.assertEqual(wynik["sku_reczne"], "lista pusta albo brak pliku")
 
 
+class CenyReczne(unittest.TestCase):
+    """Reczna cena w ZLOTOWKACH - podmiana WEJSCIA do wzoru, nie jego wyniku.
+
+    Dzieki temu kurs, VAT, oplaty, kupon i mnoznik GW24 licza sie dalej same,
+    a cena w euro przelicza sie od nowa przy kazdym przebiegu. Gdyby wpisywalo
+    sie euro, oferta dryfowalaby razem z kursem i przy mocniejszej zlotowce
+    schodzila ponizej wartosci towaru - bez zadnego sygnalu.
+
+    Fixture: 4220 kosztuje 1100 zl, 3809 kosztuje 2329 zl.
+    """
+
+    KURS = 4.26
+
+    def uruchom(self, lista, kraj=None, gw=None):
+        katalog = Path(tempfile.mkdtemp())
+        plik = katalog / "sku-reczne.csv"
+        plik.write_text(lista, encoding="utf-8")
+        out = Path(tempfile.mkdtemp())
+        polecenie = [sys.executable, str(ROOT / "src" / "generate.py"), "--tryb", "pierwsze",
+                     "--feed-file", str(FIXTURE), "--nbp-rate", str(self.KURS),
+                     "--min-produktow", "1", "--sku-reczne", str(plik),
+                     "--output-dir", str(out)]
+        if kraj:
+            polecenie += ["--kraj", kraj]
+        if gw:
+            lista_gw = katalog / "gw.csv"
+            lista_gw.write_text(gw, encoding="utf-8")
+            polecenie += ["--gw-lista", str(lista_gw)]
+        wynik = subprocess.run(polecenie, check=False, capture_output=True)
+        if wynik.returncode not in (0, 2):
+            raise AssertionError(wynik.stderr.decode("utf-8", "replace")[-1500:])
+        raport = json.loads((out / "generation-report.json").read_text(encoding="utf-8"))
+        return raport, self.ceny(out)
+
+    def ceny(self, out):
+        wynik = {}
+        for sciezka in sorted(out.glob("ebay-add*.csv")):
+            with sciezka.open(encoding="utf-8-sig", newline="") as uchwyt:
+                next(uchwyt)
+                for wiersz in csv.DictReader(uchwyt, delimiter=";"):
+                    if wiersz.get("CustomLabel"):
+                        wynik[wiersz["CustomLabel"]] = float(wiersz["*StartPrice"])
+        return wynik
+
+    def z_wzoru(self, pln, kraj="de", profil=None):
+        """Ile dalby wzor, gdyby TAKA cena stala w feedzie."""
+        sys.path.insert(0, str(ROOT / "src"))
+        import generate
+        import xml.etree.ElementTree as ET
+        ustawienia = json.loads((ROOT / "config" / "settings.json").read_text(encoding="utf-8"))
+        dane_kraju = json.loads((ROOT / "config" / "kraje" / f"{kraj}.json").read_text(encoding="utf-8"))
+        ustawienia["cena"] = {**ustawienia["cena"], **(dane_kraju.get("cena") or {})}
+        oferta = ET.fromstring(f'<o price="{pln}" stock="1"><cat>Laptopy</cat></o>')
+        return float(generate.cena_eur(oferta, {"settings": ustawienia, "rate": self.KURS}, profil))
+
+    def test_bez_kolumny_cena_nic_sie_nie_zmienia(self):
+        """Bramka wyjsciowa: gdyby sama obecnosc kolumny ruszala ceny, kazdy
+        kolejny test nie dowodzilby niczego."""
+        _, bez = self.uruchom("SKU;ilosc\n4220;\n")
+        _, z_kolumna = self.uruchom("SKU;ilosc;cena\n4220;;\n")
+        self.assertEqual(bez, z_kolumna)
+        self.assertEqual(bez["4220"], self.z_wzoru(1100))
+
+    def test_cena_w_zlotowkach_liczy_sie_jak_cena_z_feedu(self):
+        """Sedno: wpis 1400 ma dac dokladnie to, co dalby feed z cena 1400 zl."""
+        _, ceny = self.uruchom("SKU;ilosc;cena\n4220;;1400\n")
+        self.assertEqual(ceny["4220"], self.z_wzoru(1400))
+        self.assertGreater(ceny["4220"], self.z_wzoru(1100))
+
+    def test_cena_nizsza_od_feedu_jest_ignorowana(self):
+        """Decyzja Marka: reczna cena dziala TYLKO w gore. Gdy dostawca podniesie
+        cene w Shoperze powyzej recznej, wygrywa feed."""
+        raport, ceny = self.uruchom("SKU;ilosc;cena\n4220;;900\n")
+        self.assertEqual(ceny["4220"], self.z_wzoru(1100))
+        self.assertEqual(raport["ceny_reczne"]["zastosowane"], [])
+        self.assertEqual(len(raport["ceny_reczne"]["zignorowane_bo_nizsze_od_feedu"]), 1)
+
+    def test_mnoznik_liczy_od_ceny_z_feedu(self):
+        """'x1.2' przy feedzie 2329 zl to 2794,80 zl, a nie 1,2 raza cena w euro."""
+        _, ceny = self.uruchom("SKU;ilosc;cena\n3809;;x1.2\n")
+        self.assertEqual(ceny["3809"], self.z_wzoru(2329 * 1.2))
+
+    def test_mnoznik_ponizej_jedynki_jest_ignorowany(self):
+        _, ceny = self.uruchom("SKU;ilosc;cena\n3809;;x0.8\n")
+        self.assertEqual(ceny["3809"], self.z_wzoru(2329))
+
+    def test_wpis_bez_sufiksu_obejmuje_rynek_wloski(self):
+        """Cena w zlotowkach jest wspolna dla rynkow, wiec jedna linijka ma
+        wystarczyc - inaczej trzeba by czterech na jeden produkt."""
+        _, ceny = self.uruchom("SKU;ilosc;cena\n4220;;1400\n", kraj="it")
+        self.assertIn("4220ITT", ceny)
+        self.assertEqual(ceny["4220ITT"], self.z_wzoru(1400, kraj="it"))
+
+    def test_dokladny_wpis_wygrywa_nad_bazowym(self):
+        _, ceny = self.uruchom("SKU;ilosc;cena\n4220;;1400\n4220ITT;;1800\n", kraj="it")
+        self.assertEqual(ceny["4220ITT"], self.z_wzoru(1800, kraj="it"))
+
+    def test_blizniak_gw24_dziedziczy_podniesiona_cene(self):
+        """Blizniak powstaje z tej samej oferty, wiec podniesienie ceny
+        oryginalu ma go objac bez osobnej linijki."""
+        _, ceny = self.uruchom("SKU;ilosc;cena\n4220;;1400\n", gw="SKU\n4220\n")
+        self.assertIn("4220GW24", ceny)
+        profil = {"mnoznik_ceny": 1.2, "ads": 0.10}
+        self.assertEqual(ceny["4220GW24"], self.z_wzoru(1400, profil=profil))
+        self.assertGreater(ceny["4220GW24"], self.z_wzoru(1100, profil=profil))
+
+    def test_plik_z_komentarzami_i_pustymi_wierszami_sie_wczytuje(self):
+        """Liste wpisuje sie recznie i przeplata nazwami modeli. Wczesniej jeden
+        wiersz bez srednika albo jedna pusta linia zatrzymywaly CALY przebieg
+        komunikatem "brak kolumny 'SKU'" - mylacym, bo ta kolumna tam byla."""
+        raport, ceny = self.uruchom(
+            "SKU;ilosc;cena\n"
+            "# ThinkPad T14\n"
+            "4220;;1400\n"
+            "\n"
+            "# ThinkPad T15\n"
+            "3809;;x1.2\n")
+        self.assertTrue(raport["ok"], raport.get("blokady"))
+        self.assertEqual(ceny["4220"], self.z_wzoru(1400))
+        self.assertEqual(ceny["3809"], self.z_wzoru(2329 * 1.2))
+        # Wiersze '#' to naglowki grup, nie produkty. Gdyby trafialy na liste,
+        # kazda nazwa modelu bylaby "chronionym SKU", ktory nic nie chroni,
+        # a raport zasypywalby smieciami.
+        self.assertEqual(raport["sku_reczne"]["wpisow"], 2, raport["sku_reczne"])
+        self.assertEqual(raport["ceny_reczne"]["wpisow"], 2)
+
+    def test_separator_przecinkowy_tez_dziala(self):
+        raport, ceny = self.uruchom("SKU,ilosc,cena\n4220,,1400\n")
+        self.assertTrue(raport["ok"], raport.get("blokady"))
+        self.assertEqual(ceny["4220"], self.z_wzoru(1400))
+
+    def test_nieliczbowa_cena_zatrzymuje_przebieg(self):
+        """Literowka w cenie nie moze byc cicho pominieta - oferta poszlaby
+        po cenie z feedu i nikt by tego nie zauwazyl."""
+        raport, _ = self.uruchom("SKU;ilosc;cena\n4220;;tysiac\n")
+        self.assertFalse(raport["ok"])
+        self.assertTrue(any("nieliczbowa cene" in b for b in raport["blokady"]), raport["blokady"])
+
+    def test_cena_zerowa_zatrzymuje_przebieg(self):
+        raport, _ = self.uruchom("SKU;ilosc;cena\n4220;;0\n")
+        self.assertFalse(raport["ok"])
+
+    def test_raport_pokazuje_co_sie_stalo(self):
+        raport, _ = self.uruchom("SKU;ilosc;cena\n4220;;1400\n9999;;2000\n")
+        ceny_raport = raport["ceny_reczne"]
+        self.assertEqual(ceny_raport["wpisow"], 2)
+        self.assertTrue(any("4220" in w for w in ceny_raport["zastosowane"]))
+        self.assertIn("9999", ceny_raport["sku_spoza_feedu"])
+
+
 class ZdaniaWiodace(unittest.TestCase):
     """Pecet nie moze o sobie mowic 'laptop'.
 
