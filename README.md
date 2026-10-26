@@ -1,97 +1,338 @@
-# Paczka do wgrania — Hiszpania, 26.10.2026
+# KOMPRE → eBay
 
-Wgraj do `kompstock/ebay_de` z zachowaniem ścieżek. 14 plików.
+Generator plików CSV do eBay File Exchange z feedu XML. Obsługuje **wiele rynków**:
+dziś Niemcy (`de`) i Włochy (`it`).
 
-**NIE MA TU** `config/gwarancja-24.csv`, `config/sku-reczne.csv` ani `input/` — te
-pliki żyją własnym życiem na GitHubie i nadpisanie ich kasuje zawartość.
+## Jak używać
 
-## Nowe pliki (sama Hiszpania)
+Wszystko dzieje się w zakładce **Actions → Generuj CSV eBay → Run workflow**.
+Wybierasz **kraj** i **tryb**, po przebiegu pobierasz plik ze strony Pages
+albo z artefaktu `wynik-generowania-<kraj>`.
 
-| Plik | Co to jest |
+| tryb | co potrzebne | co dostajesz |
+|---|---|---|
+| `pierwsze` | nic | `ebay-add.csv` ze wszystkimi produktami |
+| `nowe` | `input/aktywne.csv` | `ebay-add.csv` tylko z nowymi SKU |
+| `aktualizacja` | `input/aktywne.csv` | `ebay-revise.csv` z cenami i ilościami **+ `ebay-revise-stany.csv`** |
+| `test` | jak wyżej | to samo z akcją `VerifyAdd` — eBay sprawdza, nic nie wystawia |
+
+`input/aktywne.csv` to raport **All active listings** pobrany z eBaya.
+Przeciągasz go do folderu `input/` przez przeglądarkę i commitujesz.
+
+### Drugi plik aktualizacji: dawkowanie zapasu
+
+Tryb `aktualizacja` robi obok prawdziwego pliku jeszcze `ebay-revise-stany.csv`.
+Te same aukcje, te same ceny, te same numery — różni się **wyłącznie kolumną
+`Available quantity`**, sprowadzoną do trzech poziomów:
+
+| stan w magazynie | co zobaczy eBay |
 |---|---|
-| `config/kraje/es.json` | rynek ES: sufiks `SPAIN`, VAT 21%, dopisek +3 €, 6 profili, profile handlowe |
-| `config/kraje/es/ebay-header.csv` | 131 kolumn szablonu eBay.es, `Country=PL` |
-| `config/kraje/es/ebay-vocab.json` | dozwolone wartości aspektów, kategorie 177, 111422, 179 |
-| `config/kraje/es/aspects.json` | reguły złączy, kolorów, systemów — wartości hiszpańskie |
-| `config/kraje/es/translations.json` | 369 tłumaczeń z arkusza |
-| `templates/es/_style.html` | sam CSS |
-| `templates/es/description-notebook.html` | opis laptopa |
-| `templates/es/description-desktop.html` | opis peceta |
-| `templates/es/description-desktop-nowy.html` | opis nowego peceta |
+| poniżej 10 szt. | `0` — aukcja schodzi |
+| 10–24 szt. | `2` |
+| 25–50 szt. | `5` |
+| 51–99 szt. | `8` |
+| od 100 szt. | `10` |
 
-## Zmienione pliki
+**Wgrywasz jeden z dwóch plików, nigdy oba.** Prawdziwy mówi prawdę o magazynie,
+pomocniczy dawkuje zapas. Progi zmienisz w `config/settings.json` →
+`stany_ograniczone` (pary `[granica, wartość]` działają jako „mniej niż granica”).
 
-### `src/generate.py` — dwie poprawki, bez nich Hiszpania nie działa
+Dwie rzeczy, które ten plik robi inaczej niż prawdziwy:
 
-1. **`znaki_dozwolone`** — rynek może wskazać litery, które są jego własne, a
-   wyglądają na polskie. Hiszpański pisze `Configuración` przez `ó`, czyli ten
-   sam znak co polskie `który`. Bez tego odpadała **każda** hiszpańska oferta.
-   Siatka na polskie *słowa* działa dalej w całości.
-2. **`format_generacji_cpu` przyjmuje listę** — eBay.es trzyma na jednej liście
-   `Intel Core i5 8th Gen.` po angielsku i `Intel Core i5 12ª generación` po
-   hiszpańsku. Jeden wzorzec nie trafiał w obie formy, a `*C:Procesador` jest
-   wymagany, więc oferty ze starszym procesorem odpadały.
+- **Ma własne wykrywanie zmian.** Prawdziwy pomija SKU, którego stan się nie
+  ruszył; pomocniczy nie może, bo ograniczenie bywa inne nawet przy nieruszonym
+  stanie (feed 50, aukcja 50, pokazujemy 10). Bez tego limit nigdy by nie wszedł.
+- **Zerowanie znikniętych SKU wygląda w obu plikach tak samo** — brak towaru
+  w feedzie to zdjęcie aukcji, a nie dawkowanie. Bezpiecznik
+  `max_udzial_zerowanych` zatrzymuje oba pliki naraz.
 
-Niemcy i Włochy działają dokładnie jak dotąd — oba mechanizmy włączają się
-tylko wtedy, gdy kraj coś w nich ustawi.
+### Aukcje wystawione poza generatorem: `config/sku-reczne.csv`
 
-### `tests/test_generate.py`
+Tryb `aktualizacja` zeruje **każde** aktywne SKU, którego nie ma w feedzie.
+Oferta wystawiona ręcznie — na przykład tablet, którego kategorii generator
+jeszcze nie obsługuje — nie ma jak trafić do feedu, więc pierwszy przebieg po
+jej wystawieniu **zdjąłby ją z eBaya**. Bezpiecznik `max_udzial_zerowanych`
+tego nie wyłapie: dwie sztuki na kilkaset aukcji to ułamek procenta.
 
-- **18 testów było martwych.** W środku pliku stało `if __name__ == "__main__":
-  unittest.main()`, a `unittest.main()` kończy proces — wszystko zdefiniowane
-  niżej nigdy się nie uruchamiało. Usunięte, z ostrzeżeniem w tym miejscu.
-- Nowa klasa `AlfabetRynku` — 5 testów na obie poprawki powyżej, sprawdzone
-  mutacją (po zepsuciu poprawki test pada).
-- **172 testy, wszystkie przechodzą** (przedtem uruchamiało się 149 ze 167).
+Przed tym chroni lista ręcznych SKU:
 
-### `tools/wczytaj_tlumaczenia.py` — cztery błędy importera
+```csv
+SKU;ilosc
+5764ITT;20
+5691_20260602124826ITT;
+```
 
-1. **Baza brana z pliku niemieckiego**, nie z pliku rynku — drugie wczytanie
-   arkusza wymazywało wszystko, czego w arkuszu nie ma (mapowanie portów,
-   kolory, nazwy systemów wracały po niemiecku). Najgroźniejszy z całej czwórki.
-2. **Sekcje `aspects` z listami** wywracały import na `list indices must be
-   integers` — 35 wierszy.
-3. **Sekcje `profil` spłaszczane** — 38 z 55 wierszy lądowało na złym poziomie,
-   tworząc klucze, których generator nigdy nie czyta.
-4. **Kolizja nazw** — pomocnicza funkcja `cel` przykrywała zmienną `cel`;
-   import wywracał się na `TypeError: 'dict' object is not callable`.
+Plik robi **dwie różne rzeczy**, zależnie od tego, czy SKU jest w feedzie:
 
-Plus **blokada wpisów przedawnionych**: wiersz, którego nie ma już w konfiguracji
-źródłowej, nie wraca po cichu, tylko ląduje na liście do decyzji. Złapała dwa
-wiersze, które wnosiły nieprawdę — dla „Normalne ślady użytkowania" arkusz
-podawał „Nuevo, sin signos de uso."
+| SKU | co robi generator |
+|---|---|
+| **spoza feedu** + liczba | nigdy nie zeruje; pilnuje, żeby aukcja pokazywała właśnie tyle |
+| **spoza feedu** + pusta ilość | nigdy nie zeruje i **nie rusza aukcji wcale** |
+| **z feedu** + liczba | prawdziwy plik bez zmian (prawda o magazynie), a w `ebay-revise-stany.csv` Twoja liczba **zastępuje próg** |
 
-### `tools/eksport_do_tlumaczenia.py`
+Trzeci wiersz to sposób na towar, który schodzi lepiej: progi dają mu 5 sztuk,
+a Ty chcesz pokazywać 20. Wpisujesz `SKU;20` i tyle.
 
-Kolumna `po_wlosku` → `tlumaczenie` (przy hiszpańskim arkuszu tłumacz szukał
-kolumny, której nie było). Docstring mówi teraz wprost, czym ma się kierować
-tłumacz: `klucz` to prawda o towarze, `po_niemiecku` to wzorzec stylu, a
-rozbieżność między nimi zgłasza się, zamiast tłumaczyć.
+**Wpis nigdy nie przebije stanu magazynu.** Wpisane 20 przy trzech sztukach na
+stanie daje 3, nie 20 — inaczej sprzedałbyś siedemnaście nieistniejących sztuk.
+Raport wypisuje takie przypadki w `sku_reczne.przyciete_do_stanu_magazynu`.
 
-### `config/settings.json`
+Zasady, które warto znać:
 
-Z profili `Desktop-PC nowy` i `Desktop-PC nowy GW24` usunięty wpis
-`"Normalne ślady użytkowania": "Neu, ohne Gebrauchsspuren."` — kazał opisowi
-mówić „bez śladów użytkowania" o produkcie, który wg feedu te ślady ma.
-W `_about` stoi teraz, dlaczego nie wolno go przywrócić.
+- **Cena nigdy nie jest dotykana.** Generator nie zna ceny takiego towaru, więc
+  bierze tę, która już jest na aukcji. Zgadywanie byłoby gorsze niż nic.
+- **Wpis ręczny wygrywa z progami** z `stany_ograniczone`. Wpisane 20 zostaje
+  dwudziestką także w `ebay-revise-stany.csv`, choć próg zrobiłby z tego 8.
+- **Feed ma pierwszeństwo przed listą.** Jeśli SKU z listy pojawi się w feedzie,
+  wygrywa feed, a raport to odnotowuje w `sku_reczne.pominieto_bo_sa_w_feedzie`.
+  Bez tego lista po cichu zamrażałaby stan normalnego produktu.
+- **Literówka w ilości zatrzymuje przebieg.** Ciche pominięcie znaczyłoby
+  „nie ruszaj", a aukcja zostałaby ze starym stanem i nikt by nie zauważył.
+- Brak pliku = funkcja uśpiona, bez błędu.
 
-## Po wgraniu
+Ścieżkę zmienia `settings.sku_reczne_plik`, a jednorazowo `--sku-reczne`.
 
-1. **`VerifyAdd` na eBay.es.** Wtedy wyjdzie, czy nazwy profili handlowych
-   działają w gołej formie (`envio`, `return`, `lap / 167E / PL / 4FBD1D47 / PL`).
-   DE i IT mają je zapisane z numerem, np. `… - (ID: 254129534019)`. Jeśli eBay
-   nie dopasuje — dopisujemy numery do `config/kraje/es.json`.
-2. **Profil płatności** miał status „Actualización en curso" — niech się najpierw
-   ustabilizuje.
-3. **Limit wystawiania.** Zostawało ~2,2 mln z 13 mln PLN. Trzeci rynek to
-   trzecia kopia każdej oferty — progi stanów trzeba obniżyć przed startem.
+**To Twoje dane, jak `config/gwarancja-24.csv`** — plik nigdy nie jedzie
+w paczce do wgrania i nie wolno go nadpisywać przy aktualizacji kodu.
 
-## Czego tu nie ma, a warto wiedzieć
+**Po każdym wgraniu `Add` pobierz raport ponownie.** Numery aukcji nadaje eBay
+i bez świeżego raportu narzędzie nie wie, że te oferty już istnieją.
 
-`templates/es/description-tablet-nowy.html` nie jest potrzebny do startu —
-żaden profil go nie używa, tablety szły ręcznie.
+## Dwie osie: typ towaru i kraj
 
-`_podpowiedzi` w `config/kraje/es/translations.json` zostały po niemiecku.
-Trafiają wyłącznie do raportu jako „[propozycja]" przy nieprzetłumaczonej
-wartości — do oferty nigdy, bo taka wartość i tak blokuje produkt. Do dorzucenia
-w następnym arkuszu.
+Typ towaru mówi **co** wystawiamy, kraj mówi **gdzie i w jakim języku**. To dwie
+niezależne osie i żadna nie jest zaszyta w kodzie.
+
+- `config/settings.json` — logika wspólna dla wszystkich rynków plus wartości
+  domyślne: profile produktu, kategorie, reguły Allegro, duplikaty, GW24.
+- `config/kraje/<kod>.json` — wszystko, co zależy od rynku: `listing_site`, VAT,
+  sufiks SKU, profile handlowe, **nazwy kolumn aspektów**, słowa generatora,
+  etykiety opisu, format przekątnej i nazwy generacji procesora.
+- `config/kraje/<kod>/` — nagłówek eBaya, słownik dozwolonych wartości, aspekty
+  i tłumaczenia tego rynku.
+- `templates/<kod>/` — szablony opisu w języku rynku.
+
+Wartości z pliku kraju **nadpisują** `settings.json`, więc reszta kodu dalej czyta
+`settings[...]` i nie musi wiedzieć, że kraje istnieją.
+
+**Jeden przebieg = jeden kraj.** To bezpieczne, bo raport aktywnych ofert filtruje
+się po kolumnie `Listing site` — przebieg włoski fizycznie nie widzi aukcji
+niemieckich i nie ma jak ich wyzerować. Jeden eksport z eBaya obsłuży oba rynki.
+
+### Dołożenie kolejnego kraju
+
+1. `config/kraje/<kod>.json` — najproście z kopii `de.json`,
+2. szablon kategorii pobrany z eBaya tego rynku → `tools/build_vocab.py`,
+3. `tools/eksport_do_tlumaczenia.py <kod>` daje **jeden CSV ze wszystkimi napisami**,
+   jakie widzi kupujący; kolumna `wybierz_z_listy` podaje wartości, które eBay przyjmie,
+4. wypełniony plik wraca przez `tools/wczytaj_tlumaczenia.py <kod> <plik.csv>`,
+5. szablony opisu do `templates/<kod>/`.
+
+Dopóki czegoś brakuje, przebieg **staje z nazwanym powodem** i nie tworzy żadnego
+CSV. Sprawdzane jest też, czy `SiteID` w nagłówku zgadza się z `listing_site` —
+bez tego dałoby się porównać aukcje jednego rynku z plikiem na drugi.
+
+## Laptopy i komputery
+
+Oba typy jadą **jednym przebiegiem** i domyślnie lądują w jednym `ebay-add.csv`.
+Rozdzielone są dane, nie proces — inaczej tryb `aktualizacja` wyzerowałby aukcje
+tego typu, którego akurat nie ma w feedzie.
+
+Wszystko, co zależy od typu towaru, siedzi w `settings.json` w bloku
+`profile_produktu`: szablon opisu, nazwy pól w feedzie, pola wymagane, kategoria
+eBay, cechy zakładane z góry. W kodzie nie ma ani jednego `if kategoria == "Komputery"`.
+
+| | laptop | komputer poleasingowy | komputer nowy |
+|---|---|---|---|
+| źródło | XML sklepowy **+ Allegro** | tylko XML sklepowy | tylko XML sklepowy |
+| kategoria eBay | 177, Apple 111422 | 179 | 179 |
+| szablon | `description-notebook.html` | `description-desktop.html` | `description-desktop-nowy.html` |
+| `ConditionID` | z `[Klasa X]` | z `[Klasa X]` | **1000 (Neu)** |
+| pola wymagane | z przekątną ekranu | bez ekranu i baterii | dodatkowo bez `Model` |
+| Wi-Fi / Bluetooth / mikrofon | zakładane | **nie zakładane** | **nie zakładane** |
+| `Inklusive Ladegerät` | niepuste „W zestawie" = Ja | z treści pola | z treści pola |
+
+Nowy typ towaru = wpis w `typ_produktu` + blok w `profile_produktu` + szablon.
+
+### Wariant z przedłużoną gwarancją (GW24)
+
+Bliźniak oferty: ten sam sprzęt, SKU z sufiksem `GW24`, cena wyższa o mnożnik
+i opis mówiący o 24 miesiącach zamiast 12.
+
+**Sterujesz listą SKU w [config/gwarancja-24.csv](config/gwarancja-24.csv)** — jedna
+kolumna `SKU`, wpisujesz SKU **oryginału**, sufiks dokleja się sam. Excel: „Zapisz jako CSV".
+Pusta lista = funkcja śpi.
+
+| | |
+|---|---|
+| stan magazynowy | brany z oryginału (przy stanie 1 wystawiasz dwie sztuki jednej — patrz `min_sztuk`) |
+| cena | `mnoznik_ceny` działa na **cenie końcowej**, tej którą widzi kupujący — równo +20% |
+| tytuł | dopisek „24 Monate Garantie" jest **chroniony przed obcięciem** |
+| zasięg | laptopy oraz komputery: poleasingowe i nowe |
+
+**Okres gwarancji to jedna zasada dla całego asortymentu:** oferta główna zawsze
+**12 miesięcy**, bliźniak zawsze **24** — niezależnie od tego, co sklep wpisał w feedzie
+i jaki to sprzęt. Siedzi to w polu `gwarancja` każdego profilu, a szablon tylko je
+wyświetla przez `{{garantie}}`.
+
+Dlatego profile `…GW24` używają **tego samego szablonu** co bazowe — różni je wyłącznie
+ta jedna wartość. Nowy typ towaru: ustawiasz `gwarancja` w jego profilu i gotowe.
+
+> Nowe zestawy mają w feedzie 24 miesiące, ale oferta główna i tak dostaje 12.
+> Inaczej bliźniak nie miałby czym się różnić od oryginału.
+
+`C:Herstellergarantie` zostaje **puste** we wszystkich ofertach. To pole eBaya dotyczy
+gwarancji **producenta**, a nasza jest gwarancją sprzedawcy — mówi o niej opis.
+
+Bliźniak jest dopinany **do feedu** (`src/gwarancja.py`), nie dopisywany przy zapisie CSV.
+Dzięki temu zachowuje się jak zwykła oferta: tryb `aktualizacja` poprawia mu cenę i stan,
+a **usunięcie SKU z listy wygasza go do zera** przy najbliższym przebiegu.
+
+Raport pokazuje `gw_dodane`, `gw_pominieto` oraz `gw_sku_poza_feedem` — ostatnie to SKU
+z listy, których nie ma już w feedzie. Bez tego lista po cichu gnije.
+
+> To **nie jest duplikat** tylko wtedy, gdy gwarancja jest prawdziwa. 24 miesiące serwisu
+> to zobowiązanie magazynu, nie etykieta w tytule.
+
+### Warianty w obrębie jednej kategorii
+
+Nowe komputery siedzą w tej samej kategorii XML `Komputery` co poleasingowe —
+kategoria ich nie odróżni. Robi to `typ_produktu_warianty`: po ujednoliceniu nazw
+pól sprawdzane jest `Kondycja sprzętu` i wartość „Nowy" przełącza na profil
+`Desktop-PC nowy`. Wariant dziedziczy aliasy pól po profilu bazowym.
+
+Profil nowego towaru dodatkowo:
+
+- podstawia producenta (`producent_zastepczy`) — feed podaje `Niezdefiniowany`,
+  a kto składa i wprowadza do obrotu, ten jest producentem w rozumieniu GPSR,
+- podmienia `*C:Marke` na wartość ze słownika eBaya (`Custom, Whitebox`),
+  bo marek zestawów składanych ten słownik nie zna,
+- ustawia stały `Model`, bo w feedzie to pole bywa puste albo zawiera nazwę obudowy,
+- ma własną pulę zdań wiodących — biurowe („Ideal für Online-Unterricht")
+  brzmiałyby fałszywie na komputerze do gier.
+
+Typ bez własnego profilu dla nowego towaru jest **blokowany** przez bramkę
+`towar_nowy`, żeby nowy sprzęt nie wyszedł jako `Gebraucht` z opisem
+o sprzęcie poleasingowym.
+
+Komputery z Allegro są zablokowane celowo: `empi.xml` nie ma pola `Obudowa`, więc
+nie dałoby się ani ustalić `C:Formfaktor`, ani odsiać All-in-One. Próba dopisania
+kategorii komputerowej do `allegro.kategorie_zrodlowe` kończy się blokadą.
+
+Jeśli eBay odrzuci wiersze kategorii 179 przez pustą kolumnę `*C:Bildschirmgröße`
+(pochodzi z szablonu laptopów), ustaw `rozdziel_pliki_add: true` — dostaniesz
+`ebay-add-laptopy.csv` i `ebay-add-komputery.csv` osobno.
+
+## Duplikaty: ta sama rzecz wystawiona dwa razy
+
+Ten sam laptop trafia do Shopera i na Allegro, a stamtąd do nas — więc na eBay
+idzie dwa razy, pod różnymi SKU. Zdarzają się też pary w obrębie jednego źródła.
+
+**Duplikat = identyczna specyfikacja ORAZ identyczna cena w PLN.** Sama specyfikacja
+nie wystarcza: sprzedawca ma po kilka ofert tego samego modelu w różnych cenach
+i to są różne produkty. Dopiero ta sama cena co do grosza mówi, że to ten sam towar.
+
+Odcisk powstaje z: marka, model, procesor, RAM, dysk, typ dysku, przekątna.
+Marka, model i procesor **muszą** być znane — bez nich oferta nie jest porównywana,
+bo odcisk zlepiłby przypadkowe pozycje.
+
+**Porównujemy wyłącznie Shoper z Allegro.** Dwie oferty z tego samego źródła nigdy
+nie są duplikatem — to dwie partie tego samego modelu, wystawione świadomie osobno.
+Sklejenie ich zgubiłoby towar, który naprawdę stoi w magazynie. Takie powtórzenia
+nie trafiają do `duplikaty.csv`; raport JSON liczy je w `powtorzenia_w_jednym_zrodle`.
+
+### Działamy tylko na wejściu
+
+**Aktywnej aukcji nie zdejmujemy nigdy.** Duplikat rozstrzygamy przy wystawianiu:
+oferta, która ma już swojego bliźniaka, po prostu nie idzie na eBay. Aukcja z historią,
+obserwującymi i pozycją w wyszukiwarce jest warta więcej niż czystość katalogu,
+a błąd w odcisku kosztowałby wtedy żywą ofertę.
+
+Kandydatem do wstrzymania jest więc zawsze oferta, której na eBayu **jeszcze nie ma**.
+Między dwiema takimi zostaje Shoper — ma prawdziwe dane o kondycji, Allegro wstawia
+domyślne; to ta sama zasada, która działa przy kolizji SKU w `allegro.py`.
+
+Ile sztuk naprawdę jest: tyle, ile liczy najliczniejsze źródło w grupie. Przy trzech
+ofertach w Shoperze i dwóch na Allegro są trzy sztuki — dwie widziane podwójnie i jedna
+tylko w sklepie. **Nadwyżka zostaje**, bo nie ma po drugiej stronie odpowiednika.
+
+Stany **nie są scalane** — każda oferta, która zostaje, idzie ze swoim własnym.
+
+Wyłącznik: `duplikaty.odrzucaj`. Na `false` nic nie jest odsiewane, powstaje sam raport.
+
+### Gdy duplikat już wisi obiema połowami
+
+Wtedy nie ma czego wstrzymywać — obie aukcje żyją. Zostawiamy obie i pokazujemy je
+w raporcie jako `zostaje - kolizja aktywnych`. To jedyne miejsce, gdzie potrzebna jest
+ręczna decyzja; raport JSON liczy takie grupy w `kolizje_aktywnych`.
+
+### Raport
+
+`output/duplikaty.csv`, kolumna `decyzja`:
+
+| wartość | znaczenie |
+|---|---|
+| `zostaje` | idzie na eBay normalnie |
+| `NIE WYSTAWIAMY` | wstrzymana, bo bliźniak już idzie albo już wisi |
+| `zostaje - kolizja aktywnych` | obie połowy są na eBayu, decyzja należy do człowieka |
+
+Kolumna `koliduje_z` mówi **z czym** — podaje SKU drugiej oferty. Przy większej grupie
+każda wstrzymana wskazuje inną, żeby raport nie sugerował, że trzy sztuki są duplikatem
+jednej.
+
+Zwycięzca dostaje **najwyższy stan z grupy**, nie sumę — te same sztuki są policzone
+w obu źródłach, więc suma zawyżałaby magazyn.
+
+## Zasady, których pilnuje kod
+
+- Brak kompletnych danych GPSR → produkt nie trafia do CSV.
+- Wartość opisowa bez tłumaczenia w słowniku → produkt nie trafia do CSV.
+- Polski znak lub polskie słowo w gotowym opisie → produkt nie trafia do CSV.
+- Wartość aspektu spoza słownika eBaya → pole zostaje puste, wartość ląduje w `review.csv`.
+- Złącza w opisie idą **1:1 ze źródłem** — jeden wpis z feedu to jeden kafelek.
+  Nic się nie łączy ani nie znika. Jedyny wyjątek: gdy sprzedawca upchnął kilka
+  gniazd w jeden wpis bez przecinka (`4 x USB 3.0 2X USB 2.0`), taki wpis jest
+  rozbijany, bo inaczej stracilibyśmy wszystkie poza pierwszym.
+- Sufiks tytułu wynika z pola `Zainstalowany system`. Nigdy nie jest stały.
+- Klasa stanu (`[Klasa A-]`) nie pojawia się w opisie — służy wyłącznie do `ConditionID`.
+- Apple trafia do kategorii 111422, reszta do 177.
+- Cena = `PLN / kurs NBP` w górę, plus ukryta dopłata za wysyłkę z `settings.json`.
+
+## Bramki bezpieczeństwa
+
+- Mniej niż `min_produktow_w_feedzie` produktów z zapasem → przerwanie.
+- Zerowanie objęłoby więcej niż `max_udzial_zerowanych` aktywnych aukcji → przerwanie.
+- SKU z kilkoma aktywnymi aukcjami → pomijany, trafia do raportu.
+- Tryb wymagający raportu bez raportu → przerwanie.
+
+## Pliki konfiguracyjne
+
+| plik | co zawiera |
+|---|---|
+| `config/settings.json` | kategorie, dopłata, progi, profile eBay, `profile_produktu` |
+| `config/translations.json` | tłumaczenia całych wartości opisowych (wspólne dla obu typów) |
+| `config/aspects.json` | mapowania aspektów, porty, klawiatury, systemy |
+| `config/ebay-vocab.json` | dozwolone wartości; 177 i 111422 z szablonu eBaya, 179 dopisane |
+| `config/manufacturers.json` | dane GPSR, w tym producent zestawów składanych |
+| `templates/_style.html` | CSS wspólny dla wszystkich szablonów opisu |
+| `templates/description-notebook.html` | opis laptopa (także wariantu GW24) |
+| `templates/description-desktop.html` | opis komputera poleasingowego (także GW24) |
+| `templates/description-desktop-nowy.html` | opis nowego zestawu (także GW24) |
+
+Gdy tłumaczenie ze wspólnego słownika jest nieprawdą dla drugiego typu
+(„Zasilacz z przewodem" to dla laptopa „Notebook, Netzteil mit Kabel"),
+podmień je w `profile_produktu.<typ>.nadpisz_tlumaczenia` zamiast psuć wspólny wpis.
+
+## Narzędzia
+
+```bash
+python3 tools/build_vocab.py       # przebuduj słownik po aktualizacji szablonu eBay
+```
+
+```bash
+python3 tools/collect_values.py    # lista wartości z feedu do przetłumaczenia
+```
+
+`build_vocab.py` zostawia nietknięte kategorie, których nie ma w szablonie eBaya —
+dzięki temu nie kasuje kategorii 179. Do odtworzenia jej wpisu służy
+`tools/dodaj_kategorie_179.py`.
