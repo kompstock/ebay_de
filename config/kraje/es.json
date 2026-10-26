@@ -1,0 +1,295 @@
+{
+  "_about": "Hiszpania. Wszystko, co zalezy od RYNKU, a nie od typu towaru. Druga os konfiguracji obok 'profile_produktu': typ towaru mowi CO wystawiamy, kraj mowi GDZIE i w jakim jezyku.",
+  "_stan": "RYNEK W BUDOWIE. Brakuje trzech nazw profili handlowych z eBay.es oraz pliku tlumaczen - bramka sprawdz_kraj przerwie przebieg z nazwanym powodem, zamiast wypuscic wybrakowany CSV. To celowe.",
+  "kod": "ES",
+  "nazwa": "Hiszpania",
+  "listing_site": "ES",
+  "naglowek_site_id": "Spain",
+  "vat_percent": "21",
+  "sufiks_sku": "SPAIN",
+  "_sufiks_sku": "Decyzja Marka. Doklejany po bliznakach GW24, wiec 4220 -> 4220SPAIN, a 4220GW24 -> 4220GW24SPAIN. Przy wracaniu do numeru magazynowego obcina sie od konca: najpierw SPAIN, potem GW24.",
+  "shipping_profile_name": "envio",
+  "return_profile_name": "return",
+  "payment_profile_name": "lap / 167E / PL / 4FBD1D47 / PL",
+  "_profile_handlowe": "PUSTE - czekaja na nazwy z eBay.es. Nazwy sa per rynek, niemieckie ani wloskie tu nie zadzialaja. Przepisac co do znaku razem z numerem ID w nawiasie, tak jak w de.json i it.json.",
+  "_kolumny": "Nazwy wyjete wprost z szablonu kategorii eBay.es pobranego 15.10.2026, nie tlumaczone na oko. UWAGA: 'Tipo' jest po hiszpansku WYMAGANE w kategorii 179 (komputery), tak samo jak wloskie 'Tipo'. W 177 i 111422 wymagane sa tylko Marca, Tamano de pantalla i Procesador.",
+  "kolumny": {
+    "marka": "*C:Marca",
+    "przekatna": "*C:Tamaño de pantalla",
+    "procesor": "*C:Procesador",
+    "typ_dysku": "C:Tipo de almacenamiento",
+    "rodzaj_produktu": "*C:Tipo",
+    "formfaktor": "C:Factor de forma",
+    "pojemnosc_dysku": "C:Capacidad de disco duro",
+    "cechy": "C:Características",
+    "pojemnosc_ssd": "C:Capacidad de SSD",
+    "gpu": "C:GPU",
+    "rok": "C:Año de lanzamiento",
+    "kolor": "C:Color",
+    "taktowanie": "C:Velocidad del procesador",
+    "rozdzielczosc": "C:Resolución máxima",
+    "numer_producenta": "C:MPN",
+    "model": "C:Modelo",
+    "system": "C:Sistema operativo",
+    "liczba_sztuk": "C:Cantidad de unidades",
+    "jednostka_miary": "C:Unidad de medida",
+    "ladowarka": "C:Cargador incluido",
+    "ram": "C:Tamaño de RAM",
+    "typ_gpu": "C:Tipo de procesamiento gráfico",
+    "zlacza": "C:Conectividad",
+    "gwarancja_producenta": "C:Garantía del fabricante",
+    "seria": "C:Serie",
+    "przeznaczenie": "C:Más adecuado para"
+  },
+  "_jednostka_miary": "Szablon eBay.es NIE MA kolumny na jednostke miary - ma tylko 'Cantidad de unidades'. Wskazujemy wiec nazwe, ktorej w naglowku nie ma: wiersz powstaje z naglowka, wiec wartosc po prostu odpada. Tak jest bezpieczniej niz usuwac klucz, bo kod czyta go wprost i bez wpisu wywrocilby sie na KeyError.",
+  "slowa": {
+    "tak": "Sí",
+    "nie": "No",
+    "nie_dotyczy": "No aplicable",
+    "jedna_sztuka": "1",
+    "jednostka": "Unidad",
+    "jest": "Sí",
+    "brak": "No"
+  },
+  "_slowa": "Napisy, ktore generator wstawia sam, bez slownika. 'No aplicable' idzie do MPN - to pole tekstowe, wiec eBay nie sprawdza go slownikiem i potwierdzi je dopiero VerifyAdd.",
+  "etykiety_opisu": {
+    "producent": "Fabricante",
+    "model": "Modelo",
+    "procesor": "Procesador",
+    "rdzenie": "Núcleos del procesador",
+    "taktowanie": "Frecuencia de reloj",
+    "ram": "Memoria RAM",
+    "dysk": "Almacenamiento",
+    "ekran": "Pantalla",
+    "grafika": "Gráficos",
+    "dotyk": "Pantalla táctil",
+    "naped": "Unidad óptica",
+    "system": "Sistema operativo",
+    "klawiatura": "Distribución del teclado",
+    "kamera": "Cámara web",
+    "bateria": "Batería",
+    "zestaw": "Contenido del paquete",
+    "uwaga": "Nota"
+  },
+  "_etykiety_opisu": "Naglowki wierszy w tabeli specyfikacji w opisie oferty. Czyta je kupujacy, wiec musza byc w jego jezyku.",
+  "faq_windows": "<details><summary>&iquest;Windows est&aacute; activado de forma permanente?</summary><div class=\"kpx-a\">S&iacute;. La licencia digital est&aacute; almacenada en el dispositivo y permanece activa incluso despu&eacute;s de restablecer Windows.</div></details>",
+  "_faq_windows": "Blok FAQ doklejany do opisu, gdy system to Windows. HTML, bo trafia wprost do oferty. Pusty napis = sekcja nie powstaje.",
+  "format_przekatnej": "{n}\"",
+  "_format_przekatnej": "Hiszpanie zapisuja przekatna jak Wlosi: '15,6\"', a nie '15,6 Zoll'. Potwierdzone na liscie dozwolonych wartosci 'Tamano de pantalla' w szablonie. Aspekt WYMAGANY - zly format to odrzucona oferta.",
+  "format_generacji_cpu": [
+    "{ord} Gen.",
+    "{n}ª generación"
+  ],
+  "_format_generacji_cpu": "Zapas, gdy dokladnego modelu procesora nie ma w slowniku eBaya. Aspekt procesora jest WYMAGANY, wiec bez trafienia odpada cala oferta.",
+  "opis_generacji_cpu": "{n}ª generación",
+  "opis_cache_cpu": "{n} MB de caché",
+  "_opis_cpu": "Slowa w nawiasie przy procesorze - ida do naglowka opisu i do tabelki. To NIE to samo co 'format_generacji_cpu', ktory sluzy do dopasowania w slowniku eBaya.",
+  "ean_dla_stanow": [
+    "1000",
+    "2000",
+    "2010",
+    "2020",
+    "2030"
+  ],
+  "_ean_dla_stanow": "ConditionID, przy ktorych eBay zada identyfikatora produktu: nowy i cala rodzina odnowionych. Uzywany (3000) go nie potrzebuje i celowo zostaje pusty. Wartosc bierze sie z slowa.nie_dotyczy, wiec jest w jezyku rynku.",
+  "wyjatki_polskiego": [],
+  "_wyjatki_polskiego": "Slowa z listy 'wyciekl polski', ktore po hiszpansku sa zwyczajne. Sprawdzilem ok. 50 typowych slow z opisow sprzetu - zaden nie wpada we wzorzec, wiec lista zostaje pusta. Przy wloskim trzeba bylo ratowac sie wyjatkiem na 'i'.",
+  "znaki_dozwolone": [
+    "ó",
+    "Ó"
+  ],
+  "_znaki_dozwolone": "Litery hiszpanskiego alfabetu, ktore sa tez polskimi znakami diakrytycznymi. Pokrywa sie TYLKO o z kreska - hiszpanski ma jeszcze a e i u z kreska, n z tylda i u z dwukropkiem, ale zaden z nich nie jest polski. Bez tego wyjatku detektor polszczyzny odrzucal kazda oferte na slowie Configuracion. Siec na polskie slowa dziala dalej w pelni.",
+  "pliki": {
+    "naglowek": "config/kraje/es/ebay-header.csv",
+    "slownik": "config/kraje/es/ebay-vocab.json",
+    "aspekty": "config/kraje/es/aspects.json",
+    "tlumaczenia": "config/kraje/es/translations.json"
+  },
+  "katalog_szablonow": "templates/es",
+  "cena": {
+    "dopisek_eur": 3
+  },
+  "_cena": "Nadpisuje wybrane pozycje bloku 'cena' z settings.json - reszta sie dziedziczy. Dopisek 3 EUR, zeby ceny rynkow sie od siebie roznily: Niemcy 0, Wlochy 1, Hiszpania 3.",
+  "_profile_kraju": "Nakladka jezykowa na 'profile_produktu' z settings.json. Klucze musza sie zgadzac z nazwami profili. Tu wchodzi tylko to, co czyta kupujacy albo slownik eBaya - reszta profilu (reguly, ConditionID, kategorie) zostaje wspolna.",
+  "profile_kraju": {
+    "Notebook": {
+      "gwarancja": "12 meses de garantía",
+      "produktart": "Notebook/Laptop",
+      "tastatur_layout": "El teclado está dotado de pegatinas con la distribución española.",
+      "cechy_domyslne": [
+        "Bluetooth",
+        "Wi-Fi",
+        "Micrófono incorporado"
+      ],
+      "dopisek_tytulu": "Garantía"
+    },
+    "Desktop-PC": {
+      "gwarancja": "12 meses de garantía",
+      "produktart": "Escritorio",
+      "nadpisz_tlumaczenia": {
+        "Kondycja sprzętu": {
+          "Nowy": "Nuevo, en embalaje original y probado en fábrica."
+        },
+        "Stan obudowy": {
+          "Nowy": "Nuevo, sin signos de uso.",
+          "NOWY": "Nuevo, sin signos de uso."
+        },
+        "W zestawie": {
+          "Zasilacz z przewodem": "Fuente de alimentación con cable.",
+          "Zasilacz w zestawie": "Fuente de alimentación."
+        }
+      },
+      "dopisek_tytulu": "Garantía",
+      "formfaktor": {
+        "z_atrybutu": "Obudowa",
+        "mapa": {
+          "SFF": "Factor de forma pequeño (SFF)",
+          "Tower": "Torre",
+          "Micro / Mini / Tiny": "Mini escritorio",
+          "Desktop": "Torre"
+        },
+        "_domyslnie": "Torre",
+        "_about": "Wartosci z listy dozwolonych eBay.es dla 'Factor de forma'."
+      }
+    },
+    "Desktop-PC nowy": {
+      "gwarancja": "12 meses de garantía",
+      "produktart": "Escritorio",
+      "nadpisz_tlumaczenia": {
+        "Kondycja sprzętu": {
+          "Nowy": "Nuevo, en embalaje original y probado en fábrica."
+        },
+        "Stan obudowy": {
+          "Nowy": "Nuevo, sin signos de uso.",
+          "NOWY": "Nuevo, sin signos de uso."
+        },
+        "W zestawie": {
+          "Zasilacz z przewodem": "Fuente de alimentación con cable.",
+          "Zasilacz w zestawie": "Fuente de alimentación."
+        }
+      },
+      "dopisek_tytulu": "Garantía",
+      "formfaktor": {
+        "z_atrybutu": "Obudowa",
+        "mapa": {
+          "SFF": "Factor de forma pequeño (SFF)",
+          "Tower": "Torre",
+          "Micro / Mini / Tiny": "Mini escritorio",
+          "Desktop": "Torre"
+        },
+        "_domyslnie": "Torre",
+        "_about": "Wartosci z listy dozwolonych eBay.es dla 'Factor de forma'."
+      }
+    },
+    "Notebook GW24": {
+      "gwarancja": "24 meses de garantía",
+      "produktart": "Notebook/Laptop",
+      "tastatur_layout": "El teclado está dotado de pegatinas con la distribución española.",
+      "cechy_domyslne": [
+        "Bluetooth",
+        "Wi-Fi",
+        "Micrófono incorporado"
+      ],
+      "dopisek_tytulu": "24 meses de garantía"
+    },
+    "Desktop-PC GW24": {
+      "gwarancja": "24 meses de garantía",
+      "produktart": "Escritorio",
+      "nadpisz_tlumaczenia": {
+        "Kondycja sprzętu": {
+          "Nowy": "Nuevo, en embalaje original y probado en fábrica."
+        },
+        "Stan obudowy": {
+          "Nowy": "Nuevo, sin signos de uso.",
+          "NOWY": "Nuevo, sin signos de uso."
+        },
+        "W zestawie": {
+          "Zasilacz z przewodem": "Fuente de alimentación con cable.",
+          "Zasilacz w zestawie": "Fuente de alimentación."
+        }
+      },
+      "dopisek_tytulu": "24 meses de garantía",
+      "formfaktor": {
+        "z_atrybutu": "Obudowa",
+        "mapa": {
+          "SFF": "Factor de forma pequeño (SFF)",
+          "Tower": "Torre",
+          "Micro / Mini / Tiny": "Mini escritorio",
+          "Desktop": "Torre"
+        },
+        "_domyslnie": "Torre",
+        "_about": "Wartosci z listy dozwolonych eBay.es dla 'Factor de forma'."
+      }
+    },
+    "Desktop-PC nowy GW24": {
+      "gwarancja": "24 meses de garantía",
+      "produktart": "Escritorio",
+      "nadpisz_tlumaczenia": {
+        "Kondycja sprzętu": {
+          "Nowy": "Nuevo, en embalaje original y probado en fábrica."
+        },
+        "Stan obudowy": {
+          "Nowy": "Nuevo, sin signos de uso.",
+          "NOWY": "Nuevo, sin signos de uso."
+        },
+        "W zestawie": {
+          "Zasilacz z przewodem": "Fuente de alimentación con cable.",
+          "Zasilacz w zestawie": "Fuente de alimentación."
+        }
+      },
+      "dopisek_tytulu": "24 meses de garantía",
+      "formfaktor": {
+        "z_atrybutu": "Obudowa",
+        "mapa": {
+          "SFF": "Factor de forma pequeño (SFF)",
+          "Tower": "Torre",
+          "Micro / Mini / Tiny": "Mini escritorio",
+          "Desktop": "Torre"
+        },
+        "_domyslnie": "Torre",
+        "_about": "Wartosci z listy dozwolonych eBay.es dla 'Factor de forma'."
+      }
+    }
+  },
+  "_dopisek_tytulu": "Nieskracalny ogon tytulu, liczy sie do limitu 80 znakow - skracaniu podlegaja DANE TECHNICZNE od konca. Zwykla oferta ma samo 'Garantía' (8 zn.), blizniak GW24 'Garantía 24 meses', bo BEZ ROZNICY W TYTULE bylby duplikatem oryginalu.",
+  "sekcja_business_notebook": "<div class=\"kpx-sec\"><h2 class=\"kpx-h2\"><span>&iquest;Por qu&eacute; elegir un port&aacute;til profesional?</span></h2><p>Los equipos de la gama profesional est&aacute;n dise&ntilde;ados para empresas, no para el mercado de consumo. Es una diferencia que se nota cada d&iacute;a.</p><ul class=\"kpx-ul\"><li>Carcasa resistente de magnesio o fibra de carbono, en lugar de pl&aacute;stico fino.</li><li>Dise&ntilde;ados y probados para un uso diario intensivo.</li><li>Teclado de calidad con una respuesta t&aacute;ctil bien definida.</li><li>Componentes duraderos y recambios disponibles durante mucho tiempo.</li><li>Dise&ntilde;o que facilita el mantenimiento: las reparaciones son posibles sin herramientas especiales.</li></ul></div>",
+  "_zdania_wiodace": "Zdanie pod kafelkami, wybierane na stale po SKU - KOLEJNOSC MA ZNACZENIE, bo zmiana przetasuje przypisania. Lista musi miec tyle samo pozycji co niemiecka. Tlumaczenie maszynowe, do przejrzenia przez Marka.",
+  "zdania_wiodace": {
+    "lista": [
+      "Un portátil potente, que gestiona sin problemas muchas pestañas abiertas del navegador, vídeos en alta resolución y varios programas funcionando a la vez.",
+      "Permite trabajar con fluidez con Word y Excel, videoconferencias y numerosas pestañas abiertas, sin esperas ni ralentizaciones molestas.",
+      "Una buena elección para quien busca algo más que un simple portátil. Ideal para multitarea, clases en línea, vídeo y uso diario de internet.",
+      "Ofrece potencia suficiente para documentos, presentaciones, archivos PDF, vídeos y videollamadas, incluso con varias aplicaciones abiertas a la vez.",
+      "Bastante potente para muchas pestañas abiertas del navegador, para edición básica de vídeo y fotografía y para crear proyectos con Canva.",
+      "Los programas se inician rápidamente y el cambio entre navegador, correo, documentos y otras aplicaciones se produce con fluidez, sin largas esperas.",
+      "Un portátil robusto para el uso diario. Ideal para jornadas largas de trabajo, colegio, universidad, películas y navegación con tranquilidad.",
+      "Permite trabajar cómodamente con varios programas a la vez, reproducir vídeos en alta resolución y hacer videollamadas sin cortes.",
+      "La construcción robusta de nivel profesional y los componentes potentes hacen de este portátil una elección fiable para casa, la oficina o los viajes.",
+      "Para quien valora la velocidad, un rendimiento fiable y una carcasa resistente. Ideal para trabajo, estudio y entretenimiento."
+    ]
+  },
+  "zdania_wiodace_pecety": {
+    "lista": [
+      "Un ordenador de sobremesa profesional potente, que gestiona sin problemas muchas pestañas abiertas del navegador, vídeos en alta resolución y varios programas funcionando a la vez.",
+      "Permite trabajar con fluidez con Word y Excel, videoconferencias y numerosas pestañas abiertas, sin ralentizaciones.",
+      "Una buena elección para quien busca un ordenador fiable para el escritorio. Ideal para multitarea, oficina y teletrabajo.",
+      "Ofrece potencia suficiente para documentos, presentaciones, archivos PDF, vídeos y videollamadas durante la jornada laboral.",
+      "Bastante potente para muchas pestañas abiertas del navegador, para edición de vídeo y fotografía y para varios programas a la vez.",
+      "Los programas se inician rápidamente y el cambio entre navegador, correo, documentos y otras aplicaciones se produce sin esperas.",
+      "Un ordenador robusto para el uso diario. Ideal para jornadas largas de trabajo en la oficina, en el colegio o en organismos públicos.",
+      "Permite trabajar cómodamente con varios programas a la vez, reproducir vídeos y conectar varios monitores.",
+      "La construcción de nivel profesional y los componentes potentes hacen de este ordenador una herramienta de trabajo fiable durante muchos años.",
+      "Para quien valora la velocidad, un rendimiento fiable y un ordenador fácil de mantener. Ideal para funcionamiento continuo en la oficina."
+    ]
+  },
+  "zdania_wiodace_gaming": {
+    "lista": [
+      "Un ordenador de sobremesa montado nuevo para los juegos actuales, el streaming y las aplicaciones más exigentes.",
+      "Potencia suficiente para jugar con fluidez con detalles altos, transmitir en streaming y tener muchos programas abiertos.",
+      "Pensado para quien busca un ordenador listo para usar y quiere evitar montarlo por su cuenta.",
+      "Construido para los juegos, la edición de fotografía y vídeo y el trabajo con varias pantallas.",
+      "Un ordenador potente para el gaming, la creación de contenidos y todo lo que queda abierto al lado."
+    ]
+  },
+  "_nadpisz_tlumaczenia": "Nowy zestaw nie jest poleasingowy - wspolny slownik tego nie wie, wiec kondycje opisuje sie osobno w profilu. Te napisy tez ida do oferty, wiec kraj musi je nadpisac."
+}
