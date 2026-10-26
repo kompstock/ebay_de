@@ -1983,10 +1983,9 @@ class Tryby(unittest.TestCase):
         self.assertFalse(raport["ok"])
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
+# UWAGA: 'if __name__ == "__main__"' ma byc TYLKO na koncu pliku. Stal kiedys
+# tutaj, w srodku, a ze unittest.main() konczy proces, kazda klasa zdefiniowana
+# nizej byla martwa: 18 testow nie uruchamialo sie i nie pilnowalo niczego.
 class RaportDuplikatow(unittest.TestCase):
     """Duplikat = ta sama specyfikacja ORAZ ta sama cena. Sama specyfikacja nie
     wystarcza, bo ten sam model w innej cenie to inny produkt."""
@@ -2164,3 +2163,60 @@ class RaportDuplikatow(unittest.TestCase):
             with self.subTest(aktywne=sorted(aktywne)):
                 wynik = self.znajdz(produkty, aktywne=aktywne)
                 self.assertFalse(set(wynik["wstrzymane_sku"]) & aktywne)
+
+
+class AlfabetRynku(unittest.TestCase):
+    """Rynek docelowy ma wlasne litery i wlasne nazwy pokolen procesora.
+
+    Oba bledy wyszly dopiero na Hiszpanii i oba zatrzymywaly caly rynek:
+    kazda oferta odpadala, bo 'Configuracion' ma o z kreska (znak uznany za
+    polski), a potem - bo eBay.es nie zna zapisu pokolenia, ktory wysylalismy.
+    """
+
+    def modul(self):
+        sys.path.insert(0, str(ROOT / "src"))
+        import generate
+        return generate
+
+    def test_znak_rynku_nie_jest_wyciekiem_polskiego(self):
+        g = self.modul()
+        hiszpanski = "Configuración de esta unidad"
+        self.assertIsNotNone(g.has_polish_leak(hiszpanski),
+                             "bez wyjatku 'o z kreska' to dla detektora polski znak")
+        self.assertIsNone(g.has_polish_leak(hiszpanski, znaki_dozwolone="óÓ"))
+
+    def test_wyjatek_na_znak_nie_rozbraja_reszty_detektora(self):
+        """Najwazniejszy test tej pary: po wpuszczeniu jednej litery siec ma
+        dalej lapac polskie zdanie. Inaczej wyjatek bylby furtka na wszystko."""
+        g = self.modul()
+        for polskie in ("Obudowa z drobnymi rysami", "sprzęt w pełni sprawny",
+                        "Zasilacz z przewodem", "normalne ślady użytkowania"):
+            with self.subTest(tekst=polskie):
+                self.assertIsNotNone(g.has_polish_leak(polskie, znaki_dozwolone="óÓ"))
+
+    def test_rynek_moze_podac_kilka_zapisow_pokolenia(self):
+        """eBay.es trzyma na jednej liscie 'i5 8th Gen.' i 'i5 12a generacion'.
+        Jeden wzorzec zostawial polowe ofert bez wymaganego aspektu."""
+        g = self.modul()
+        kandydaci = g.cpu_candidates("i5 - 8400H, 8MB Cache, 8 gen.",
+                                     ["{ord} Gen.", "{n}ª generación"])
+        self.assertIn("Intel Core i5 8th Gen.", kandydaci)
+        self.assertIn("Intel Core i5 8ª generación", kandydaci)
+        self.assertLess(kandydaci.index("Intel Core i5-8400H"),
+                        kandydaci.index("Intel Core i5 8th Gen."),
+                        "dokladny model musi stac przed zapasem na pokolenie")
+
+    def test_pojedynczy_wzorzec_dziala_jak_dotad(self):
+        g = self.modul()
+        kandydaci = g.cpu_candidates("i5 - 8400H, 8MB Cache, 8 gen.", "{n}. Gen")
+        self.assertIn("Intel Core i5 8. Gen", kandydaci)
+
+    def test_liczebnik_angielski(self):
+        g = self.modul()
+        self.assertEqual(
+            [g.liczebnik_ang(n) for n in (1, 2, 3, 4, 11, 12, 13, 21)],
+            ["1st", "2nd", "3rd", "4th", "11th", "12th", "13th", "21st"])
+
+
+if __name__ == "__main__":
+    unittest.main()
