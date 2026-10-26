@@ -273,16 +273,24 @@ def translate_value(field: str, value: str, translations: dict, review: Review,
     review.add("tlumaczenie", field,
                f"{value}  ->  [propozycja] {suggest_translation(value, translations)}")
     return None
-def has_polish_leak(text_value: str, wyjatki=()) -> str | None:
+def has_polish_leak(text_value: str, wyjatki=(), znaki_dozwolone=()) -> str | None:
     """Sprawdza tylko tekst widoczny dla kupujacego.
     CSS musi wypasc PRZED sprawdzeniem - selektor '.kpx-key i{...}' zawiera
     samotne 'i' i bez tego wywala falszywy alarm na kazdym produkcie.
+
+    'znaki_dozwolone' to litery, ktore rynek docelowy ma we wlasnym alfabecie.
+    Hiszpanski pisze "Configuracion" przez 'o' z kreska, czyli dokladnie ten sam
+    znak, co polskie "ktory" - bez tego wyjatku KAZDA hiszpanska oferta odpadala
+    na falszywym alarmie. Wloski nie potrzebuje nic: jego akcenty to a e i o u
+    z innymi kreskami, ktore z polskim zbiorem nie maja czesci wspolnej.
+    Siec na slowa dziala dalej w calosci, wiec polskie zdanie nadal sie lapie.
     """
+    szukane = POLISH_CHARS - set(znaki_dozwolone)
     plain = re.sub(r"(?is)<(style|script)\b.*?</\1>", " ", text_value)
     plain = re.sub(r"(?s)<!--.*?-->", " ", plain)
     plain = html.unescape(re.sub(r"<[^>]+>", " ", plain))
     for i, char in enumerate(plain):
-        if char in POLISH_CHARS:
+        if char in szukane:
             kontekst = normalize_space(plain[max(0, i - 45):i + 45])
             return f"znak {char!r} w: ...{kontekst}..."
     match = (wzorzec_polskiego(wyjatki) if wyjatki else POLISH_WORDS).search(plain)
@@ -401,7 +409,27 @@ def procesor_opis(raw: str, opis_generacji: str = "{n}. Generation",
     if cache:
         dodatki.append(opis_cache.format(n=cache.group(1)))
     return f"{nazwa} ({', '.join(dodatki)})" if dodatki else nazwa
-def cpu_candidates(processor: str, format_generacji: str = "{n}. Gen") -> list[str]:
+def liczebnik_ang(n: int) -> str:
+    """1 -> '1st', 2 -> '2nd', 11 -> '11th'. Potrzebne tam, gdzie eBay zostawil
+    na lokalnej liscie angielskie nazwy pokolen."""
+    if 11 <= n % 100 <= 13:
+        return f"{n}th"
+    return f"{n}{ {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th') }"
+
+
+def formaty_generacji(format_generacji) -> list[str]:
+    """Rynek moze podac jeden zapis pokolenia albo kilka.
+
+    eBay.es ma liste NIESPOJNA: 'Intel Core i5 8th Gen.' po angielsku, ale
+    'Intel Core i5 12a generacion' po hiszpansku. Jeden wzorzec nie obsluzy
+    obu, a aspekt procesora jest wymagany - oferta ze starszym procesorem
+    odpadala w calosci. Podajemy wiec wszystkie zapisy; ten, ktory faktycznie
+    jest w slowniku rynku, wybierze sie sam przy dopasowaniu kandydatow.
+    """
+    return [format_generacji] if isinstance(format_generacji, str) else list(format_generacji)
+
+
+def cpu_candidates(processor: str, format_generacji="{n}. Gen") -> list[str]:
     """Zwraca kandydatow od najbardziej do najmniej precyzyjnego.
     Feed uzywa formatu 'i5 - 1135G7, 8MB Cache, 11 gen.' albo 'Ryzen 5 PRO 4650U'.
     """
@@ -454,7 +482,9 @@ def cpu_candidates(processor: str, format_generacji: str = "{n}. Gen") -> list[s
         # Nazwa generacji jest inna na kazdym rynku - po niemiecku "8. Gen",
         # po wlosku "8a generazione". Zaszyta na sztywno kosztowala kazda oferte,
         # ktorej procesora nie ma na liscie wprost: aspekt jest WYMAGANY.
-        out.append(f"Intel Core i{rodzina} {format_generacji.format(n=numer)}")
+        for wzor in formaty_generacji(format_generacji):
+            out.append(f"Intel Core i{rodzina} "
+                       f"{wzor.format(n=numer, ord=liczebnik_ang(numer))}")
         out.append(f"Intel Core i{rodzina}")
         return out
     celeron = re.search(r"CELERON\s*([A-Z]?\d{4}[A-Z]*)", p)
@@ -1101,7 +1131,8 @@ def render_description(szablony, attrs, images, translations, aspects, settings,
     for key, value in {**values, **raw}.items():
         out = out.replace("{{" + key + "}}", value if key in raw else e(value))
     out = normalize_space(out)
-    leak = has_polish_leak(out, settings.get("wyjatki_polskiego", ()))
+    leak = has_polish_leak(out, settings.get("wyjatki_polskiego", ()),
+                           settings.get("znaki_dozwolone", ()))
     return ("", f"opis: niedotlumaczony ({leak})") if leak else (out, "")
 def build_title(attrs: dict, settings: dict, aspects: dict,
                 profil: dict | None = None) -> str:
@@ -1644,20 +1675,31 @@ def wczytaj_sku_reczne(sciezka: Path) -> tuple[dict, dict, str]:
     linie = [l for l in tekst.split("\n") if l.strip()]
     if not linie:
         return {}, {}, ""
-    naglowek_linia = linie[0]
+    # Naglowek moze byc poprzedzony blokiem opisu, bo opis wkleja sie na gore
+    # pliku. Bez tego jedna linia '#' nad naglowkiem chowala go przed parserem
+    # i wczytywalo sie ZERO wpisow zamiast stu kilkudziesieciu - przy czym
+    # przebieg nie wychodzil pusty, tylko padal na mylacym komunikacie.
+    i_naglowka = next((i for i, l in enumerate(linie) if not l.lstrip().startswith("#")), None)
+    if i_naglowka is None:
+        return {}, {}, ""
+    naglowek_linia = linie[i_naglowka]
     sep = max(";,\t", key=naglowek_linia.count)
     if naglowek_linia.count(sep) == 0:
         sep = ";"
     kolumny = [k.strip().lower() for k in next(csv.reader([naglowek_linia], delimiter=sep))]
     if "sku" not in kolumny:
-        return {}, {}, (f"{sciezka.name}: brak kolumny 'SKU' "
-                        f"(naglowek: {naglowek_linia.strip()})")
+        # Najczestsza przyczyna: ktos wkleil opis i zakomentowal nim naglowek,
+        # wiec pierwsza linia z danymi udaje naglowek. Mowimy to wprost, bo
+        # samo "brak kolumny SKU" wygladalo na blad pliku, a nie na brak linii.
+        return {}, {}, (f"{sciezka.name}: brak linii naglowka 'SKU;ilosc;cena'. "
+                        f"Za naglowek wzielismy '{naglowek_linia.strip()[:60]}', "
+                        f"a to nie wyglada na naglowek - czy nie zostal zakomentowany?")
     i_sku = kolumny.index("sku")
     i_ilosc = next((kolumny.index(n) for n in ("ilosc", "ilość") if n in kolumny), None)
     i_cena = next((kolumny.index(n) for n in ("cena", "cena pln", "cena_pln") if n in kolumny), None)
     ilosci: dict = {}
     ceny: dict = {}
-    for wiersz in csv.reader(linie[1:], delimiter=sep):
+    for wiersz in csv.reader(linie[i_naglowka + 1:], delimiter=sep):
         def pole(i):
             return (wiersz[i].strip() if i is not None and i < len(wiersz) else "")
         sku = pole(i_sku)
