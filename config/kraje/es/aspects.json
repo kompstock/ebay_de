@@ -1,0 +1,507 @@
+{
+ "_about": "Zamkniete slowniki wartosci aspektow eBay.de. Wartosc spoza slownika NIE trafia do CSV - laduje w raporcie review.",
+ "_zrodlo_prawdy": "ok.csv - oferta, ktora przeszla import. Kazda nowa wartosc weryfikowac na zywym listingu, zanim tu trafi.",
+ "konnektivitaet": {
+  "_about": "C:Conectividad - wartosci z szablonu eBay.es. Reszta portow idzie wylacznie do opisu.",
+  "_dozwolone": [
+   "DisplayPort",
+   "HDMI",
+   "Mini-USB",
+   "USB 1.0/1.1",
+   "USB 2.0",
+   "USB 3.0",
+   "USB 3.1",
+   "USB-C",
+   "Gigabit Ethernet",
+   "Micro-HDMI",
+   "Ranura para tarjeta microSD",
+   "Micro-USB",
+   "Mini DisplayPort",
+   "Mini Gigabit Ethernet",
+   "Ranura para tarjetas SD",
+   "USB 3.2",
+   "USB 4.0",
+   "VGA"
+  ],
+  "zawsze_dodaj": {
+   "_komentarz": "Bluetooth i Wi-Fi NIE sa wartosciami tego aspektu - naleza do Besonderheiten.",
+   "wartosci": []
+  },
+  "opis_etykiety": {},
+  "etykieta_na_aspekt": {
+   "_about": "Etykieta portu (hiszpanska, z porty_reguly) -> wartosc aspektu C:Conectividad. Brak wpisu = port nie trafia do aspektu, ale zostaje w opisie.",
+   "HDMI": "HDMI",
+   "HDMI 1.4": "HDMI",
+   "HDMI 1.4b": "HDMI",
+   "HDMI 2.0": "HDMI",
+   "USB-C": "USB-C",
+   "USB4 Type-C": "USB 4.0",
+   "Thunderbolt 3": "USB-C",
+   "Thunderbolt 4": "USB-C",
+   "USB 3.2 Gen 1": "USB 3.2",
+   "USB 3.2 Gen 2": "USB 3.2",
+   "USB 3.1": "USB 3.1",
+   "USB 3.0": "USB 3.0",
+   "USB 2.0": "USB 2.0",
+   "USB": "USB 2.0",
+   "DisplayPort": "DisplayPort",
+   "Mini DisplayPort": "Mini DisplayPort",
+   "VGA": "VGA",
+   "RJ-45 (LAN)": "Gigabit Ethernet",
+   "Mini Ethernet": "Mini Gigabit Ethernet",
+   "Lector de tarjetas microSD": "Ranura para tarjeta microSD",
+   "Lector de tarjetas SD": "Ranura para tarjetas SD",
+   "Lector de tarjetas": "Ranura para tarjetas SD",
+   "USB 3.2 Gen 2 Type-C": [
+    "USB-C",
+    "USB 3.2"
+   ],
+   "USB 3.2 Gen 1 Type-C": [
+    "USB-C",
+    "USB 3.2"
+   ],
+   "USB 3.2 Type-C": [
+    "USB-C",
+    "USB 3.2"
+   ],
+   "USB 3.1 Type-C": [
+    "USB-C",
+    "USB 3.1"
+   ],
+   "USB 3.0 Type-C": [
+    "USB-C",
+    "USB 3.0"
+   ],
+   "USB 2.0 Type-C": [
+    "USB-C",
+    "USB 2.0"
+   ],
+   "_uwaga_lista": "Wartosc moze byc lista - jedno gniazdo bywa dla kupujacego kilkoma rzeczami naraz (USB 3.2 Gen 2 Type-C to i USB-C, i USB 3.2)."
+  },
+  "_uwaga_179": "UWAGA: 'Gigabit Ethernet' jest na liscie eBay.it dla laptopow (177), ale kategoria komputerow (179) ma tam 'RJ-45'. Mapa jest wspolna dla obu kategorii, wiec pecety dostaja wartosc spoza listy - eBay ja przyjmuje, lecz nie podepnie pod filtr."
+ },
+ "besonderheiten": {
+  "_about": "C:Características - wartosci z szablonu eBay.es.",
+  "_dozwolone": [
+   "10/100 Tarjeta LAN",
+   "Bluetooth",
+   "Micrófono incorporado",
+   "Wi-Fi",
+   "Webcam integrada",
+   "Pantalla táctil",
+   "Teclado retroiluminado",
+   "Trackpad Multi-Touch",
+   "Robusto",
+   "LTE",
+   "5G",
+   "NFC",
+   "Computadora portátil/tableta 2 en 1 convertible",
+   "Unidad óptica",
+   "USB-PD (carga rápida)"
+  ],
+  "reguly": [
+   {
+    "gdy": "zawsze_laptop",
+    "dodaj": [
+     "Bluetooth",
+     "Wi-Fi",
+     "Eingebautes Mikrofon"
+    ]
+   },
+   {
+    "gdy": "pole:Ekran dotykowy=Tak",
+    "dodaj": [
+     "Touchscreen"
+    ]
+   },
+   {
+    "gdy": "port:rj-45",
+    "dodaj": [
+     "10/100 LAN Karte"
+    ]
+   },
+   {
+    "gdy": "pole:Kamera~tak",
+    "dodaj": [
+     "Webcam"
+    ]
+   }
+  ],
+  "_nigdy_nie_zgaduj": [
+   "Beleuchtete Tastatur",
+   "Fingerabdruckleser"
+  ],
+  "_webcam": "Webcam integrada",
+  "_touchscreen": "Pantalla táctil",
+  "_podswietlenie": "Teclado retroiluminado",
+  "_uwaga_lan": "'10/100 LAN Karte' usuniete - to deklaracja predkosci, ktorej feed nie potwierdza. Obecnosc portu LAN wynika z sekcji Anschlüsse i aspektu Konnektivität.",
+  "_uwaga_zrodlo": "Wartosci przepisane z listy dozwolonych eBay.it (kategoria 177), nie tlumaczone na oko."
+ },
+ "farbe": {
+  "_about": "C:Color - feed nie ma pola koloru, wiec wartosc domyslna per model.",
+  "domyslnie": "Negro",
+  "z_modelu": {
+   "macbook": "Plata",
+   "elitebook": "Plata",
+   "zbook": "Plata"
+  },
+  "_do_sprawdzenia": "Kolory z listy eBay.es: 'Negro' i 'Plata'. Oba potwierdzone w szablonie dla 177, 179 i 111422."
+ },
+ "serie": {
+  "_about": "C:Serie - wyprowadzana z nazwy modelu. Brak dopasowania = pole puste (nie blokuje). ZBook i LifeBook pominiete celowo: nie ma ich na liscie dozwolonych wartosci eBay.es.",
+  "wzorce": {
+   "thinkpad": "ThinkPad",
+   "latitude": "Latitude",
+   "precision": "Precision",
+   "xps": "XPS",
+   "elitebook": "EliteBook",
+   "probook": "ProBook",
+   "macbook pro": "MacBook Pro",
+   "macbook air": "MacBook Air"
+  }
+ },
+ "passend_fuer": {
+  "_about": "C:Más adecuado para - stale dla kategorii laptopow biznesowych.",
+  "wartosci": [
+   "Estación de trabajo",
+   "Informática casual"
+  ],
+  "_uwaga": "Odpowiedniki niemieckich 'Arbeitsstation' i 'Gelegentliche Computerarbeiten'."
+ },
+ "festplattentyp": {
+  "SSD": "SSD (unidad de estado sólido)",
+  "HDD": "HDD (unidad de disco duro)",
+  "eMMC": "eMMC"
+ },
+ "grafikprozessortyp": {
+  "Zintegrowana": "Integrados/Gráficos integrados",
+  "Dedykowana": "Gráficos dedicados"
+ },
+ "betriebssystem": {
+  "_about": "Wartosc z feedu -> wartosc aspektu eBay.es. Rozna dla 177 i 111422.",
+  "Windows 11 Pro": "Windows 11 Pro",
+  "Windows 11 Home": "Windows 11 Home",
+  "Windows 11 Pro Education": "Windows 11 Pro",
+  "Windows 11 Professional": "Windows 11 Pro",
+  "Windows 11 HOME": "Windows 11 Home",
+  "Windows 10 Pro": "Windows 10 Pro",
+  "Windows 10 Professional": "Windows 10 Pro",
+  "Windows 10 PRO": "Windows 10 Pro",
+  "Windows 10 Home": "Windows 10 Home",
+  "Windows 10 lub 11 Pro": "Windows 10 Pro",
+  "Windows 10 lub 11 Professional": "Windows 10 Pro",
+  "Windows 10/11 Professional": "Windows 10 Pro",
+  "System Windows 10 IoT Enterprise": "Windows 10",
+  "Windows Embedded Standard 10 LTSB": "Windows 10",
+  "Chrome OS": "Chrome OS",
+  "Linux": "Linux",
+  "Ubuntu": "Ubuntu",
+  "Brak": "No incluido",
+  "brak": "No incluido",
+  "Bez systemu": "No incluido",
+  "Brak systemu": "No incluido",
+  "Brak Licencja -Windows Embedded Standard": "No incluido",
+  "MacOS Mojave": "macOS 10.14, Mojave",
+  "Mac OS Catalina": "Mac OS 10.15, Catalina",
+  "Mac OS Big Sur": "Mac OS 11.0, Big Sur",
+  "MacOS 12, Monterey": "macOS 12.0, Monterey",
+  "Mac OS Monterey": "macOS 12.0, Monterey",
+  "MacOS 13, Ventura": "macOS 13.0, Ventura",
+  "Mac OS Ventura": "macOS 13.0, Ventura",
+  "MacOS 14, Sonoma": "macOS 14.0, Sonoma",
+  "Mac OS Sonoma": "macOS 14.0, Sonoma",
+  "_bez_odpowiednika": {
+   "_komentarz": "eBay nie ma jeszcze tych wersji. Pole zostaje puste, oferta wychodzi.",
+   "macOS 15 Sequoia": "",
+   "macOS 26 Tahoe": ""
+  }
+ },
+ "erscheinungsjahr": {
+  "_about": "C:Erscheinungsjahr - feed tego nie ma. Rocznik per model, uzupelniany recznie. Brak = pole puste.",
+  "modele": {
+   "thinkpad t14 gen 1": "2020",
+   "thinkpad t14 gen 2": "2021",
+   "thinkpad t14 gen 3": "2022",
+   "thinkpad x13 gen 1": "2020",
+   "thinkpad x13 gen 2": "2021",
+   "thinkpad t490": "2019",
+   "thinkpad t480": "2018"
+  }
+ },
+ "condition_id": {
+  "_about": "Mapowanie klasy z feedu na ConditionID eBay. Do czasu wejscia do programu eBay Refurbished wszystko na 3000.",
+  "_tryb": "gebraucht",
+  "gebraucht": {
+   "A": "3000",
+   "A-": "3000",
+   "B": "3000",
+   "_brak": "3000"
+  },
+  "refurbished": {
+   "_komentarz": "Wlaczyc dopiero po akceptacji konta do eBay Refurbished. 2010=Sehr gut, 2020=Gut, 2030=Akzeptabel.",
+   "A": "2010",
+   "A-": "2020",
+   "B": "2030",
+   "_brak": "3000"
+  },
+  "_uwaga_test": "SPRAWDZONE 18.09.2026 na VerifyAdd: eBay.it odrzuca, blad 21920311 'Il venditore non e idoneo all'utilizzo della condizione Ricondizionato in questa categoria' dla kategorii 177. Konto NIE jest przyjete do programu eBay Refurbished. Mapa 'refurbished' zostaje gotowa - wystarczy zmienic '_tryb', gdy eBay zaakceptuje zgloszenie. Blad wskazuje kategorie, wiec zgoda jest per kategoria, nie na cale konto."
+ },
+ "herstellergarantie": {
+  "_uwaga": "'Keine' nie istnieje w slowniku eBaya. Pole zostaje puste.",
+  "wartosc": ""
+ },
+ "grafikprozessor_alias": {
+  "_about": "Feed uzywa nazw handlowych, eBay swoich. Brak aliasu = pole puste + review.",
+  "amd radeon rx vega 6": "AMD Radeon Vega 6",
+  "amd radeon rx vega 7": "AMD Radeon Vega 7",
+  "amd radeon rx vega 8": "AMD Radeon Vega 8",
+  "intel uhd graphics 620": "Intel UHD Graphics 620",
+  "intel uhd graphics": "Intel UHD Graphics",
+  "intel iris xe graphics": "Intel Iris Xe Graphics",
+  "intel hd graphics 620": "Intel HD Graphics 620",
+  "amd radeon rx vega 3": "AMD Radeon Vega 3",
+  "amd radeon rx vega 10": "AMD Radeon RX Vega 10"
+ },
+ "porty_reguly": {
+  "_about": "Regex -> etykieta niemiecka. Pierwsze trafienie wygrywa. Brak trafienia = port pomijany + wpis do review.",
+  "reguly": [
+   [
+    "(?i)(?=.*usb)(?=.*3\\.2)(?=.*gen\\.?\\s*2)(?=.*typ\\s*c)",
+    "USB 3.2 Gen 2 Type-C"
+   ],
+   [
+    "(?i)(?=.*usb)(?=.*3\\.2)(?=.*gen\\.?\\s*1)(?=.*typ\\s*c)",
+    "USB 3.2 Gen 1 Type-C"
+   ],
+   [
+    "(?i)(?=.*usb)(?=.*3\\.2)(?=.*typ\\s*c)",
+    "USB 3.2 Type-C"
+   ],
+   [
+    "(?i)(?=.*usb)(?=.*3\\.1)(?=.*typ\\s*c)",
+    "USB 3.1 Type-C"
+   ],
+   [
+    "(?i)(?=.*usb)(?=.*3\\.0)(?=.*typ\\s*c)",
+    "USB 3.0 Type-C"
+   ],
+   [
+    "(?i)(?=.*usb)(?=.*2\\.0)(?=.*typ\\s*c)",
+    "USB 2.0 Type-C"
+   ],
+   [
+    "(?i)(?=.*usb)(?=.*3\\.2)(?=.*gen\\.?\\s*2)",
+    "USB 3.2 Gen 2"
+   ],
+   [
+    "(?i)(?=.*usb)(?=.*3\\.2)(?=.*gen\\.?\\s*1)",
+    "USB 3.2 Gen 1"
+   ],
+   [
+    "(?i)thunderbolt\\s*4",
+    "Thunderbolt 4"
+   ],
+   [
+    "(?i)thunderbolt",
+    "Thunderbolt 3"
+   ],
+   [
+    "(?i)surface\\s*connect",
+    "Surface Connect"
+   ],
+   [
+    "(?i)usb\\s*4",
+    "USB4 Type-C"
+   ],
+   [
+    "(?i)usb[-\\s]*(typ[eu]?[-\\s]*c|c)\\b",
+    "USB-C"
+   ],
+   [
+    "(?i)usb[-\\s]*a?\\s*3\\.2\\s*gen\\.?\\s*2",
+    "USB 3.2 Gen 2"
+   ],
+   [
+    "(?i)usb[-\\s]*a?\\s*3\\.2",
+    "USB 3.2 Gen 1"
+   ],
+   [
+    "(?i)usb[-\\s]*a?\\s*3\\.1",
+    "USB 3.1"
+   ],
+   [
+    "(?i)usb[-\\s]*a?\\s*3\\.0",
+    "USB 3.0"
+   ],
+   [
+    "(?i)usb[-\\s]*a?\\s*2\\.0",
+    "USB 2.0"
+   ],
+   [
+    "(?i)^usb([-\\s]*a)?$",
+    "USB"
+   ],
+   [
+    "(?i)mini[-\\s]*display[-\\s]*port",
+    "Mini DisplayPort"
+   ],
+   [
+    "(?i)display[-\\s]*port",
+    "DisplayPort"
+   ],
+   [
+    "(?i)hdmi\\s*2\\.0",
+    "HDMI 2.0"
+   ],
+   [
+    "(?i)hdmi\\s*1\\.4b",
+    "HDMI 1.4b"
+   ],
+   [
+    "(?i)hdmi\\s*1\\.4",
+    "HDMI 1.4"
+   ],
+   [
+    "(?i)hdmi",
+    "HDMI"
+   ],
+   [
+    "(?i)vga|d-?sub",
+    "VGA"
+   ],
+   [
+    "(?i)mini\\s*ethernet",
+    "Mini Ethernet"
+   ],
+   [
+    "(?i)rj-?45|ethernet|^lan\\b",
+    "RJ-45 (LAN)"
+   ],
+   [
+    "(?i)rs-?232|^com\\b",
+    "Puerto serie (RS-232)"
+   ],
+   [
+    "(?i)smart\\s*card|^sc$",
+    "Lector de tarjetas inteligentes"
+   ],
+   [
+    "(?i)micro\\s*sd",
+    "Lector de tarjetas microSD"
+   ],
+   [
+    "(?i)czytnik kart pamieci sd|czytnik kart sd|^sd$",
+    "Lector de tarjetas SD"
+   ],
+   [
+    "(?i)czytnik kart|kartenleser",
+    "Lector de tarjetas"
+   ],
+   [
+    "(?i)mini\\s*jack|jack|combo|sluchawkow|mikrofon|headphone|audio|^3\\.5\\s*mm",
+    "Conector de audio combinado"
+   ],
+   [
+    "(?i)dc-?in|zasil|netzanschluss",
+    "Alimentación"
+   ],
+   [
+    "(?i)dok",
+    "Conector de base"
+   ],
+   [
+    "(?i)sim",
+    "Ranura para tarjeta SIM"
+   ],
+   [
+    "(?i)express\\s*card",
+    "Ranura ExpressCard"
+   ],
+   [
+    "(?i)kensington|blokad",
+    "Ranura Kensington"
+   ],
+   [
+    "(?i)^ps\\s*/?\\s*2$|ps\\s*/\\s*2",
+    "PS/2"
+   ],
+   [
+    "(?i)^dvi",
+    "DVI"
+   ],
+   [
+    "(?i)^serial$",
+    "Puerto serie (RS-232)"
+   ],
+   [
+    "(?i)wejscie liniowe|line[-\\s]*in",
+    "Entrada de línea"
+   ],
+   [
+    "(?i)wyjscie liniowe|line[-\\s]*out",
+    "Salida de línea"
+   ],
+   [
+    "(?i)^dp\\s*\\d",
+    "DisplayPort"
+   ]
+  ],
+  "pomijaj": [
+   "inne",
+   "brak",
+   "-",
+   "n/a",
+   "nie dotyczy"
+  ],
+  "_uwaga_pomijaj": "Wpisy, ktore nic nie mowia kupujacemu. Pomijamy je bez zglaszania do review - to nie sa braki do uzupelnienia.",
+  "_uwaga_jezyk": "Etykiety trafiaja WPROST do opisu oferty, w sekcji zlacz. Musza byc w jezyku rynku - same regexy zostaja, bo dopasowuja tekst z polskiego feedu."
+ },
+ "klawiatura_czesci": {
+  "_about": "Rozbior wartosci pola 'Klawiatura (ISO lub ANSI)'. Nierozpoznany czlon = produkt do review.",
+  "czesci": {
+   "qwerty pl": "QWERTY/QWERTZ, mit deutschen Tastaturaufklebern",
+   "qwertz de": "QWERTZ DE",
+   "qwerty us": "QWERTY US",
+   "azerty fr": "AZERTY FR",
+   "qwerty uk": "QWERTY UK",
+   "qwertz ch": "QWERTZ CH",
+   "qwerty nordic": "QWERTY Nordic",
+   "podswietlana": "beleuchtet",
+   "niepodswietlana": "ohne Beleuchtung",
+   "numeryczna": "mit Nummernblock",
+   "spolszczona naklejkami": ""
+  },
+  "podswietlenie_tak": [
+   "podswietlana"
+  ],
+  "podswietlenie_nie": [
+   "niepodswietlana"
+  ],
+  "_uwaga_naklejki": "Feed opisuje naklejki polskie. W ofercie niemieckiej ten czlon jest pomijany - kupujacy dostaje naklejki niemieckie. Dotyczy to KAZDEGO ukladu, takze QWERTY US i Nordic, dlatego wiersz 'Tastatur-Layout' w opisie jest stala z profile_produktu.Notebook.tastatur_layout, a nie wartoscia z feedu. Mapowanie 'czesci' sluzy juz tylko do wykrycia podswietlenia (C:Besonderheiten)."
+ },
+ "sufiks_tytulu": {
+  "_about": "Sufiks tytulu MUSI wynikac z pola 'Zainstalowany system'. Brak wpisu = brak sufiksu.",
+  "Windows 11 Pro": "Win11 Pro",
+  "Windows 11 Home": "Win11 Home",
+  "Windows 11 Pro Education": "Win11 Pro",
+  "Windows 10 Pro": "Win10 Pro",
+  "Windows 10 Professional": "Win10 Pro",
+  "Windows 10 Home": "Win10 Home",
+  "Windows 10 lub 11 Pro": "Win10/11 Pro",
+  "Chrome OS": "ChromeOS",
+  "MacOS Mojave": "macOS",
+  "Mac OS Ventura": "macOS",
+  "MacOS 13, Ventura": "macOS",
+  "macOS 15 Sequoia": "macOS",
+  "macOS 26 Tahoe": "macOS",
+  "MacOS 14, Sonoma": "macOS",
+  "Windows 11 Professional": "Win11 Pro",
+  "Windows 11 HOME": "Win11 Home",
+  "Windows 10 PRO": "Win10 Pro",
+  "Windows 10 lub 11 Professional": "Win10/11 Pro",
+  "Windows 10/11 Professional": "Win10/11 Pro",
+  "System Windows 10 IoT Enterprise": "Win10",
+  "Windows Embedded Standard 10 LTSB": "Win10"
+ },
+ "_zrodlo": "szablon kategorii eBay.es z 15.10.2026; struktura skopiowana z config/kraje/it"
+}
