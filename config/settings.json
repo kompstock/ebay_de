@@ -357,14 +357,13 @@
         ]
       },
       "nadpisz_tlumaczenia": {
-        "_about": "Nowy zestaw nie jest 'poleasingowy' ani 'uzywany'. Wspolny slownik tego nie wie, wiec kondycje opisujemy tutaj.",
+        "_about": "Nowy zestaw nie jest 'poleasingowy' ani 'uzywany'. Wspolny slownik tego nie wie, wiec kondycje opisujemy tutaj. CELOWO NIE MA TU 'Normalne slady uzytkowania': kiedys bylo i kazalo opisowi mowic 'bez sladow uzytkowania' o produkcie, ktory wg feedu te slady ma. Jesli feed podaje slady, a towar jest nowy, poprawia sie ZRODLO w Shoperze - generator nie ma zaprzeczac danym. Dopasowanie idzie przez norm(), wiec wielkosc liter nie ma znaczenia; 'nowy' i 'NOWY' trafiaja tak samo.",
         "Kondycja sprzętu": {
           "Nowy": "Neu, originalverpackt und werkseitig getestet."
         },
         "Stan obudowy": {
           "Nowy": "Neu, ohne Gebrauchsspuren.",
-          "NOWY": "Neu, ohne Gebrauchsspuren.",
-          "Normalne ślady użytkowania": "Neu, ohne Gebrauchsspuren."
+          "NOWY": "Neu, ohne Gebrauchsspuren."
         },
         "W zestawie": {
           "Zasilacz z przewodem": "Netzteil mit Kabel.",
@@ -591,14 +590,13 @@
         ]
       },
       "nadpisz_tlumaczenia": {
-        "_about": "Nowy zestaw nie jest 'poleasingowy' ani 'uzywany'. Wspolny slownik tego nie wie, wiec kondycje opisujemy tutaj.",
+        "_about": "Nowy zestaw nie jest 'poleasingowy' ani 'uzywany'. Wspolny slownik tego nie wie, wiec kondycje opisujemy tutaj. CELOWO NIE MA TU 'Normalne slady uzytkowania': kiedys bylo i kazalo opisowi mowic 'bez sladow uzytkowania' o produkcie, ktory wg feedu te slady ma. Jesli feed podaje slady, a towar jest nowy, poprawia sie ZRODLO w Shoperze - generator nie ma zaprzeczac danym. Dopasowanie idzie przez norm(), wiec wielkosc liter nie ma znaczenia; 'nowy' i 'NOWY' trafiaja tak samo.",
         "Kondycja sprzętu": {
           "Nowy": "Neu, originalverpackt und werkseitig getestet."
         },
         "Stan obudowy": {
           "Nowy": "Neu, ohne Gebrauchsspuren.",
-          "NOWY": "Neu, ohne Gebrauchsspuren.",
-          "Normalne ślady użytkowania": "Neu, ohne Gebrauchsspuren."
+          "NOWY": "Neu, ohne Gebrauchsspuren."
         },
         "W zestawie": {
           "Zasilacz z przewodem": "Netzteil mit Kabel.",
