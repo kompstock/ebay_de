@@ -14,7 +14,17 @@ napisy, wiec tlumaczy sie je jako pliki. Skrypt wypisuje je na koncu z lista.
 
     python3 tools/eksport_do_tlumaczenia.py it   ->   do-tlumaczenia-it.csv
 
-Kolumna 'po_wlosku' zostaje pusta do wypelnienia. Juz wypelnione wartosci
+Kolumna 'tlumaczenie' zostaje pusta do wypelnienia - to w niej wpisuje sie
+jezyk DOCELOWY, jakikolwiek by nie byl. Wczesniej nazywala sie 'po_wlosku'
+i przy hiszpanskim arkuszu tlumacz szukal kolumny, ktorej nie bylo.
+
+CZYM SIE KIEROWAC
+Kolumna 'klucz' to zapis z magazynu i ona mowi PRAWDE o towarze.
+Kolumna 'po_niemiecku' to wzorzec stylu i terminologii - rynek niemiecki
+dziala najdluzej i jest najlepiej dopracowany. Gdy oba mowia to samo, idz
+za niemieckim. Gdy sie ROZCHODZA, wygrywa klucz i trzeba to zglosic: taka
+rozbieznosc znaczy albo blad w zrodle, albo latke w konfiguracji, i jedno
+i drugie nalezy naprawic, a nie przetlumaczyc. Juz wypelnione wartosci
 z pliku kraju sa przepisywane, wiec skrypt mozna odpalac wielokrotnie - nie
 kasuje tego, co ktos juz przetlumaczyl.
 """
@@ -115,7 +125,7 @@ def wiersze(kraj_zrodlo: dict, kraj_cel: dict, settings: dict, tlumaczenia: dict
             return
         out.append({"sekcja": sekcja, "klucz": klucz, "kontekst": kontekst,
                     "po_niemiecku": zrodlo,
-                    "po_wlosku": cel if isinstance(cel, str) else "",
+                    "tlumaczenie": cel if isinstance(cel, str) else "",
                     "wybierz_z_listy": dozwolone(kraj_cel, vocab_cel, aspekt) if aspekt else ""})
 
     for klucz, wartosc in kraj_zrodlo.get("etykiety_opisu", {}).items():
@@ -264,12 +274,12 @@ def main() -> int:
     with out.open("w", encoding="utf-8-sig", newline="") as uchwyt:
         writer = csv.DictWriter(
             uchwyt, fieldnames=["sekcja", "klucz", "kontekst", "po_niemiecku",
-                                "po_wlosku", "wybierz_z_listy"],
+                                "tlumaczenie", "wybierz_z_listy"],
             delimiter=";", lineterminator="\n")
         writer.writeheader()
         writer.writerows(dane)
 
-    puste = sum(1 for w in dane if not w["po_wlosku"])
+    puste = sum(1 for w in dane if not w["tlumaczenie"])
     print(f"{out.name}: {len(dane)} napisow, do wypelnienia {puste}")
     katalog = ROOT / kraj_zrodlo.get("katalog_szablonow", "templates")
     szablony = sorted(p.name for p in katalog.glob("*.html"))
