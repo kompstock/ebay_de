@@ -755,6 +755,28 @@ class OsKraju(unittest.TestCase):
         _, out, _ = self.przebieg("de")
         self.assertTrue(all("ITT" not in s for s in self.sku_z_pliku(out)))
 
+    def pierwsza_linia(self, out) -> str:
+        return (out / "ebay-add.csv").read_text(encoding="utf-8-sig").splitlines()[0]
+
+    def test_wiersz_info_nazywa_szablon_wlasnego_rynku(self):
+        """Wiersz 'Info' mowi, z jakiego szablonu eBaya powstal plik.
+
+        Byl zaszyty jako EBAY_DE z czasow jednego rynku i szedl tak samo na
+        Wlochy, mimo ze kolumny byly juz wloskie. eBay tego pola nie sprawdza,
+        wiec nic nie wybuchalo - plik po prostu klamal o swoim pochodzeniu.
+        """
+        for kod in ("de", "it"):
+            with self.subTest(kraj=kod):
+                _, out, _ = self.przebieg(kod)
+                self.assertIn(f"Template=fx_category_template_EBAY_{kod.upper()}",
+                              self.pierwsza_linia(out))
+
+    def test_nazwa_szablonu_wyprowadzana_z_kodu_rynku(self):
+        """Nowy rynek ma dostac swoja nazwe bez dotykania kodu."""
+        kod = self.kraj_testowy(kod="XX", sufiks_sku="XXX")
+        _, out, _ = self.przebieg(kod)
+        self.assertIn("Template=fx_category_template_EBAY_XX", self.pierwsza_linia(out))
+
     def test_sufiks_kraju_dochodzi_po_blizniaku_gwarancyjnym(self):
         """Kolejnosc nie jest kosmetyczna: gwarancja-24.csv trzyma GOLE SKU.
         Gdyby sufiks szedl wczesniej, lista przestalaby trafiac i warianty
