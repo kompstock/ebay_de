@@ -403,11 +403,11 @@
    ],
    [
     "(?i)dc-?in|zasil|netzanschluss",
-    "Alimentación"
+    "Conector de alimentación"
    ],
    [
     "(?i)dok",
-    "Conector de base"
+    "Conector para base de acoplamiento"
    ],
    [
     "(?i)sim",
@@ -419,7 +419,7 @@
    ],
    [
     "(?i)kensington|blokad",
-    "Ranura Kensington"
+    "Ranura de seguridad Kensington"
    ],
    [
     "(?i)^ps\\s*/?\\s*2$|ps\\s*/\\s*2",

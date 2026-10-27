@@ -115,6 +115,7 @@
     "Notebook": {
       "gwarancja": "12 meses de garantía",
       "produktart": "Notebook/Laptop",
+      "rzeczownik": "portátil",
       "tastatur_layout": "El teclado está dotado de pegatinas con la distribución española.",
       "cechy_domyslne": [
         "Bluetooth",
@@ -126,13 +127,14 @@
     "Desktop-PC": {
       "gwarancja": "12 meses de garantía",
       "produktart": "Escritorio",
+      "rzeczownik": "ordenador de sobremesa",
       "nadpisz_tlumaczenia": {
         "Kondycja sprzętu": {
           "Nowy": "Nuevo, en embalaje original y probado en fábrica."
         },
         "Stan obudowy": {
-          "Nowy": "Nuevo, sin signos de uso.",
-          "NOWY": "Nuevo, sin signos de uso."
+          "Nowy": "Nueva, sin signos de uso.",
+          "NOWY": "Nueva, sin signos de uso."
         },
         "W zestawie": {
           "Zasilacz z przewodem": "Fuente de alimentación con cable.",
@@ -155,13 +157,14 @@
     "Desktop-PC nowy": {
       "gwarancja": "12 meses de garantía",
       "produktart": "Escritorio",
+      "rzeczownik": "ordenador de sobremesa",
       "nadpisz_tlumaczenia": {
         "Kondycja sprzętu": {
           "Nowy": "Nuevo, en embalaje original y probado en fábrica."
         },
         "Stan obudowy": {
-          "Nowy": "Nuevo, sin signos de uso.",
-          "NOWY": "Nuevo, sin signos de uso."
+          "Nowy": "Nueva, sin signos de uso.",
+          "NOWY": "Nueva, sin signos de uso."
         },
         "W zestawie": {
           "Zasilacz z przewodem": "Fuente de alimentación con cable.",
@@ -184,6 +187,7 @@
     "Notebook GW24": {
       "gwarancja": "24 meses de garantía",
       "produktart": "Notebook/Laptop",
+      "rzeczownik": "portátil",
       "tastatur_layout": "El teclado está dotado de pegatinas con la distribución española.",
       "cechy_domyslne": [
         "Bluetooth",
@@ -195,13 +199,14 @@
     "Desktop-PC GW24": {
       "gwarancja": "24 meses de garantía",
       "produktart": "Escritorio",
+      "rzeczownik": "ordenador de sobremesa",
       "nadpisz_tlumaczenia": {
         "Kondycja sprzętu": {
           "Nowy": "Nuevo, en embalaje original y probado en fábrica."
         },
         "Stan obudowy": {
-          "Nowy": "Nuevo, sin signos de uso.",
-          "NOWY": "Nuevo, sin signos de uso."
+          "Nowy": "Nueva, sin signos de uso.",
+          "NOWY": "Nueva, sin signos de uso."
         },
         "W zestawie": {
           "Zasilacz z przewodem": "Fuente de alimentación con cable.",
@@ -224,13 +229,14 @@
     "Desktop-PC nowy GW24": {
       "gwarancja": "24 meses de garantía",
       "produktart": "Escritorio",
+      "rzeczownik": "ordenador de sobremesa",
       "nadpisz_tlumaczenia": {
         "Kondycja sprzętu": {
           "Nowy": "Nuevo, en embalaje original y probado en fábrica."
         },
         "Stan obudowy": {
-          "Nowy": "Nuevo, sin signos de uso.",
-          "NOWY": "Nuevo, sin signos de uso."
+          "Nowy": "Nueva, sin signos de uso.",
+          "NOWY": "Nueva, sin signos de uso."
         },
         "W zestawie": {
           "Zasilacz z przewodem": "Fuente de alimentación con cable.",
@@ -262,7 +268,7 @@
       "Ofrece potencia suficiente para documentos, presentaciones, archivos PDF, vídeos y videollamadas, incluso con varias aplicaciones abiertas a la vez.",
       "Bastante potente para muchas pestañas abiertas del navegador, para edición básica de vídeo y fotografía y para crear proyectos con Canva.",
       "Los programas se inician rápidamente y el cambio entre navegador, correo, documentos y otras aplicaciones se produce con fluidez, sin largas esperas.",
-      "Un portátil robusto para el uso diario. Ideal para jornadas largas de trabajo, colegio, universidad, películas y navegación con tranquilidad.",
+      "Un portátil robusto para el día a día. Ideal para largas jornadas de trabajo, para estudiar en el colegio o la universidad, ver películas y navegar por Internet.",
       "Permite trabajar cómodamente con varios programas a la vez, reproducir vídeos en alta resolución y hacer videollamadas sin cortes.",
       "La construcción robusta de nivel profesional y los componentes potentes hacen de este portátil una elección fiable para casa, la oficina o los viajes.",
       "Para quien valora la velocidad, un rendimiento fiable y una carcasa resistente. Ideal para trabajo, estudio y entretenimiento."
@@ -276,7 +282,7 @@
       "Ofrece potencia suficiente para documentos, presentaciones, archivos PDF, vídeos y videollamadas durante la jornada laboral.",
       "Bastante potente para muchas pestañas abiertas del navegador, para edición de vídeo y fotografía y para varios programas a la vez.",
       "Los programas se inician rápidamente y el cambio entre navegador, correo, documentos y otras aplicaciones se produce sin esperas.",
-      "Un ordenador robusto para el uso diario. Ideal para jornadas largas de trabajo en la oficina, en el colegio o en organismos públicos.",
+      "Un ordenador robusto para el día a día. Ideal para largas jornadas de trabajo en la oficina, en el colegio o en organismos públicos.",
       "Permite trabajar cómodamente con varios programas a la vez, reproducir vídeos y conectar varios monitores.",
       "La construcción de nivel profesional y los componentes potentes hacen de este ordenador una herramienta de trabajo fiable durante muchos años.",
       "Para quien valora la velocidad, un rendimiento fiable y un ordenador fácil de mantener. Ideal para funcionamiento continuo en la oficina."
@@ -284,7 +290,7 @@
   },
   "zdania_wiodace_gaming": {
     "lista": [
-      "Un ordenador de sobremesa montado nuevo para los juegos actuales, el streaming y las aplicaciones más exigentes.",
+      "Un ordenador de sobremesa nuevo para los juegos actuales, el streaming y las aplicaciones más exigentes.",
       "Potencia suficiente para jugar con fluidez con detalles altos, transmitir en streaming y tener muchos programas abiertos.",
       "Pensado para quien busca un ordenador listo para usar y quiere evitar montarlo por su cuenta.",
       "Construido para los juegos, la edición de fotografía y vídeo y el trabajo con varias pantallas.",
