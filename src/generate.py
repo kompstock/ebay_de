@@ -1091,7 +1091,12 @@ def render_description(szablony, attrs, images, translations, aspects, settings,
     faq_system = (settings.get("faq_windows", "")
                   if system_raw.lower().startswith("windows") else "")
     values = {
-        "typ": typ,
+        # Rzeczownik widoczny w opisie. NIE bierzemy go z typ_produktu, bo ta
+        # sama wartosc jest kluczem profilu ('Notebook', 'Desktop-PC') i wybiera
+        # szablon - przetlumaczenie jej zerwaloby wybor profilu na wszystkich
+        # rynkach naraz. Rynek dokleda wiec slowo osobno, w profile_kraju:
+        # po hiszpansku 'un Notebook' brzmi jak obcy wtret, ma byc 'un portatil'.
+        "typ": profil.get("rzeczownik") or typ,
         "processor": procesor_opis(zrodlo_procesora(attrs), *opis_cpu),
         "ram": ram, "ram_type": attrs.get("Typ pamięci RAM", ""),
         "disk": disk, "disk_type": attrs.get("Typ dysku", ""),
