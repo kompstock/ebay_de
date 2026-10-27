@@ -1149,6 +1149,14 @@ def build_title(attrs: dict, settings: dict, aspects: dict,
              clean_capacity(attrs.get("Dysk", "")), attrs.get("Typ dysku", ""),
              screen_size_de(attrs.get("Przekątna ekranu", ""),
                             settings.get("format_przekatnej", "{n} Zoll")),
+             # Slowa pod wyszukiwarke rynku: skrot rozdzielczosci i rzeczownik
+             # typu towaru ("Portatil", "Sobremesa"). Stoja na koncu listy
+             # skracanej, wiec przy ciasnym tytule znikaja PIERWSZE - dane
+             # techniczne sa wazniejsze niz slowa kluczowe. Rynek, ktory ich
+             # nie ustawi, dostaje tytul co do znaku taki jak dotad.
+             wpis_bez_wzgledu_na_wielkosc(settings.get("skroty_rozdzielczosci") or {},
+                                          normalize_space(attrs.get("Rozdzielczość ekranu", ""))),
+             *((profil or {}).get("slowa_tytulu") or []),
              ]
     # Ogon tytulu jest NIEROZERWALNY i chroniony przed obcieciem:
     #   - sufiks systemu, bo "Win11 Pro" obciete do "Win11" gubi rzecz, ktora
@@ -1637,10 +1645,19 @@ def licz_wg_kategorii(wiersze: list[dict], settings: dict) -> dict[str, int]:
     licznik: Counter = Counter(
         nazwy.get(w.get("*Category", ""), w.get("*Category") or "(brak)") for w in wiersze)
     return dict(sorted(licznik.items()))
-def zapisz_add(sciezka: Path, headers: list[str], wiersze: list[dict], akcja: str) -> None:
+def zapisz_add(sciezka: Path, headers: list[str], wiersze: list[dict], akcja: str,
+               kod_rynku: str = "DE") -> None:
+    """Zapisuje plik Add/VerifyAdd razem z wierszem 'Info' szablonu eBaya.
+
+    Nazwa szablonu w tym wierszu byla zaszyta jako EBAY_DE z czasow, gdy
+    rynek byl jeden - i szla tak samo na Wlochy. eBay tego pola nie sprawdza
+    (wloskie oferty chodza z nim od tygodni), ale plik klamal o tym, z jakiego
+    szablonu powstal, a jego kolumny sa juz hiszpanskie albo wloskie.
+    """
     with sciezka.open("w", encoding="utf-8-sig", newline="") as handle:
         writer = csv.writer(handle, delimiter=";", quoting=csv.QUOTE_MINIMAL, lineterminator="\n")
-        writer.writerow(["Info", "Version=1.0.0", "Template=fx_category_template_EBAY_DE"])
+        writer.writerow(["Info", "Version=1.0.0",
+                         f"Template=fx_category_template_EBAY_{kod_rynku.upper()}"])
         writer.writerow(headers)
         for wiersz in wiersze:
             wiersz[headers[0]] = akcja
@@ -1973,7 +1990,8 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
             pliki_add.setdefault(nazwa, []).append(wiersz)
         for nazwa, wiersze in sorted(pliki_add.items()):
             zapisz_add(output_dir / nazwa, headers,
-                       wiersze, "VerifyAdd" if tryb == "test" else "Add")
+                       wiersze, "VerifyAdd" if tryb == "test" else "Add",
+                       (cfg.get("kraj") or {}).get("kod", "DE"))
     if not blokady and tryb == "aktualizacja":
         nazwy = settings["kategorie_nazwy"]
         w_feedzie = w_feedzie_all
