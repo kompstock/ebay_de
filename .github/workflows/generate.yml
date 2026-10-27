@@ -10,6 +10,7 @@ on:
         options:
           - de
           - it
+          - es
           - wszystkie
       tryb:
         description: "Co zrobić"
