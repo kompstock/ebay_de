@@ -173,13 +173,21 @@ def wiersze(kraj_zrodlo: dict, kraj_cel: dict, settings: dict, tlumaczenia: dict
             dodaj(f"profil/{typ}/formfaktor", klucz_feedu, wartosc, cel_ff.get(klucz_feedu),
                   "format obudowy - pole oferty; wybierz jedna z kolumny obok",
                   aspekt="formfaktor")
-        for pole in ("gwarancja", "produktart", "tastatur_layout", "dopisek_tytulu"):
-            dodaj(f"profil/{typ}", pole, profil.get(pole),
+        for pole in ("gwarancja", "produktart", "tastatur_layout", "dopisek_tytulu",
+                     "rzeczownik"):
+            # 'rzeczownik' zna tylko plik kraju: po niemiecku tym rzeczownikiem
+            # jest sama nazwa profilu ("ein Notebook"), wiec jako wzorzec podajemy
+            # ja. Bez tego wiersz nie trafilby do arkusza i kolejny rynek
+            # nazywalby laptopa po niemiecku.
+            zrodlowa = profil.get(pole) or (typ if pole == "rzeczownik" else None)
+            dodaj(f"profil/{typ}", pole, zrodlowa,
                   cel_profile.get(typ, {}).get(pole),
                   "rodzaj produktu - pole oferty; wybierz jedna z kolumny obok"
                   if pole == "produktart" else
                   "nieskracalny ogon TYTULU - liczy sie do limitu 80 znakow"
-                  if pole == "dopisek_tytulu" else "zdanie widoczne w opisie oferty",
+                  if pole == "dopisek_tytulu" else
+                  "rzeczownik, ktorym opis nazywa towar: \"es un ...\""
+                  if pole == "rzeczownik" else "zdanie widoczne w opisie oferty",
                   aspekt=BLOK_DO_ASPEKTU.get(pole, ""))
 
     for klucz in ("sekcja_business_notebook",):
