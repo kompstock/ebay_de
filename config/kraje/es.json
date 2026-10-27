@@ -75,6 +75,16 @@
   "faq_windows": "<details><summary>&iquest;Windows est&aacute; activado de forma permanente?</summary><div class=\"kpx-a\">S&iacute;. La licencia digital est&aacute; almacenada en el dispositivo y permanece activa incluso despu&eacute;s de restablecer Windows.</div></details>",
   "_faq_windows": "Blok FAQ doklejany do opisu, gdy system to Windows. HTML, bo trafia wprost do oferty. Pusty napis = sekcja nie powstaje.",
   "format_przekatnej": "{n}\"",
+  "skroty_rozdzielczosci": {
+    "1920 x 1080": "FHD",
+    "1920x1080": "FHD",
+    "2560 x 1440": "QHD",
+    "2560x1440": "QHD",
+    "3840 x 2160": "4K",
+    "3840x2160": "4K"
+  },
+  "_skroty_rozdzielczosci": "Skrot doklejany do TYTULU, nie do aspektu - aspekt C:Resolucion maxima dalej dostaje pelny zapis. Stoi na koncu czesci skracanej, wiec przy ciasnym tytule znika przed danymi technicznymi.",
+  "_slowa_tytulu": "Rzeczownik typu towaru w profile_kraju.<profil>.slowa_tytulu. Hiszpanie szukaja 'portatil', a nasz tytul zaczynal sie od marki i modelu. Tablety nie maja jeszcze profilu - do dopisania, gdy powstanie.",
   "_format_przekatnej": "Hiszpanie zapisuja przekatna jak Wlosi: '15,6\"', a nie '15,6 Zoll'. Potwierdzone na liscie dozwolonych wartosci 'Tamano de pantalla' w szablonie. Aspekt WYMAGANY - zly format to odrzucona oferta.",
   "format_generacji_cpu": [
     "{ord} Gen.",
@@ -122,7 +132,10 @@
         "Wi-Fi",
         "Micrófono incorporado"
       ],
-      "dopisek_tytulu": "Garantía"
+      "dopisek_tytulu": "Garantía",
+      "slowa_tytulu": [
+        "Portátil"
+      ]
     },
     "Desktop-PC": {
       "gwarancja": "12 meses de garantía",
@@ -142,6 +155,9 @@
         }
       },
       "dopisek_tytulu": "Garantía",
+      "slowa_tytulu": [
+        "Sobremesa"
+      ],
       "formfaktor": {
         "z_atrybutu": "Obudowa",
         "mapa": {
@@ -172,6 +188,9 @@
         }
       },
       "dopisek_tytulu": "Garantía",
+      "slowa_tytulu": [
+        "Sobremesa"
+      ],
       "formfaktor": {
         "z_atrybutu": "Obudowa",
         "mapa": {
@@ -194,7 +213,10 @@
         "Wi-Fi",
         "Micrófono incorporado"
       ],
-      "dopisek_tytulu": "24 meses de garantía"
+      "dopisek_tytulu": "24 meses de garantía",
+      "slowa_tytulu": [
+        "Portátil"
+      ]
     },
     "Desktop-PC GW24": {
       "gwarancja": "24 meses de garantía",
@@ -214,6 +236,9 @@
         }
       },
       "dopisek_tytulu": "24 meses de garantía",
+      "slowa_tytulu": [
+        "Sobremesa"
+      ],
       "formfaktor": {
         "z_atrybutu": "Obudowa",
         "mapa": {
@@ -244,6 +269,9 @@
         }
       },
       "dopisek_tytulu": "24 meses de garantía",
+      "slowa_tytulu": [
+        "Sobremesa"
+      ],
       "formfaktor": {
         "z_atrybutu": "Obudowa",
         "mapa": {

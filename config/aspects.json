@@ -136,12 +136,20 @@
   "_uwaga_lan": "'10/100 LAN Karte' usuniete - to deklaracja predkosci, ktorej feed nie potwierdza. Obecnosc portu LAN wynika z sekcji Anschlüsse i aspektu Konnektivität."
  },
  "farbe": {
-  "_about": "C:Farbe - z feedu brak pola koloru, wiec wartosc domyslna per producent/seria.",
-  "domyslnie": "Schwarz",
+  "_about": "C:Kolor - feed NIE MA pola koloru, wiec wartosc bierze sie z nazwy modelu. Brak dopasowania = pole PUSTE, a nie zgadniete; pole nie jest wymagane, wiec puste nie blokuje oferty. Wczesniej wszystko poza MacBookiem i EliteBookiem dostawalo 'czarny', przez co kazdy srebrny ProBook klamal.\nKOLEJNOSC WPISOW MA ZNACZENIE - wygrywa pierwszy pasujacy. Dlatego 'latitude 7410' stoi przed 'latitude'.\nLatitude dzieli sie po GENERACJI, nie po pierwszej cyfrze: aluminiowe srebro zaczyna sie od 7400/7410, a 7480 i 7490 sa jeszcze czarne. Dopisywac tylko serie pewne w calosci - Precision i LifeBook wystepuja w obu kolorach i zostaja puste.",
+  "domyslnie": "",
   "z_modelu": {
+   "latitude 7400": "Silber",
+   "latitude 7410": "Silber",
+   "latitude 7420": "Silber",
+   "latitude 7430": "Silber",
+   "latitude": "Schwarz",
+   "thinkpad": "Schwarz",
    "macbook": "Silber",
    "elitebook": "Silber",
-   "zbook": "Silber"
+   "zbook": "Silber",
+   "probook": "Silber",
+   "xps": "Silber"
   }
  },
  "serie": {
