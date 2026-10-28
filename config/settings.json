@@ -39,14 +39,14 @@
       ],
       [
         51,
-        5
+        4
       ],
       [
         100,
-        8
+        5
       ]
     ],
-    "powyzej": 10
+    "powyzej": 8
   },
   "_uwaga_stany_ograniczone": "Drugi, opcjonalny plik trybu 'aktualizacja'. Te same wiersze co ebay-revise.csv, ale z podmieniona iloscia: progi to pary [granica, wartosc] dzialajace jako 'mniej niz granica', reszta dostaje 'powyzej'. Domyslnie ponizej 10 szt. -> 0, 10-24 -> 2, 25-50 -> 5, 51-99 -> 8, od 100 -> 10. Wgrywasz ALBO ten plik, ALBO prawdziwy - nie oba.",
   "product_safety_pictograms": "EBPSP201",
