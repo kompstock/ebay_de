@@ -23,15 +23,15 @@ Przeciągasz go do folderu `input/` przez przeglądarkę i commitujesz.
 
 Tryb `aktualizacja` robi obok prawdziwego pliku jeszcze `ebay-revise-stany.csv`.
 Te same aukcje, te same ceny, te same numery — różni się **wyłącznie kolumną
-`Available quantity`**, sprowadzoną do trzech poziomów:
+`Available quantity`**, sprowadzoną do pięciu poziomów:
 
 | stan w magazynie | co zobaczy eBay |
 |---|---|
 | poniżej 10 szt. | `0` — aukcja schodzi |
 | 10–24 szt. | `2` |
-| 25–50 szt. | `5` |
-| 51–99 szt. | `8` |
-| od 100 szt. | `10` |
+| 25–50 szt. | `4` |
+| 51–99 szt. | `5` |
+| od 100 szt. | `8` |
 
 **Wgrywasz jeden z dwóch plików, nigdy oba.** Prawdziwy mówi prawdę o magazynie,
 pomocniczy dawkuje zapas. Progi zmienisz w `config/settings.json` →

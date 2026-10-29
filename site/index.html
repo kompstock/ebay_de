@@ -52,11 +52,11 @@
 
 <h2>Jak tego użyć</h2>
 <ul>
-  <li><b>Jeden rynek czy wszystkie</b> — w Actions wybierasz <code>de</code>, <code>it</code> albo <code>wszystkie</code>. Przy <code>wszystkie</code> każdy rynek dostaje własny komplet plików, a powyżej przełączasz się między nimi.</li>
+  <li><b>Jeden rynek czy wszystkie</b> — w Actions wybierasz <code>de</code>, <code>it</code>, <code>es</code> albo <code>wszystkie</code>. Przy <code>wszystkie</code> każdy rynek dostaje własny komplet plików, a powyżej przełączasz się między nimi.</li>
   <li><b>Pierwsze wystawienie</b> — pobierz <code>ebay-add.csv</code>, wgraj na eBay przez File Exchange.</li>
   <li><b>Nowe SKU</b> — potrzebny świeży raport <b>All active listings</b> w <code>input/ebay/</code>. Jeden plik obsługuje wszystkie rynki: generator dzieli go po kolumnie <code>Listing site</code>.</li>
   <li><b>Ceny i ilości</b> — ten sam raport, tryb <code>aktualizacja</code>, plik <code>ebay-revise.csv</code>.</li>
-  <li><b>Dawkowanie zapasu</b> — tryb <code>aktualizacja</code> robi obok drugi plik <code>ebay-revise-stany.csv</code>: te same aukcje i ceny, ale ilości sprowadzone do 0 / 2 / 5 / 8 / 10. Wgrywasz jeden z dwóch, nigdy oba. Progi zmienisz w <code>config/settings.json</code> → <code>stany_ograniczone</code>.</li>
+  <li><b>Dawkowanie zapasu</b> — tryb <code>aktualizacja</code> robi obok drugi plik <code>ebay-revise-stany.csv</code>: te same aukcje i ceny, ale ilości sprowadzone do 0 / 2 / 4 / 5 / 8. Wgrywasz jeden z dwóch, nigdy oba. Progi zmienisz w <code>config/settings.json</code> → <code>stany_ograniczone</code>.</li>
   <li><b>Test bez wystawiania</b> — tryb <code>test</code> generuje ten sam plik z akcją <code>VerifyAdd</code>.</li>
   <li>Po każdym wgraniu <code>Add</code> pobierz raport na nowo — dopiero wtedy narzędzie zobaczy nowe aukcje.</li>
 </ul>
