@@ -1821,8 +1821,8 @@ def nadpisz_ceny_reczne(feed_bytes: bytes, ceny: dict, sufiks_kraju: str,
 STANY_OGRANICZONE_DOMYSLNIE = {
     "plik": "ebay-revise-stany.csv",
     # [granica, wartosc] - ilosc mniejsza niz granica schodzi do wartosci.
-    "progi": [[10, 0], [25, 2], [51, 5], [100, 8]],
-    "powyzej": 10,
+    "progi": [[10, 0], [25, 2], [51, 4], [100, 5]],
+    "powyzej": 8,
 }
 def opis_modelu_ceny(c: dict) -> str:
     """Model cenowy slowami. Idzie do raportu i na strone, zeby nie trzeba bylo

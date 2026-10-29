@@ -1157,7 +1157,7 @@ class StanyOgraniczone(unittest.TestCase):
         import generate
         regula = generate.regula_stanow(json.loads(
             (ROOT / "config" / "settings.json").read_text(encoding="utf-8")))
-        oczekiwane = {0: 0, 9: 0, 10: 2, 24: 2, 25: 5, 50: 5, 51: 8, 99: 8, 100: 10, 5000: 10}
+        oczekiwane = {0: 0, 9: 0, 10: 2, 24: 2, 25: 4, 50: 4, 51: 5, 99: 5, 100: 8, 5000: 8}
         self.assertEqual({ile: generate.ogranicz_stan(ile, regula) for ile in oczekiwane},
                          oczekiwane)
         # Kod i config musza mowic to samo - inaczej brak wpisu w configu
