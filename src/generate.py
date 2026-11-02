@@ -313,11 +313,14 @@ def wpis_bez_wzgledu_na_wielkosc(mapa: dict, klucz: str, domyslnie: str = "") ->
         if isinstance(wartosc, str) and not nazwa.startswith("_") and norm(nazwa) == szukany:
             return wartosc
     return domyslnie
+# Stala, a nie slownik w srodku brand_name(), bo ta sama lista sluzy duplikatom
+# do zdejmowania nazwy producenta z poczatku modelu ("Lenovo ThinkPad T480").
+MARKI_ZNANE = {"lenovo": "Lenovo", "dell": "Dell", "hp": "HP", "fujitsu": "Fujitsu",
+               "apple": "Apple", "acer": "Acer", "asus": "ASUS", "toshiba": "Toshiba",
+               "microsoft": "Microsoft", "panasonic": "Panasonic", "samsung": "Samsung",
+               "dynabook": "Dynabook"}
 def brand_name(value: str) -> str:
-    known = {"lenovo": "Lenovo", "dell": "Dell", "hp": "HP", "fujitsu": "Fujitsu",
-             "apple": "Apple", "acer": "Acer", "asus": "ASUS", "toshiba": "Toshiba",
-             "microsoft": "Microsoft", "panasonic": "Panasonic", "samsung": "Samsung"}
-    return known.get(norm(value), value.title())
+    return MARKI_ZNANE.get(norm(value), value.title())
 def clean_capacity(value: str) -> str:
     """Pojemnosc w zapisie eBaya.
 
@@ -1938,7 +1941,7 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
     dupl = duplikaty.znajdz(produkty, set(aktywne), settings, {
         "norm": norm, "brand_name": brand_name, "cpu_candidates": cpu_candidates,
         "zrodlo_procesora": zrodlo_procesora, "clean_capacity": clean_capacity,
-        "screen_size_de": screen_size_de,
+        "marki": MARKI_ZNANE,
     })
     wstrzymane = {s for s in (dupl.get("wstrzymane_sku") or []) if s not in aktywne}
     if wstrzymane:

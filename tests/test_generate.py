@@ -2021,16 +2021,17 @@ class RaportDuplikatow(unittest.TestCase):
             "cpu_candidates": generate.cpu_candidates,
             "zrodlo_procesora": generate.zrodlo_procesora,
             "clean_capacity": generate.clean_capacity,
-            "screen_size_de": generate.screen_size_de,
+            "marki": generate.MARKI_ZNANE,
         }
 
-    def oferta(self, sku, cena, stan, zrodlo="Shoper", model="ThinkPad T490"):
+    def oferta(self, sku, cena, stan, zrodlo="Shoper", model="ThinkPad T490", **nadpisz):
         import xml.etree.ElementTree as ET
         el = ET.Element("o", {"price": str(cena), "stock": str(stan)})
         attrs = {"SKU": sku, "Producent": "Lenovo", "Model": model,
                  "Procesor": "i5-8265U, 6MB Cache, 8 gen.", "Ilość pamięci RAM": "8GB",
                  "Dysk": "256GB", "Typ dysku": "SSD", "Przekątna ekranu": '14"',
                  "Źródło": zrodlo}
+        attrs.update(nadpisz)
         return (el, attrs)
 
     def znajdz(self, produkty, aktywne=(), odrzucaj=True):
@@ -2147,15 +2148,75 @@ class RaportDuplikatow(unittest.TestCase):
         self.assertEqual(zostaje["stan"], 5)
         self.assertNotIn("stan_po_scaleniu", zostaje)
 
-    def test_blizniak_gwarancyjny_to_nie_duplikat_oryginalu(self):
-        """W feedzie ma te sama cene - podnosi ja dopiero mnoznik profilu.
-        Rozni go 12 miesiecy serwisu, wiec odcisk musi to widziec."""
+    def test_blizniak_gwarancyjny_nie_wstrzymuje_wlasnego_oryginalu(self):
+        """Odcisk nie zna juz pola GW24, wiec blizniak wyglada jak oryginal.
+        Chroni go zasada 'tylko miedzy zrodlami': blizniak dziedziczy zrodlo po
+        ofercie, z ktorej powstal, wiec nigdy nie jest z nia porownywany."""
+        wynik = self.znajdz([self.oferta("SHP", 1100, 10),
+                             self.oferta("SHPGW24", 1100, 10,
+                                         **{"Wariant gwarancyjny": "GW24"})])
+        self.assertEqual(wynik["grup"], 0)
+
+    def test_gwarancja_nie_wchodzi_do_odcisku(self):
+        """Swiadomy koszt tej decyzji: GW24 z jednego zrodla i zwykla oferta
+        z drugiego trafiaja do jednej grupy, choc rozni je 24 miesiace serwisu.
+        Pole wroci do odcisku, gdyby takich par zaczelo przybywac."""
         duplikaty, funkcje = self.modul()
         oryginal = {"Producent": "Lenovo", "Model": "ThinkPad T490",
                     "Procesor": "i5-8265U, 6MB Cache, 8 gen."}
         blizniak = dict(oryginal, **{"Wariant gwarancyjny": "GW24"})
-        self.assertNotEqual(duplikaty.odcisk(oryginal, funkcje),
-                            duplikaty.odcisk(blizniak, funkcje))
+        self.assertEqual(duplikaty.odcisk(oryginal, funkcje),
+                         duplikaty.odcisk(blizniak, funkcje))
+
+    def test_zapis_generacji_nie_rozdziela_tego_samego_modelu(self):
+        """'Gen 1', 'Gen1' i 'Gen. 1' to jeden i ten sam laptop."""
+        for zapis in ("ThinkPad T14 Gen1", "ThinkPad T14 Gen.1", "ThinkPad T14 Gen. 1"):
+            with self.subTest(zapis=zapis):
+                wynik = self.znajdz([self.oferta("SHP", 1100, 10, model="ThinkPad T14 Gen 1"),
+                                     self.oferta("ALG", 1100, 10, "Allegro", model=zapis)])
+                self.assertEqual(wynik["grup"], 1)
+
+    def test_marka_z_przodu_modelu_nie_rozdziela(self):
+        """Jedno zrodlo pisze 'Lenovo ThinkPad T480', drugie samo 'ThinkPad T480'."""
+        wynik = self.znajdz([self.oferta("SHP", 1100, 10, model="ThinkPad T480"),
+                             self.oferta("ALG", 1100, 10, "Allegro",
+                                         model="Lenovo ThinkPad T480")])
+        self.assertEqual(wynik["grup"], 1)
+
+    def test_sama_marka_jako_model_zostaje(self):
+        """Zdejmujemy marke tylko wtedy, gdy za nia cos jeszcze stoi - inaczej
+        odcisk zrobilby sie pusty i oferta wypadlaby z porownania."""
+        duplikaty, funkcje = self.modul()
+        attrs = {"Producent": "Lenovo", "Model": "Lenovo",
+                 "Procesor": "i5-8265U, 6MB Cache, 8 gen."}
+        self.assertIn("lenovo|lenovo|", duplikaty.odcisk(attrs, funkcje))
+
+    def test_dynabook_to_ta_sama_marka_co_toshiba(self):
+        """Dynabook to dawna dywizja PC Toshiby - jeden Tecra pod dwiema nazwami."""
+        wynik = self.znajdz([self.oferta("SHP", 1100, 10, model="Tecra A50-J",
+                                         **{"Producent": "Toshiba"}),
+                             self.oferta("ALG", 1100, 10, "Allegro",
+                                         model="Dynabook Tecra A50-J",
+                                         **{"Producent": "Dynabook"})])
+        self.assertEqual(wynik["grup"], 1)
+
+    def test_dopisane_slowo_w_modelu_to_nadal_inny_produkt(self):
+        """Zawieranie sie zapisow NIE laczy: 'ZBook 15 G7' i 'ZBook Firefly 15 G7'
+        to dwie rozne maszyny, a wstrzymana oferta nie trafilaby na eBay wcale."""
+        wynik = self.znajdz([self.oferta("SHP", 1100, 10, model="ZBook 15 G7"),
+                             self.oferta("ALG", 1100, 10, "Allegro",
+                                         model="ZBook Firefly 15 G7")])
+        self.assertEqual(wynik["grup"], 0)
+
+    def test_typ_dysku_i_przekatna_nie_rozdzielaja(self):
+        """Oba pola przenosily w feedzie same literowki ('14,1 Zoll' kontra
+        '14 Zoll'), wiec do odcisku nie wchodza."""
+        wynik = self.znajdz([
+            self.oferta("SHP", 1100, 10,
+                        **{"Przekątna ekranu": '14"', "Typ dysku": "SSD"}),
+            self.oferta("ALG", 1100, 10, "Allegro",
+                        **{"Przekątna ekranu": '14,1"', "Typ dysku": "SSD+HDD"})])
+        self.assertEqual(wynik["grup"], 1)
 
     def test_niepelna_specyfikacja_nie_jest_porownywana(self):
         """Bez marki, modelu i procesora odcisk zlepilby przypadkowe oferty."""

@@ -7,6 +7,21 @@ wystarcza: sprzedawca ma po kilka ofert tego samego modelu w roznych cenach
 i to sa rozne produkty (inny stan, inna partia). Dopiero ta sama cena co do
 grosza mowi, ze to ten sam towar wystawiony dwa razy.
 
+Specyfikacja w odcisku jest WASKA i taka ma zostac. Kazde dodatkowe pole to
+kolejna szansa, ze ten sam laptop opisany po dwoch stronach rozjedzie sie na
+jednym znaku i duplikat przeciecze na eBay. Czego w odcisku nie ma i dlaczego -
+patrz POLA_ODCISKU.
+
+BLIZNIAK GWARANCYJNY
+Pole wariantu GW24 do odcisku nie wchodzi, wiec blizniak ma odcisk oryginalu.
+Przed wstrzymaniem wlasnego oryginalu chroni go zasada "tylko miedzy zrodlami":
+blizniak dziedziczy zrodlo po ofercie, z ktorej powstal, a dwoch ofert z tego
+samego zrodla nigdy nie porownujemy. Zostaje jeden uklad, w ktorym to kosztuje:
+GW24 po jednej stronie, zwykla oferta po drugiej - wtedy zwykla zostanie
+wstrzymana, choc rozni je 24 miesiace serwisu. Swiadoma decyzja wlasciciela:
+w pomiarze na zywym feedzie to pole nie zmienilo ani jednej decyzji, a kosztowalo
+kolejna szanse na przeciek. Gdyby takich par zaczelo przybywac, pole wraca.
+
 SKAD SIE BIORA
 Z dwoch zrodel naraz - ten sam laptop idzie do Shopera i na Allegro, a stamtad
 do nas. Porownujemy WYLACZNIE miedzy zrodlami: Shoper z Allegro i Allegro
@@ -28,27 +43,71 @@ Wybor miedzy dwiema takimi: zostaje Shoper, bo ma prawdziwe dane o kondycji.
 
 from __future__ import annotations
 
+import re
 from collections import defaultdict
 
 
-# Pola, z ktorych powstaje odcisk. Model przesadza juz o przekatnej, ale
-# trzymamy ja dla pewnosci - kosztuje jedna pare, a chroni przed sklejeniem
-# dwoch roznych wariantow tego samego modelu.
-POLA_ODCISKU = (
-    "Producent", "Model", "Ilość pamięci RAM", "Dysk", "Typ dysku", "Przekątna ekranu",
-)
+# Pola, z ktorych powstaje odcisk - plus procesor, ktory feed podaje w kilku
+# miejscach naraz i wyciaga go zrodlo_procesora().
+#
+# Czego tu swiadomie NIE MA, zmierzone na zywym feedzie (1026 ofert, 2026-11-02):
+#   'Typ dysku'        nie rozdzielil ani jednej pary miedzy zrodlami. Przy
+#                      zgodnym modelu, RAM-ie i dysku zgadzal sie zawsze tez on.
+#   'Przekatna ekranu' rozdzielala cztery grupy i w kazdej stal ten sam sprzet:
+#                      "14,1 Zoll" kontra "14 Zoll", "15 Zoll" kontra "15,6 Zoll".
+#                      Pole nie rozroznia produktow, przenosi tylko literowki -
+#                      a kazda literowka to duplikat, ktory przeszedl na eBay.
+POLA_ODCISKU = ("Producent", "Model", "Ilość pamięci RAM", "Dysk")
+
+# Ta sama firma pod dwiema nazwami: Dynabook to dawna dywizja PC Toshiby, wiec
+# "Toshiba Tecra A50-J" i "Dynabook Tecra A50-J" to jeden laptop. Alias dziala
+# TYLKO w odcisku - brand_name() zostaje nietkniete, bo to ono wpisuje marke do
+# aukcji, a tam ma stac to, co podaje feed.
+ALIASY_MAREK = {"dynabook": "toshiba"}
+
+_GENERACJA = re.compile(r"\bgen\.?\s*(\d+)")
+_WOKOL_MYSLNIKA = re.compile(r"\s*-\s*")
 
 
-def odcisk(attrs: dict, funkcje: dict, pole_wariantu: str = "Wariant gwarancyjny") -> str:
+def _marka(attrs: dict, funkcje: dict) -> str:
+    marka = funkcje["norm"](funkcje["brand_name"](attrs.get("Producent", "")))
+    return ALIASY_MAREK.get(marka, marka)
+
+
+def _model(attrs: dict, funkcje: dict) -> str:
+    """Model w zapisie, ktory nie zalezy od tego, kto go wpisywal.
+
+    Prostujemy WYLACZNIE zapis: generacje ("Gen1", "Gen.1", "Gen. 2" to jedno
+    i to samo), kropke na koncu, odstepy wokol myslnika. Zadne slowo nie znika
+    poza nazwa producenta z poczatku - jedno zrodlo pisze "Lenovo ThinkPad T480",
+    drugie samo "ThinkPad T480".
+
+    Dopasowania po zawieraniu sie tu NIE MA i nie ma go celowo. "ZBook 15 G7"
+    kontra "ZBook Firefly 15 G7" albo "Toughpad FZ-G1" kontra "FZ-G1 Mk3" to dla
+    automatu ten sam uklad co "845 G7" kontra "EliteBook 845 G7" - a w pierwszych
+    dwoch przypadkach to inna maszyna. Przy wlaczonym 'odrzucaj' pomylka nie
+    konczy sie brzydkim raportem, tylko towarem, ktory nigdy nie trafi na eBay,
+    wiec takie pary zostaja rozne i decyzje o nich podejmuje czlowiek.
+    """
+    model = funkcje["norm"](attrs.get("Model", ""))
+    pierwsze, _, reszta = model.partition(" ")
+    if reszta and pierwsze in funkcje["marki"]:
+        model = reszta
+    model = _GENERACJA.sub(r"gen \1", model)
+    model = _WOKOL_MYSLNIKA.sub("-", model)
+    return model.strip().rstrip(".").strip()
+
+
+def odcisk(attrs: dict, funkcje: dict) -> str:
     """Znormalizowana specyfikacja. Pusty string = za malo danych, nie porownujemy.
 
     Marka, model i procesor musza byc znane. Bez tego odcisk zlepilby ze soba
     przypadkowe oferty o podobnych parametrach - a to gorsze niz przeoczenie
-    duplikatu, bo skonczyloby sie zdjeciem zdrowej aukcji.
+    duplikatu, bo skonczyloby sie wstrzymaniem zdrowego towaru.
     """
     norm = funkcje["norm"]
-    marka = norm(funkcje["brand_name"](attrs.get("Producent", "")))
-    model = norm(attrs.get("Model", ""))
+    marka = _marka(attrs, funkcje)
+    model = _model(attrs, funkcje)
     kandydaci = funkcje["cpu_candidates"](funkcje["zrodlo_procesora"](attrs))
     cpu = norm(kandydaci[0]) if kandydaci else ""
     if not (marka and model and cpu):
@@ -56,15 +115,6 @@ def odcisk(attrs: dict, funkcje: dict, pole_wariantu: str = "Wariant gwarancyjny
     czesci = [marka, model, cpu]
     for pole in ("Ilość pamięci RAM", "Dysk"):
         czesci.append(norm(funkcje["clean_capacity"](attrs.get(pole, ""))))
-    czesci.append(norm(attrs.get("Typ dysku", "")))
-    czesci.append(norm(funkcje["screen_size_de"](attrs.get("Przekątna ekranu", ""))))
-    # Blizniak gwarancyjny ma w feedzie te sama cene co oryginal - podnosi ja
-    # dopiero mnoznik profilu, przy przeliczaniu na euro. Bez tego pola oba
-    # wygladalyby tu identycznie, a to nie duplikat: rozni je 12 miesiecy
-    # serwisu, czyli prawdziwe zobowiazanie magazynu.
-    wariant = norm(attrs.get(pole_wariantu, ""))
-    if wariant:
-        czesci.append(wariant)
     return "|".join(czesci)
 
 
@@ -113,13 +163,11 @@ def znajdz(produkty, aktywne: set, settings: dict, funkcje: dict) -> dict:
     domyslne_zrodlo = cfg.get("domyslne_zrodlo", "Shoper")
     preferowane = cfg.get("preferowane_zrodlo", domyslne_zrodlo)
     odrzucaj = bool(cfg.get("odrzucaj"))
-    pole_wariantu = (settings.get("gwarancja_rozszerzona", {})
-                     .get("pole_wariantu", "Wariant gwarancyjny"))
 
     grupy: dict[tuple, list[dict]] = defaultdict(list)
     bez_odcisku = 0
     for offer, attrs in produkty:
-        klucz_spec = odcisk(attrs, funkcje, pole_wariantu)
+        klucz_spec = odcisk(attrs, funkcje)
         if not klucz_spec:
             bez_odcisku += 1
             continue

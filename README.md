@@ -232,9 +232,31 @@ idzie dwa razy, pod różnymi SKU. Zdarzają się też pary w obrębie jednego �
 nie wystarcza: sprzedawca ma po kilka ofert tego samego modelu w różnych cenach
 i to są różne produkty. Dopiero ta sama cena co do grosza mówi, że to ten sam towar.
 
-Odcisk powstaje z: marka, model, procesor, RAM, dysk, typ dysku, przekątna.
-Marka, model i procesor **muszą** być znane — bez nich oferta nie jest porównywana,
-bo odcisk zlepiłby przypadkowe pozycje.
+Odcisk powstaje z: **marka, model, procesor, RAM, dysk**. Marka, model i procesor
+**muszą** być znane — bez nich oferta nie jest porównywana, bo odcisk zlepiłby
+przypadkowe pozycje.
+
+Celowo tyle i nie więcej: każde dodatkowe pole to kolejna szansa, że ten sam laptop
+opisany po dwóch stronach rozjedzie się na jednym znaku i duplikat przecieknie.
+Typ dysku i przekątna wyleciały po pomiarze na żywym feedzie — typ nie rozdzielił
+ani jednej pary, a przekątna rozdzielała cztery i w każdej stał ten sam sprzęt
+(`14,1 Zoll` kontra `14 Zoll`). Pole wariantu GW24 też nie wchodzi; bliźniaka chroni
+zasada „tylko między źródłami", bo dziedziczy źródło po oryginale.
+
+**Model porównuje się po wyprostowaniu zapisu**, nigdy znaczenia:
+
+| w feedzie | w odcisku |
+|---|---|
+| `ThinkPad T14 Gen1`, `Gen.1`, `Gen. 1` | `thinkpad t14 gen 1` |
+| `Lenovo ThinkPad T480` | `thinkpad t480` |
+| `MacBook Pro A2141 2019r.` | `macbook pro a2141 2019r` |
+| `Dynabook Tecra A50-J` *(= Toshiba)* | `tecra a50-j` |
+
+Dopasowania po **zawieraniu się NIE MA i nie będzie**: `ZBook 15 G7` kontra
+`ZBook Firefly 15 G7` czy `Toughpad FZ-G1` kontra `FZ-G1 Mk3` to dla automatu ten sam
+układ co `845 G7` kontra `EliteBook 845 G7` — a w pierwszych dwóch przypadkach to inna
+maszyna. Przy włączonym `odrzucaj` pomyłka nie kończy się brzydkim raportem, tylko
+towarem, który nigdy nie trafi na eBay. Takie pary zostają różne.
 
 **Porównujemy wyłącznie Shoper z Allegro.** Dwie oferty z tego samego źródła nigdy
 nie są duplikatem — to dwie partie tego samego modelu, wystawione świadomie osobno.
