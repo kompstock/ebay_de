@@ -11,6 +11,7 @@ on:
           - de
           - it
           - es
+          - fr
           - wszystkie
       tryb:
         description: "Co zrobić"
