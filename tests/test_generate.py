@@ -2301,5 +2301,124 @@ class AlfabetRynku(unittest.TestCase):
             ["1st", "2nd", "3rd", "4th", "11th", "12th", "13th", "21st"])
 
 
+class ArkuszTlumaczen(unittest.TestCase):
+    """Arkusz ma zbierac CALY tekst oferty - inaczej tlumacz konczy robote,
+    a dwie trzecie opisu dalej stoi w obcym jezyku."""
+
+    def modul(self):
+        sys.path.insert(0, str(ROOT / "tools"))
+        import szablony
+        return szablony
+
+    SZABLON = (
+        '<div class="kpx"><style>.a{color:#fff}</style>'
+        '<h1>{{manufacturer}} {{model}} - essai</h1>'
+        '<p>Mat&eacute;riel test&eacute;</p>'
+        '<p>{{garantie}} sur chaque appareil</p>'
+        '<p>{{spec_rows}}</p>'
+        '<img src="x.jpg" alt="Magasin KOMPRE">'
+        '<p>Mat&eacute;riel test&eacute;</p></div>')
+
+    def test_wyciaga_proze_bez_css_i_samych_znacznikow(self):
+        w = self.modul().wezly(self.SZABLON)
+        self.assertIn("Matériel testé", w)
+        self.assertIn("Magasin KOMPRE", w)
+        self.assertIn("{{garantie}} sur chaque appareil", w)
+        self.assertNotIn("{{spec_rows}}", w, "sam znacznik miejsca to nie proza")
+        self.assertFalse([x for x in w if "color" in x], "CSS nie idzie do tlumacza")
+
+    def test_powtorzenie_ma_jeden_wiersz_a_podmiana_obejmuje_oba(self):
+        """'Materiel teste' stoi dwa razy - tlumaczy sie raz, wszedzie tak samo."""
+        s = self.modul()
+        self.assertEqual(sum(1 for x in s.wezly(self.SZABLON) if x == "Matériel testé"), 1)
+        wynik, ile = s.podmien(self.SZABLON, "Matériel testé", "Hardware")
+        self.assertEqual(ile, 2)
+        self.assertEqual(wynik.count("Hardware"), 2)
+
+    def test_podmiana_nie_rusza_znacznikow_ani_css(self):
+        wynik, _ = self.modul().podmien(self.SZABLON, "Matériel testé", "Hardware")
+        self.assertEqual(wynik.count("<"), self.SZABLON.count("<"))
+        self.assertIn(".a{color:#fff}", wynik)
+        self.assertIn("{{manufacturer}}", wynik)
+
+    def test_podmiana_trafia_takze_w_opis_obrazka(self):
+        wynik, ile = self.modul().podmien(self.SZABLON, "Magasin KOMPRE", "Sklep")
+        self.assertEqual(ile, 1)
+        self.assertIn('alt="Sklep"', wynik)
+
+    def test_zgubiony_znacznik_miejsca_jest_wykrywalny(self):
+        """Importer ma po tym poznac tlumaczenie, ktore zrobiloby dziure."""
+        s = self.modul()
+        stare = "{{garantie}} sur chaque appareil"
+        self.assertEqual(s.miejsca(stare) - s.miejsca("sur chaque appareil"),
+                         {"{{garantie}}"})
+        self.assertEqual(s.miejsca(stare) - s.miejsca("{{garantie}} na kazdym"), set())
+
+    def test_zdania_wiodace_trafiaja_do_arkusza(self):
+        """Pula zdan to {"lista": [...]}. Eksport szedl po kluczach bloku,
+        trafial na liste i pomijal ja po cichu - 25 zdan z kazdej oferty
+        nigdy nie dotarlo do tlumacza, takze na IT i ES."""
+        import subprocess
+        wynik = subprocess.run(
+            [sys.executable, str(ROOT / "tools" / "eksport_do_tlumaczenia.py"), "it"],
+            check=False, capture_output=True, cwd=str(ROOT))
+        self.assertEqual(wynik.returncode, 0, wynik.stderr.decode("utf-8", "replace"))
+        plik = ROOT / "do-tlumaczenia-it.csv"
+        self.addCleanup(plik.unlink, missing_ok=True)
+        with plik.open(encoding="utf-8-sig", newline="") as uchwyt:
+            sekcje = {w["sekcja"] for w in csv.DictReader(uchwyt, delimiter=";")}
+        for blok in ("zdania_wiodace", "zdania_wiodace_pecety", "zdania_wiodace_gaming"):
+            self.assertIn(blok, sekcje)
+        self.assertTrue([s for s in sekcje if s.startswith("szablon/")],
+                        "proza z szablonow tez ma byc w arkuszu")
+
+
+class ScalanieProfilu(unittest.TestCase):
+    """Profil powstaje z dwoch warstw: typ towaru z settings.json i jezyk z
+    pliku kraju. Plytkie nadpisanie kasuje pola, ktorych kraj nie podaje."""
+
+    def modul(self):
+        sys.path.insert(0, str(ROOT / "src"))
+        import generate
+        return generate
+
+    def profil(self, nakladka):
+        g = self.modul()
+        settings = {
+            "typ_produktu": {"Komputery": "Desktop-PC", "_domyslnie": "Gerät"},
+            "profile_produktu": {"Desktop-PC": {
+                "formfaktor": {"z_atrybutu": "Obudowa", "mapa": {"Tower": "Tower"}},
+                "pomijaj_obudowy": ["all in one"],
+                "nadpisz_tlumaczenia": {"Stan obudowy": {"Nowy": "Neu, ohne Gebrauchsspuren."}},
+            }},
+            "profile_kraju": {"Desktop-PC": nakladka},
+        }
+        return g.profil_produktu("Komputery", settings)
+
+    def test_kraj_podaje_sama_mape_a_pole_feedu_zostaje(self):
+        """Importer tworzy blok formfaktor z sama 'mapa'. Bez scalania ginelo
+        'z_atrybutu', straznik nie mial czego sprawdzac i All-in-One wchodzil
+        do kategorii pecetow. Wyszlo na Francji."""
+        p = self.profil({"formfaktor": {"mapa": {"Tower": "Tour"}}})
+        self.assertEqual(p["formfaktor"]["z_atrybutu"], "Obudowa")
+        self.assertEqual(p["formfaktor"]["mapa"], {"Tower": "Tour"})
+
+    def test_nadpisz_tlumaczenia_dalej_jest_PODMIENIANE(self):
+        """Tego scalac NIE WOLNO: po kluczach niemieckie zdania o kondycji
+        wsiakalyby na kazdy inny rynek."""
+        p = self.profil({"nadpisz_tlumaczenia": {"Stan obudowy": {"Nowy": "Neuf."}}})
+        self.assertEqual(p["nadpisz_tlumaczenia"]["Stan obudowy"], {"Nowy": "Neuf."})
+        self.assertNotIn("Gebrauchsspuren", json.dumps(p, ensure_ascii=False))
+
+    def test_bez_nakladki_profil_zostaje_nietkniety(self):
+        g = self.modul()
+        settings = {
+            "typ_produktu": {"Komputery": "Desktop-PC", "_domyslnie": "Gerät"},
+            "profile_produktu": {"Desktop-PC": {"formfaktor": {"z_atrybutu": "Obudowa"}}},
+        }
+        self.assertEqual(g.profil_produktu("Komputery", settings)["formfaktor"],
+                         {"z_atrybutu": "Obudowa"})
+
+
 if __name__ == "__main__":
     unittest.main()
