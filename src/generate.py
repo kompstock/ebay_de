@@ -321,7 +321,7 @@ MARKI_ZNANE = {"lenovo": "Lenovo", "dell": "Dell", "hp": "HP", "fujitsu": "Fujit
                "dynabook": "Dynabook"}
 def brand_name(value: str) -> str:
     return MARKI_ZNANE.get(norm(value), value.title())
-def clean_capacity(value: str) -> str:
+def clean_capacity(value: str, jednostki: dict | None = None) -> str:
     """Pojemnosc w zapisie eBaya.
 
     Feed pisze '1000 GB' i '2000 GB', a slownik eBaya zna tylko '1 TB' i '2 TB'.
@@ -335,7 +335,21 @@ def clean_capacity(value: str) -> str:
     pelne_tb = re.match(r"^(\d+)000\s*GB$", v, re.I)
     if pelne_tb:
         v = f"{pelne_tb.group(1)} TB"
-    return v
+    return zamien_jednostke(v, jednostki)
+
+
+def zamien_jednostke(wartosc: str, jednostki: dict | None) -> str:
+    """'256 GB' -> '256 Go' na rynkach, ktore pisza pojemnosc po swojemu.
+
+    To NIE jest kosmetyka. Francuska lista dozwolonych wartosci zna wylacznie
+    'Go' i 'To' - ani jednego 'GB'. Bez tej podmiany kazda francuska oferta
+    szla z pojemnoscia spoza slownika: RAM, dysk i SSD naraz. Rynek, ktory
+    mapy nie poda, dostaje zapis angielski, czyli to co dotad.
+    """
+    if not jednostki or not wartosc:
+        return wartosc
+    return re.sub(r"\b(GB|TB|MB)\b",
+                  lambda m: jednostki.get(m.group(1), m.group(1)), wartosc)
 def screen_size_de(value: str, format_rynku: str = "{n} Zoll") -> str:
     """Przekatna w zapisie danego rynku: '15,6 Zoll' po niemiecku, '15,6"' po wlosku.
 
@@ -774,7 +788,22 @@ def profil_produktu(kategoria_xml: str, settings: dict, attrs: dict | None = Non
     typ = typ_produktu(kategoria_xml, settings, attrs)
     bazowy = settings["profile_produktu"][typ]
     nakladka = (settings.get("profile_kraju") or {}).get(typ)
-    return {**bazowy, **nakladka} if nakladka else bazowy
+    if not nakladka:
+        return bazowy
+    scalony = {**bazowy, **nakladka}
+    # 'formfaktor' scalamy PO KLUCZACH, bo kraj podaje w nim tylko 'mapa' -
+    # przetlumaczone nazwy obudow. Plytkie nadpisanie kasowalo 'z_atrybutu',
+    # czyli nazwe pola feedu, z ktorego obudowa sie bierze. Bez niej straznik
+    # 'pomijaj_obudowy' nie mial czego sprawdzac i All-in-One wchodzilo do
+    # kategorii pecetow. Wyszlo na Francji, bo jej blok powstal z importu
+    # arkusza; Wlochy i Hiszpania mialy pliki pisane recznie, z kompletem pol.
+    #
+    # NIE robimy z tego ogolnej reguly dla calego profilu. 'nadpisz_tlumaczenia'
+    # MUSI byc podmieniane w calosci: scalanie po kluczach wpuscilo by niemieckie
+    # zdania o kondycji na kazdy inny rynek.
+    if isinstance(bazowy.get("formfaktor"), dict) and isinstance(nakladka.get("formfaktor"), dict):
+        scalony["formfaktor"] = {**bazowy["formfaktor"], **nakladka["formfaktor"]}
+    return scalony
 def typ_z_feedu(kategoria_xml: str, settings: dict, attrs_surowe: dict) -> str:
     """Typ towaru dla oferty prosto z feedu, jeszcze przed zbierz_produkty().
 
@@ -1055,8 +1084,9 @@ def render_description(szablony, attrs, images, translations, aspects, settings,
     ports = parse_ports_raw(attrs.get("Złącza zewnętrzne", ""))
     manufacturer = brand_name(attrs.get("Producent", ""))
     model = attrs.get("Model", "")
-    ram = clean_capacity(attrs.get("Ilość pamięci RAM", ""))
-    disk = clean_capacity(attrs.get("Dysk", ""))
+    jedn = settings.get("jednostki_pojemnosci")
+    ram = clean_capacity(attrs.get("Ilość pamięci RAM", ""), jedn)
+    disk = clean_capacity(attrs.get("Dysk", ""), jedn)
     finish = translations["screen_finish"].get(attrs.get("Powłoka matrycy", ""), "")
     gpu_type = translations["gpu_type"].get(attrs.get("Rodzaj karty graficznej", ""), "")
     operating_system = wpis_bez_wzgledu_na_wielkosc(
@@ -1148,8 +1178,10 @@ def build_title(attrs: dict, settings: dict, aspects: dict,
                                settings.get("format_generacji_cpu", "{n}. Gen"))
     cpu = kandydaci[0] if kandydaci else ""
     parts = [brand_name(attrs.get("Producent", "")), attrs.get("Model", ""),
-             cpu.replace("Intel Core ", "").replace("AMD ", ""), clean_capacity(attrs.get("Ilość pamięci RAM", "")),
-             clean_capacity(attrs.get("Dysk", "")), attrs.get("Typ dysku", ""),
+             cpu.replace("Intel Core ", "").replace("AMD ", ""),
+             clean_capacity(attrs.get("Ilość pamięci RAM", ""), settings.get("jednostki_pojemnosci")),
+             clean_capacity(attrs.get("Dysk", ""), settings.get("jednostki_pojemnosci")),
+             attrs.get("Typ dysku", ""),
              screen_size_de(attrs.get("Przekątna ekranu", ""),
                             settings.get("format_przekatnej", "{n} Zoll")),
              # Slowa pod wyszukiwarke rynku: skrot rozdzielczosci i rzeczownik
@@ -1204,8 +1236,9 @@ def build_row(offer, attrs, cfg, headers, review):
     if desc_error:
         return None, desc_error
     ports = parse_ports_raw(attrs.get("Złącza zewnętrzne", ""))
-    disk = clean_capacity(attrs.get("Dysk", ""))
-    ram = clean_capacity(attrs.get("Ilość pamięci RAM", ""))
+    jedn = settings.get("jednostki_pojemnosci")
+    disk = clean_capacity(attrs.get("Dysk", ""), jedn)
+    ram = clean_capacity(attrs.get("Ilość pamięci RAM", ""), jedn)
     model = attrs.get("Model", "")
     grade = condition_class(attrs.get("Kondycja sprzętu", ""))
     cond_map = aspects["condition_id"][aspects["condition_id"]["_tryb"]]
@@ -1940,7 +1973,11 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
     # bo koszt bledu to zdjeta aukcja.
     dupl = duplikaty.znajdz(produkty, set(aktywne), settings, {
         "norm": norm, "brand_name": brand_name, "cpu_candidates": cpu_candidates,
-        "zrodlo_procesora": zrodlo_procesora, "clean_capacity": clean_capacity,
+        "zrodlo_procesora": zrodlo_procesora,
+            # Odcisk palca duplikatu zostaje w zapisie angielskim: porownujemy
+            # produkty miedzy soba w jednym przebiegu, wiec liczy sie spojnosc,
+            # a nie jezyk rynku.
+            "clean_capacity": clean_capacity,
         "marki": MARKI_ZNANE,
     })
     wstrzymane = {s for s in (dupl.get("wstrzymane_sku") or []) if s not in aktywne}
