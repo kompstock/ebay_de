@@ -166,7 +166,15 @@
   "male slady uzytkowania w postaci otarc, delikatnych przebarwien": "Lievi segni d’uso, come abrasioni e leggere alterazioni del colore.",
   "drobne ryski, otarcia": "Piccoli graffi e segni di sfregamento.",
   "normalne slady uzytkowania, mozliwy profesjonalnie wykonany skin!": "Normali segni d’uso. Potrebbe essere presente una pellicola adesiva di finitura applicata professionalmente.",
-  "normalne, male slady uzytkowania, mozliwy profesjonlanie przygotowany skin!": "Lievi segni d’uso abituali. Potrebbe essere presente una pellicola adesiva di finitura applicata professionalmente."
+  "normalne, male slady uzytkowania, mozliwy profesjonlanie przygotowany skin!": "Lievi segni d’uso abituali. Potrebbe essere presente una pellicola adesiva di finitura applicata professionalmente.",
+  "drobne ryski, otarcia, mozliwe poswiatki": "Lievi graffi e segni di usura, con una possibile micro-macchia.",
+  "ryski/otarcia od klawiatury, poswiatki": "Graffi e segni di sfregamento causati dalla tastiera, con una possibile micro-macchia.",
+  "zasilacz zamiennik z przewodem,": "Alimentatore sostitutivo con cavo.",
+  "drobne ryski, otarcia, mozliwe poswiaty": "Lievi graffi e segni di usura, con una possibile micro-macchia.",
+  "nowa": "Nuova.",
+  "wystepuja delikatne ryski, otarcia, poswiatki": "Presenta lievi graffi e segni di usura, con una possibile micro-macchia.",
+  "oryginalna, czas pracy min. 1, 5h (uzywana)": "Batteria originale, autonomia minima di 1,5 ore (usata).",
+  "nowa oryginalna": "Batteria originale nuova."
  },
  "_podpowiedzi": {
   "laptop poleasingowy": "Business-Notebook aus Leasingrücklauf",
