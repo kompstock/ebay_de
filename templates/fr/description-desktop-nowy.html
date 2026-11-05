@@ -1,0 +1,117 @@
+<div class="kpx">
+
+  <header class="kpx-hd">
+    <div class="kpx-hd-brand"><b>KOMPRE</b> Produit neuf &middot; depuis {{company_since}}</div>
+    <h1>{{manufacturer}} {{model}} - {{processor}}, {{gpu}}, {{ram}} RAM, {{disk}} {{disk_type}}</h1>
+    <p class="kpx-hd-sub">Ordinateur de bureau neuf, assembl&eacute; avec des composants neufs d&rsquo;usine.</p>
+    <ul class="kpx-pills">
+      <li>Neuf et jamais utilis&eacute;</li>
+      <li>Facture avec TVA indiquée</li>
+      <li>{{garantie}}</li>
+      <li>30 jours pour retourner l’article</li>
+    </ul>
+  </header>
+
+  <section class="kpx-hero">
+    <div class="kpx-hero-fig">
+{{main_image_block}}
+    </div>
+    <div class="kpx-hero-specs">
+      <p class="kpx-eyebrow">Configuration de cet exemplaire</p>
+      <div class="kpx-spec"><i>Processeur</i><b>{{processor}}</b></div>
+      <div class="kpx-spec"><i>Carte graphique</i><b>{{gpu}}</b></div>
+      <div class="kpx-spec"><i>M&eacute;moire vive</i><b>{{ram}} {{ram_type}}</b></div>
+      <div class="kpx-spec"><i>Stockage</i><b>{{disk}} {{disk_type}}</b></div>
+      <div class="kpx-spec"><i>Syst&egrave;me d&rsquo;exploitation</i><b>{{operating_system}}</b></div>
+    </div>
+  </section>
+
+  <section class="kpx-trust">
+    <div><b>Composants neufs</b><span>Assembl&eacute; avec des pi&egrave;ces neuves d&rsquo;usine, et non reconditionn&eacute;.</span></div>
+    <div><b>Pr&ecirc;t &agrave; l&rsquo;emploi</b><span>Syst&egrave;me install&eacute; et activ&eacute;, avec des pilotes &agrave; jour.</span></div>
+    <div><b>{{garantie}}</b><span>Assistance directe, sans interm&eacute;diaire.</span></div>
+    <div><b>Facture avec TVA</b><span>Chaque achat est accompagné d’une facture avec la TVA indiquée.</span></div>
+  </section>
+
+  <section class="kpx-sec">
+    <h2 class="kpx-h2"><i>01</i>&Eacute;tat</h2>
+    <div class="kpx-badge">Produit neuf</div>
+    <p class="kpx-lead">{{condition_summary}}</p>
+    <table class="kpx-table"><tbody>
+      <tr><th>Ch&acirc;ssis</th><td>{{case_condition}}</td></tr>
+      <tr><th>Facteur de forme</th><td>{{formfaktor}}</td></tr>
+{{hinweis_row}}
+    </tbody></table>
+    <div class="kpx-box">
+      <b>Contenu du colis</b>
+      <span>{{included}}</span>
+    </div>
+  </section>
+
+  <section class="kpx-sec">
+    <h2 class="kpx-h2"><i>02</i>L&rsquo;appareil</h2>
+    <p>{{lead}}</p>
+    <p>Cet ordinateur de bureau est neuf et assembl&eacute; avec des composants neufs d&rsquo;usine. Il ne provient pas d&rsquo;un contrat de leasing et n&rsquo;est pas un appareil reconditionn&eacute;.</p>
+    <p>Il est équipé d’un processeur {{processor}}, d’une carte graphique {{gpu}}, de {{ram}} de mémoire vive et d’un stockage {{disk_type}} de {{disk}}. Le système installé et activé est {{operating_system}}.</p>
+  </section>
+
+  <section class="kpx-sec">
+    <h2 class="kpx-h2"><i>03</i>Fiche technique</h2>
+    <table class="kpx-table"><tbody>
+{{spec_rows}}
+    </tbody></table>
+  </section>
+
+  <section class="kpx-sec">
+    <h2 class="kpx-h2"><i>04</i>Connectique</h2>
+    <ul class="kpx-ports">{{port_items}}</ul>
+  </section>
+
+  <section class="kpx-sec kpx-faq">
+    <h2 class="kpx-h2"><i>05</i>Acheter sans risque</h2>
+    <details open>
+      <summary>{{garantie}} sur chaque appareil</summary>
+      <div class="kpx-a">La garantie court &agrave; compter de la r&eacute;ception de la marchandise. En cas de d&eacute;faut, nous traitons le dossier rapidement et vous aidons &agrave; le r&eacute;soudre.</div>
+    </details>
+    <details>
+      <summary>30 jours pour retourner l’article</summary>
+      <div class="kpx-a">Vous pouvez retourner l&rsquo;article sous 30 jours sans avoir &agrave; motiver votre d&eacute;cision, via la proc&eacute;dure de retour eBay. D&egrave;s r&eacute;ception du retour, nous remboursons l&rsquo;int&eacute;gralit&eacute; du prix de l&rsquo;article.</div>
+    </details>
+    <details>
+      <summary>Facture avec TVA indiquée</summary>
+      <div class="kpx-a">Le prix indiqué comprend la TVA. Chaque achat est accompagné d’une facture avec la TVA indiquée. Les entreprises disposant d’un numéro de TVA intracommunautaire valide peuvent recevoir la marchandise hors TVA, au titre d’une livraison intracommunautaire.</div>
+    </details>
+  </section>
+
+  <section class="kpx-sec kpx-faq">
+    <h2 class="kpx-h2"><i>06</i>Questions fr&eacute;quentes</h2>
+{{faq_system}}
+    <details><summary>L&rsquo;&eacute;cran, le clavier et la souris sont-ils inclus&nbsp;?</summary><div class="kpx-a">Non. Seul l&rsquo;ordinateur est exp&eacute;di&eacute;. Ce qui accompagne l&rsquo;appareil figure plus haut, sous Contenu du colis.</div></details>
+    <details><summary>Puis-je ajouter plus tard de la m&eacute;moire vive, un disque ou une carte graphique&nbsp;?</summary><div class="kpx-a">En règle générale, oui. L’ordinateur est assemblé dans un châssis standard et les emplacements restent accessibles. La place disponible et la marge du bloc d’alimentation dépendent de la configuration précise. Si ce point est important pour vous, posez-nous la question avant l’achat.</div></details>
+    <details><summary>L&rsquo;ordinateur est-il pr&ecirc;t &agrave; l&rsquo;emploi&nbsp;?</summary><div class="kpx-a">Oui. Le syst&egrave;me d&rsquo;exploitation est install&eacute; et activ&eacute;. Branchez l&rsquo;&eacute;cran, le clavier et la souris et vous pouvez commencer imm&eacute;diatement.</div></details>
+  </section>
+
+  <section class="kpx-sec">
+    <h2 class="kpx-h2"><i>07</i>Qui sommes-nous ?</h2>
+    <div class="kpx-row">
+      <div><p>Depuis {{company_since}}, KOMPRE est sp&eacute;cialis&eacute;e dans le mat&eacute;riel professionnel. Dans nos entrep&ocirc;ts en Pologne, nous contr&ocirc;lons, configurons et exp&eacute;dions des ordinateurs portables, des ordinateurs de bureau et des &eacute;crans &mdash; aussi bien des appareils neufs que du mat&eacute;riel d&rsquo;occasion test&eacute;.</p></div>
+      <div><img src="https://kompre.pl/userdata/public/assets//kompre_sklep.jpg" alt="Magasin KOMPRE"></div>
+    </div>
+    <div class="kpx-row">
+      <div><img src="https://kompre.pl/userdata/public/assets//kompre%20magazyn.jpg" alt="Entrep&ocirc;t KOMPRE"></div>
+      <div><p>Chaque jour, des milliers d&rsquo;appareils passent entre nos mains. Parmi nos clients figurent des &eacute;tablissements scolaires, des administrations, des moyennes et grandes entreprises et des particuliers dans toute l&rsquo;Europe.</p></div>
+    </div>
+  </section>
+
+  <div class="kpx-cta">
+    <b>Pr&ecirc;t &agrave; l&rsquo;emploi d&egrave;s le premier d&eacute;marrage</b>
+    <p>Syst&egrave;me install&eacute; et activ&eacute;, pilotes &agrave; jour, toutes les fonctions v&eacute;rifi&eacute;es. Branchez l&rsquo;&eacute;cran, le clavier et la souris et vous pouvez commencer imm&eacute;diatement.</p>
+    <ul>
+      <li>{{garantie}}</li>
+      <li>30 jours pour retourner l’article</li>
+      <li>Facture avec TVA</li>
+      <li>Neuf et jamais utilis&eacute;</li>
+    </ul>
+  </div>
+
+</div>
