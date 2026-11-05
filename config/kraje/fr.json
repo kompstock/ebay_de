@@ -1,0 +1,294 @@
+{
+  "_about": "Rynek francuski. Warstwa kraju nakladana na config/settings.json - tu siedzi wszystko, co zalezy od RYNKU, a nie od typu towaru.",
+  "kod": "FR",
+  "nazwa": "Francja",
+  "listing_site": "FR",
+  "naglowek_site_id": "France",
+  "vat_percent": "20",
+  "_vat_percent": "Stawka DEKLAROWANA eBayowi w kolumnie VAT%. Na cene nie wplywa - cene licza cena.vat_zrodla i cena.vat_wzoru z settings.json. Rynki deklaruja stawke kraju docelowego: DE 19, IT 22, ES 21, FR 20.",
+  "sufiks_sku": "FRA",
+  "_sufiks_sku": "Doklejany do SKU jako OSTATNI krok budowania feedu, juz po blizniakach GW24. NIE ZMIENIAC po pierwszym wystawieniu - sufiks wiaze nasze SKU z aukcjami na eBayu.",
+  "shipping_profile_name": "dostawa fr",
+  "return_profile_name": "30 days - International 30 days (254129065019)",
+  "payment_profile_name": "paiement fr",
+  "_profile_handlowe": "Nazwy z eBay.fr, przepisane ze zrzutu. Hiszpania dziala z golymi nazwami, bez koncowki ' - (ID: ...)', ktora maja DE i IT. Jesli VerifyAdd ich nie dopasuje - dopisac numery.",
+  "kolumny": {
+    "marka": "*C:Marque",
+    "przekatna": "*C:Taille d'écran",
+    "procesor": "*C:Processeur",
+    "typ_dysku": "C:Type de stockage",
+    "rodzaj_produktu": "*C:Type",
+    "formfaktor": "C:Facteur de forme",
+    "pojemnosc_dysku": "C:Capacité du disque dur",
+    "cechy": "C:Caractéristiques",
+    "pojemnosc_ssd": "C:Capacité du lecteur SSD",
+    "gpu": "C:Processeur graphique",
+    "rok": "C:Année de sortie",
+    "kolor": "C:Couleur",
+    "taktowanie": "C:Vitesse de processeur",
+    "rozdzielczosc": "C:Résolution maximale",
+    "numer_producenta": "C:Numéro de pièce fabricant",
+    "model": "C:Modèle",
+    "system": "C:Système d'exploitation",
+    "liczba_sztuk": "C:Quantité unitaire",
+    "jednostka_miary": "C:Unité de mesure",
+    "ladowarka": "C:Chargeur inclus",
+    "ram": "C:Taille de la RAM",
+    "typ_gpu": "C:Type de traitement graphique",
+    "zlacza": "C:Connectivité",
+    "gwarancja_producenta": "C:Garantie fabricant",
+    "seria": "C:Série",
+    "przeznaczenie": "C:Mieux adapté à"
+  },
+  "_kolumny": "Nasz klucz -> nazwa kolumny w naglowku eBay.fr. Inaczej niz w Hiszpanii szablon francuski MA kolumne 'C:Unité de mesure', wiec jednostka faktycznie wychodzi w pliku ('Unité' jest na liscie dozwolonych).",
+  "slowa": {
+    "tak": "Oui",
+    "nie": "Non",
+    "nie_dotyczy": "Non applicable",
+    "jedna_sztuka": "1",
+    "jednostka": "Unité",
+    "jest": "Oui",
+    "brak": "Non"
+  },
+  "etykiety_opisu": {
+    "producent": "Fabricant",
+    "model": "Modèle",
+    "procesor": "Processeur",
+    "rdzenie": "Cœurs du processeur",
+    "taktowanie": "Fréquence d'horloge",
+    "ram": "Mémoire vive",
+    "dysk": "Stockage",
+    "ekran": "Écran",
+    "grafika": "Carte graphique",
+    "dotyk": "Écran tactile",
+    "naped": "Lecteur optique",
+    "system": "Système d'exploitation",
+    "klawiatura": "Disposition du clavier",
+    "kamera": "Webcam",
+    "bateria": "Batterie",
+    "zestaw": "Contenu du colis",
+    "uwaga": "Remarque"
+  },
+  "faq_windows": "<details><summary>Windows est-il activ&eacute; de mani&egrave;re permanente&nbsp;?</summary><div class=\"kpx-a\">Oui. La licence num&eacute;rique est enregistr&eacute;e dans l&rsquo;appareil et reste active m&ecirc;me apr&egrave;s une r&eacute;initialisation de Windows.</div></details>",
+  "format_przekatnej": "{n}\"",
+  "jednostki_pojemnosci": {
+    "GB": "Go",
+    "TB": "To",
+    "MB": "Mo"
+  },
+  "_jednostki_pojemnosci": "Francuskie listy dozwolonych wartosci znaja WYLACZNIE Go i To - ani jednego GB. Bez tej mapy kazda oferta szla z pojemnoscia spoza slownika, i to w trzech polach naraz: RAM, dysk i SSD. Rynek bez mapy dostaje zapis angielski.",
+  "skroty_rozdzielczosci": {
+    "1920 x 1080": "FHD",
+    "1920x1080": "FHD",
+    "2560 x 1440": "QHD",
+    "2560x1440": "QHD",
+    "3840 x 2160": "4K",
+    "3840x2160": "4K"
+  },
+  "_skroty_rozdzielczosci": "Skrot doklejany do TYTULU, nie do aspektu. Stoi na koncu czesci skracanej, wiec przy ciasnym tytule znika przed danymi technicznymi.",
+  "format_generacji_cpu": [
+    "{ord} Gen.",
+    "de {n}ᵉ génération"
+  ],
+  "_format_generacji_cpu": "Zapas, gdy dokladnego modelu procesora nie ma w slowniku eBaya. Aspekt procesora jest WYMAGANY, wiec bez trafienia odpada cala oferta.\neBay.fr trzyma na jednej liscie OBA zapisy, tak samo jak eBay.es: starsze pokolenia po angielsku ('Intel Core i5 8th Gen.'), nowsze po francusku ('Intel Core i5 de 11ᵉ génération').\nUWAGA NA ZNAKI: francuska forma ma 'de' PRZED liczba, a 'e' to INDEKS GORNY U+1D49 (MODIFIER LETTER SMALL E), nie zwykle 'e' ani 'è'. Przepisane z szablonu, nie z pamieci - zwykle 'e' nie trafiloby w slownik.",
+  "opis_generacji_cpu": "{n}ᵉ génération",
+  "opis_cache_cpu": "{n} Mo de cache",
+  "ean_dla_stanow": [
+    "1000",
+    "2000",
+    "2010",
+    "2020",
+    "2030"
+  ],
+  "wyjatki_polskiego": [],
+  "_wyjatki_polskiego": "Slowa z listy 'wyciekl polski', ktore po francusku sa zwyczajne. Sprawdzone na probce typowego opisu sprzetu - zadne nie wpada we wzorzec, wiec lista zostaje pusta. Wloski wymagal wyjatku na 'i' (rodzajnik).",
+  "znaki_dozwolone": [],
+  "_znaki_dozwolone": "Litery alfabetu rynku, ktore sa tez polskimi znakami. Francuskie akcenty (e z akcentami, a/i/o/u z daszkiem, c z cedilla, ligatura oe) NIE pokrywaja sie z polskim zbiorem ani w jednym znaku, wiec lista zostaje pusta. Hiszpanski potrzebowal wyjatku na 'o' z kreska, bo to ta sama litera co w polskim 'ktory'.",
+  "pliki": {
+    "naglowek": "config/kraje/fr/ebay-header.csv",
+    "slownik": "config/kraje/fr/ebay-vocab.json",
+    "aspekty": "config/kraje/fr/aspects.json",
+    "tlumaczenia": "config/kraje/fr/translations.json"
+  },
+  "katalog_szablonow": "templates/fr",
+  "cena": {
+    "dopisek_eur": 2
+  },
+  "_cena": "Doplata do ceny koncowej. Hiszpania ma 3 EUR, Francja jest blizej.",
+  "profile_kraju": {
+    "Notebook": {
+      "gwarancja": "12 mois de garantie",
+      "produktart": "Notebook, ordinateur portable",
+      "rzeczownik": "ordinateur portable",
+      "tastatur_layout": "Le clavier est équipé d’autocollants correspondant à la disposition française.",
+      "cechy_domyslne": [
+        "Bluetooth",
+        "WiFi",
+        "Microphone intégré"
+      ],
+      "dopisek_tytulu": "Garantie",
+      "slowa_tytulu": [
+        "PC Portable"
+      ]
+    },
+    "Desktop-PC": {
+      "gwarancja": "12 mois de garantie",
+      "produktart": "Ordinateur de bureau",
+      "rzeczownik": "ordinateur de bureau",
+      "dopisek_tytulu": "Garantie",
+      "slowa_tytulu": [
+        "PC Bureau"
+      ],
+      "nadpisz_tlumaczenia": {
+        "W zestawie": {
+          "Zasilacz z przewodem": "Bloc d’alimentation avec câble.",
+          "Zasilacz w zestawie": "Bloc d’alimentation."
+        }
+      },
+      "formfaktor": {
+        "mapa": {
+          "SFF": "Petit Facteur de Forme(PFF)",
+          "Tower": "Tour",
+          "Micro / Mini / Tiny": "Mini Bureau",
+          "Desktop": "Tour"
+        }
+      }
+    },
+    "Desktop-PC nowy": {
+      "gwarancja": "12 mois de garantie",
+      "produktart": "Ordinateur de bureau",
+      "rzeczownik": "ordinateur de bureau",
+      "dopisek_tytulu": "Garantie",
+      "slowa_tytulu": [
+        "PC Bureau"
+      ],
+      "nadpisz_tlumaczenia": {
+        "Kondycja sprzętu": {
+          "Nowy": "Neuf, dans son emballage d’origine et testé en usine."
+        },
+        "Stan obudowy": {
+          "Nowy": "Neuf, sans traces d’utilisation.",
+          "NOWY": "Neuf, sans traces d’utilisation."
+        },
+        "W zestawie": {
+          "Zasilacz z przewodem": "Bloc d’alimentation avec câble.",
+          "Zasilacz w zestawie": "Bloc d’alimentation."
+        }
+      },
+      "formfaktor": {
+        "mapa": {
+          "SFF": "Petit Facteur de Forme(PFF)",
+          "Tower": "Tour",
+          "Micro / Mini / Tiny": "Mini Bureau",
+          "Desktop": "Tour"
+        }
+      }
+    },
+    "Notebook GW24": {
+      "gwarancja": "24 mois de garantie",
+      "produktart": "Notebook, ordinateur portable",
+      "rzeczownik": "ordinateur portable",
+      "tastatur_layout": "Le clavier est équipé d’autocollants correspondant à la disposition française.",
+      "cechy_domyslne": [
+        "Bluetooth",
+        "WiFi",
+        "Microphone intégré"
+      ],
+      "dopisek_tytulu": "24 mois de garantie",
+      "slowa_tytulu": [
+        "PC Portable"
+      ]
+    },
+    "Desktop-PC GW24": {
+      "gwarancja": "24 mois de garantie",
+      "produktart": "Ordinateur de bureau",
+      "rzeczownik": "ordinateur de bureau",
+      "dopisek_tytulu": "24 mois de garantie",
+      "slowa_tytulu": [
+        "PC Bureau"
+      ],
+      "nadpisz_tlumaczenia": {
+        "W zestawie": {
+          "Zasilacz z przewodem": "Bloc d’alimentation avec câble.",
+          "Zasilacz w zestawie": "Bloc d’alimentation."
+        }
+      },
+      "formfaktor": {
+        "mapa": {
+          "SFF": "Petit Facteur de Forme(PFF)",
+          "Tower": "Tour",
+          "Micro / Mini / Tiny": "Mini Bureau",
+          "Desktop": "Tour"
+        }
+      }
+    },
+    "Desktop-PC nowy GW24": {
+      "gwarancja": "24 mois de garantie",
+      "produktart": "Ordinateur de bureau",
+      "rzeczownik": "ordinateur de bureau",
+      "dopisek_tytulu": "24 mois de garantie",
+      "slowa_tytulu": [
+        "PC Bureau"
+      ],
+      "nadpisz_tlumaczenia": {
+        "Kondycja sprzętu": {
+          "Nowy": "Neuf, dans son emballage d’origine et testé en usine."
+        },
+        "Stan obudowy": {
+          "Nowy": "Neuf, sans traces d’utilisation.",
+          "NOWY": "Neuf, sans traces d’utilisation."
+        },
+        "W zestawie": {
+          "Zasilacz z przewodem": "Bloc d’alimentation avec câble.",
+          "Zasilacz w zestawie": "Bloc d’alimentation."
+        }
+      },
+      "formfaktor": {
+        "mapa": {
+          "SFF": "Petit Facteur de Forme(PFF)",
+          "Tower": "Tour",
+          "Micro / Mini / Tiny": "Mini Bureau",
+          "Desktop": "Tour"
+        }
+      }
+    }
+  },
+  "sekcja_business_notebook": "<div class=\"kpx-sec\"><h2 class=\"kpx-h2\"><span>Pourquoi choisir un ordinateur portable professionnel&nbsp;?</span></h2><p>Les appareils de la gamme professionnelle sont con&ccedil;us pour les entreprises, pas pour le grand public. C&rsquo;est une diff&eacute;rence qui se remarque au quotidien.</p><ul class=\"kpx-ul\"><li>Ch&acirc;ssis robuste en magn&eacute;sium ou en fibre de carbone, et non en plastique fin.</li><li>Con&ccedil;us et test&eacute;s pour un usage intensif au quotidien.</li><li>Clavier de qualit&eacute;, avec une frappe nette et pr&eacute;cise.</li><li>Composants durables et pi&egrave;ces d&eacute;tach&eacute;es disponibles longtemps.</li><li>Conception facilitant l&rsquo;entretien&nbsp;: les r&eacute;parations sont possibles sans outils sp&eacute;ciaux.</li></ul></div>",
+  "zdania_wiodace": {
+    "lista": [
+      "Un ordinateur portable puissant, capable de gérer sans peine de nombreux onglets ouverts, des vidéos en haute résolution et plusieurs programmes à la fois.",
+      "Il permet de travailler avec fluidité dans Word et Excel, de participer à des visioconférences et de garder de nombreux onglets ouverts, sans longue attente ni ralentissement gênant.",
+      "Un bon choix pour qui cherche plus qu'un simple portable. Idéal pour le multitâche, les cours en ligne, la vidéo et un usage quotidien d'Internet.",
+      "Il offre assez de puissance pour les documents, les présentations, les fichiers PDF, les vidéos et les appels vidéo, même avec plusieurs applications ouvertes.",
+      "Assez puissant pour garder de nombreux onglets ouverts, effectuer des retouches photo et du montage vidéo simples, et créer des projets sur Canva.",
+      "Les programmes démarrent vite et le passage du navigateur au courrier, aux documents et aux autres applications se fait sans longue attente.",
+      "Un portable robuste pour le quotidien. Idéal pour les longues journées de travail, pour étudier au lycée ou à l'université, regarder des films et naviguer.",
+      "Il permet de travailler confortablement avec plusieurs programmes à la fois, de lire des vidéos en haute résolution et de passer des appels vidéo fluides.",
+      "Sa construction robuste de niveau professionnel et ses composants puissants en font un choix fiable à la maison, au bureau ou en déplacement.",
+      "Pour qui apprécie la rapidité, des performances fiables et un châssis solide. Idéal pour le travail, les études et les loisirs."
+    ]
+  },
+  "zdania_wiodace_pecety": {
+    "lista": [
+      "Un ordinateur de bureau professionnel puissant, capable de gérer sans peine de nombreux onglets ouverts, des vidéos en haute résolution et plusieurs programmes.",
+      "Il permet de travailler avec fluidité dans Word et Excel, de participer à des visioconférences et de garder de nombreux onglets ouverts, sans ralentissement.",
+      "Un bon choix pour qui cherche un ordinateur fiable pour son bureau. Idéal pour le multitâche, la bureautique et le télétravail.",
+      "Il offre assez de puissance pour les documents, les présentations, les fichiers PDF, les vidéos et les appels vidéo tout au long de la journée de travail.",
+      "Assez puissant pour garder de nombreux onglets ouverts, faire de la retouche photo et du montage vidéo, et utiliser plusieurs programmes à la fois.",
+      "Les programmes démarrent vite et le passage du navigateur au courrier, aux documents et aux autres applications se fait sans attente.",
+      "Un ordinateur robuste pour le quotidien. Idéal pour les longues journées de travail au bureau, dans un établissement scolaire ou une administration.",
+      "Il permet de travailler confortablement avec plusieurs programmes à la fois, de lire des vidéos et de brancher plusieurs écrans.",
+      "Sa construction de niveau professionnel et ses composants puissants en font un outil de travail fiable pendant de nombreuses années.",
+      "Pour qui apprécie la rapidité, des performances fiables et un ordinateur facile à entretenir. Idéal pour un fonctionnement continu au bureau."
+    ]
+  },
+  "zdania_wiodace_gaming": {
+    "lista": [
+      "Un ordinateur de bureau neuf pour les jeux actuels, le streaming et les applications les plus exigeantes.",
+      "Assez de puissance pour jouer de manière fluide avec un niveau de détail élevé, diffuser en streaming en parallèle et garder de nombreux programmes ouverts.",
+      "Pensé pour qui cherche un ordinateur prêt à l'emploi et veut éviter de le monter soi-même.",
+      "Conçu pour les jeux, la retouche photo, le montage vidéo et le travail sur plusieurs écrans.",
+      "Un ordinateur puissant pour le jeu, la création de contenu et les autres applications ouvertes en parallèle."
+    ]
+  }
+}
