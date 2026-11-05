@@ -166,7 +166,15 @@
   "male slady uzytkowania w postaci otarc, delikatnych przebarwien": "Légères traces d’utilisation : marques de frottement et petites décolorations.",
   "drobne ryski, otarcia": "Micro-rayures et traces de frottement.",
   "normalne slady uzytkowania, mozliwy profesjonalnie wykonany skin!": "Traces d’utilisation normales. Un film adhésif de finition posé par un professionnel peut être présent.",
-  "normalne, male slady uzytkowania, mozliwy profesjonlanie przygotowany skin!": "Légères traces d’utilisation habituelles. Un film adhésif de finition posé par un professionnel peut être présent."
+  "normalne, male slady uzytkowania, mozliwy profesjonlanie przygotowany skin!": "Légères traces d’utilisation habituelles. Un film adhésif de finition posé par un professionnel peut être présent.",
+  "drobne ryski, otarcia, mozliwe poswiatki": "Légères rayures et traces d'usure, avec une éventuelle micro-tache.",
+  "ryski/otarcia od klawiatury, poswiatki": "Rayures et traces de frottement dues au clavier, avec une éventuelle micro-tache.",
+  "zasilacz zamiennik z przewodem,": "Chargeur de remplacement avec câble.",
+  "drobne ryski, otarcia, mozliwe poswiaty": "Légères rayures et traces d'usure, avec une éventuelle micro-tache.",
+  "nowa": "Neuf",
+  "wystepuja delikatne ryski, otarcia, poswiatki": "Présence de légères rayures et de traces d'usure, avec une éventuelle micro-tache.",
+  "oryginalna, czas pracy min. 1, 5h (uzywana)": "Batterie d'origine, autonomie minimale de 1 h 30 (d'occasion).",
+  "nowa oryginalna": "Batterie neuve d'origine."
  },
  "_podpowiedzi": {
   "laptop poleasingowy": "Business-Notebook aus Leasingrücklauf",
