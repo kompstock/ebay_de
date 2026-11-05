@@ -8,9 +8,12 @@ musialby ich szukac po repozytorium i predzej czy pozniej ktoregos by nie
 znalazl. Wtedy oferta wychodzi po niemiecku na wloskim rynku i nikt tego nie
 zauwaza, bo eBay plik przyjmuje.
 
-CZEGO TU NIE MA
-Szablonow opisu (templates/<kraj>/*.html) - to cale strony HTML, nie pojedyncze
-napisy, wiec tlumaczy sie je jako pliki. Skrypt wypisuje je na koncu z lista.
+CO TU JEST
+Wszystko, co kupujacy czyta: pojedyncze napisy z konfiguracji, zdania wiodace
+ORAZ proza z szablonow opisu. Szablony szly kiedys do tlumacza jako pliki
+HTML - jeden skasowany nawias w "{{processor}}" psul oferte i widac to bylo
+dopiero po wystawieniu. Teraz ich tresc jest w tym samym arkuszu, w sekcjach
+"szablon/<plik>", a znaczniki sklei z powrotem wczytaj_tlumaczenia.py.
 
     python3 tools/eksport_do_tlumaczenia.py it   ->   do-tlumaczenia-it.csv
 
@@ -32,6 +35,9 @@ import csv
 import json
 import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import szablony
 
 ROOT = Path(__file__).resolve().parents[1]
 ZRODLO = "de"
@@ -193,11 +199,18 @@ def wiersze(kraj_zrodlo: dict, kraj_cel: dict, settings: dict, tlumaczenia: dict
     for klucz in ("sekcja_business_notebook",):
         dodaj("settings", klucz, settings.get(klucz), kraj_cel.get(klucz),
               "sekcja HTML w opisie")
-    for blok in ("zdania_wiodace", "zdania_wiodace_gaming"):
-        for klucz, wartosc in (settings.get(blok) or {}).items():
-            if not klucz.startswith("_"):
-                dodaj(blok, klucz, wartosc, (kraj_cel.get(blok) or {}).get(klucz),
-                      "zdanie pod kafelkami w opisie")
+    # Pule zdan wiodacych. Blok ma ksztalt {"lista": [...]}, wiec dawna petla
+    # po kluczach trafiala na "lista", czyli LISTE - a dodaj() przyjmuje tylko
+    # napisy i po cichu ja pomijala. Przez to 25 zdan widocznych w KAZDEJ
+    # ofercie nigdy nie trafilo do arkusza, takze na wloskim i hiszpanskim.
+    # Teraz idziemy po indeksach, tak samo jak przy 'cechy_domyslne'.
+    # Nazwy pul nie wypisujemy z palca - nowa pula wchodzi do arkusza sama.
+    for blok in sorted(k for k in settings if k.startswith("zdania_wiodace")):
+        zrodlowe = (settings.get(blok) or {}).get("lista") or []
+        docelowe = (kraj_cel.get(blok) or {}).get("lista") or []
+        for i, zdanie in enumerate(zrodlowe):
+            dodaj(blok, str(i), zdanie, docelowe[i] if i < len(docelowe) else None,
+                  "zdanie pod kafelkami w opisie - jedno z puli, wybierane po SKU")
 
     for blok, zawartosc in tlumaczenia.items():
         if blok.startswith("_") or not isinstance(zawartosc, dict):
@@ -260,6 +273,35 @@ def wiersze(kraj_zrodlo: dict, kraj_cel: dict, settings: dict, tlumaczenia: dict
     return out
 
 
+def wiersze_szablonow(katalog: Path) -> list[dict]:
+    """Proza z szablonow opisu - ponad 700 slow na szablon.
+
+    Dawniej szablony szly do tlumacza jako pliki HTML. Jeden skasowany nawias
+    w '{{processor}}' psul oferte, a widac to bylo dopiero po wystawieniu.
+    Tutaj tlumacz dostaje sam tekst; znaczniki sklei z powrotem importer.
+
+    Wzorcem jest biezaca tresc szablonu, bo szablon rynku powstaje jako
+    roboczy przeklad do korekty - tak samo jak przy Hiszpanii. Kolumny
+    'po_niemiecku' i 'tlumaczenie' zaczynaja wiec od tego samego tekstu:
+    poprawia sie prawa.
+    """
+    out: list[dict] = []
+    for plik in sorted(katalog.glob("*.html")):
+        for tekst in szablony.wezly(plik.read_text(encoding="utf-8")):
+            znaczniki = szablony.miejsca(tekst)
+            out.append({
+                "sekcja": f"szablon/{plik.name}",
+                "klucz": tekst,
+                "kontekst": ("proza z opisu oferty - popraw kolumne 'tlumaczenie'"
+                             + (f"; ZACHOWAJ znaczniki: {' '.join(sorted(znaczniki))}"
+                                if znaczniki else "")),
+                "po_niemiecku": tekst,
+                "tlumaczenie": tekst,
+                "wybierz_z_listy": "",
+            })
+    return out
+
+
 def main() -> int:
     kod = (sys.argv[1] if len(sys.argv) > 1 else "it").lower()
     kraj_zrodlo = load(ROOT / "config" / "kraje" / f"{ZRODLO}.json")
@@ -278,6 +320,10 @@ def main() -> int:
                    load(ROOT / pliki["tlumaczenia"]), load(ROOT / pliki["aspekty"]),
                    vocab_cel, cel("tlumaczenia"), cel("aspekty"))
 
+    katalog_cel = ROOT / kraj_cel.get("katalog_szablonow", f"templates/{kod}")
+    if katalog_cel.is_dir():
+        dane += wiersze_szablonow(katalog_cel)
+
     out = ROOT / f"do-tlumaczenia-{kod}.csv"
     with out.open("w", encoding="utf-8-sig", newline="") as uchwyt:
         writer = csv.DictWriter(
@@ -288,12 +334,16 @@ def main() -> int:
         writer.writerows(dane)
 
     puste = sum(1 for w in dane if not w["tlumaczenie"])
+    z_szablonow = sum(1 for w in dane if w["sekcja"].startswith("szablon/"))
     print(f"{out.name}: {len(dane)} napisow, do wypelnienia {puste}")
-    katalog = ROOT / kraj_zrodlo.get("katalog_szablonow", "templates")
-    szablony = sorted(p.name for p in katalog.glob("*.html"))
-    print(f"\nOsobno, jako cale pliki - skopiuj do templates/{kod}/ i przetlumacz tresc:")
-    for nazwa in szablony:
-        print(f"  {katalog.name}/{nazwa}")
+    if z_szablonow:
+        print(f"  w tym {z_szablonow} kawalkow prozy z szablonow opisu "
+              f"({katalog_cel.relative_to(ROOT).as_posix()})")
+    else:
+        print(f"  UWAGA: w {katalog_cel.relative_to(ROOT).as_posix()} nie ma szablonow - "
+              "proza z opisu NIE jest w arkuszu. Skopiuj je tam i powtorz.")
+    print("\nCaly tekst oferty jest w tym pliku. Szablonow HTML nie wysylamy "
+          "tlumaczowi osobno - znaczniki sklei wczytaj_tlumaczenia.py.")
     return 0
 
 

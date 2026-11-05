@@ -15,6 +15,9 @@ import json
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import szablony
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -68,6 +71,8 @@ def main() -> int:
     licznik: dict[str, int] = {}
     # Wiersze z arkusza, ktorych odpowiednik zniknal z konfiguracji zrodlowej.
     przedawnione: list[tuple[str, str, str]] = []
+    # Proza z szablonow: {nazwa pliku: [(tekst dzisiejszy, tekst poprawiony)]}
+    szablony_do_zapisu: dict[str, list[tuple[str, str]]] = {}
     # Sekcje, ktore w pliku docelowym sa listami - skladamy je z wierszy
     # po calej petli, zeby zachowac kolejnosc i nie dopisywac duplikatow.
     listy: dict[str, list] = {}
@@ -87,8 +92,18 @@ def main() -> int:
         elif sekcja == "settings":
             kraj[klucz] = wartosc                 # nadpisze settings.json przy scalaniu
             policz(f"kraje/{kod}.json")
-        elif czesci[0] in ("zdania_wiodace", "zdania_wiodace_gaming"):
-            kraj.setdefault(czesci[0], {})[klucz] = wartosc
+        elif czesci[0].startswith("zdania_wiodace"):
+            # Pula zdan to LISTA, a klucz z arkusza to pozycja w niej. Dawniej
+            # wpadalo to do slownika pod kluczem '0', '1'... i generator nigdy
+            # tego nie czytal. Nazw pul nie wypisujemy - nowa wchodzi sama.
+            lista = kraj.setdefault(czesci[0], {}).setdefault("lista", [])
+            if not klucz.isdigit():
+                raise SystemExit(f"sekcja {sekcja}: numer zdania ma byc liczba, "
+                                 f"a jest {klucz!r}")
+            i = int(klucz)
+            while len(lista) <= i:
+                lista.append("")
+            lista[i] = wartosc
             policz(f"kraje/{kod}.json")
         elif czesci[0] == "profil":
             # Sekcja profilu ma cztery ksztalty i KAZDY trafia gdzie indziej.
@@ -143,6 +158,12 @@ def main() -> int:
             if not lista:
                 cel[klucz] = wartosc
             policz("aspects.json")
+        elif czesci[0] == "szablon":
+            # Proza z opisu. Klucz to tekst, ktory stoi dzis w pliku, wartosc -
+            # jego poprawiona wersja. Podmieniamy po tresci, a nie po pozycji,
+            # wiec przestawienie akapitow niczego nie psuje, a zmieniony tekst
+            # zglasza sie jako nietrafiony zamiast po cichu uszkodzic szablon.
+            szablony_do_zapisu.setdefault(czesci[1], []).append((klucz, wartosc))
 
     for sekcja, elementy in listy.items():
         czesci = sekcja.split("/")
@@ -163,6 +184,36 @@ def main() -> int:
     (katalog / "translations.json").write_text(
         json.dumps(tlumaczenia, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
 
+    # --- szablony opisu ---------------------------------------------------
+    katalog = ROOT / kraj.get("katalog_szablonow", f"templates/{kod}")
+    nietrafione: list[str] = []
+    zgubione_znaczniki: list[str] = []
+    for nazwa, pary in sorted(szablony_do_zapisu.items()):
+        plik = katalog / nazwa
+        if not plik.is_file():
+            nietrafione.append(f"{nazwa}: nie ma takiego pliku w {katalog.name}/")
+            continue
+        tresc = plik.read_text(encoding="utf-8")
+        zmian = 0
+        for stare, nowe in pary:
+            # Znacznik miejsca skasowany przez tlumacza zrobilby dziure w
+            # ofercie, widoczna dopiero po wystawieniu. Taki wiersz odrzucamy.
+            brakuje = szablony.miejsca(stare) - szablony.miejsca(nowe)
+            if brakuje:
+                zgubione_znaczniki.append(f"{nazwa}: {' '.join(sorted(brakuje))} "
+                                          f"w {stare[:46]!r}")
+                continue
+            if nowe == stare:
+                continue
+            tresc, ile = szablony.podmien(tresc, stare, nowe)
+            if ile:
+                zmian += ile
+            else:
+                nietrafione.append(f"{nazwa}: {stare[:60]!r}")
+        if zmian:
+            plik.write_text(tresc, encoding="utf-8")
+            licznik[f"{katalog.name}/{nazwa}"] = zmian
+
     print(f"wczytano {len(wiersze) - len(przedawnione)} z {len(wiersze)} tlumaczen:")
     for gdzie, ile in sorted(licznik.items()):
         print(f"  {gdzie}: {ile}")
@@ -174,7 +225,19 @@ def main() -> int:
               "niz konfiguracja. Jesli maja wrocic, dopisz je najpierw u zrodla:")
         for sekcja, klucz, wartosc in przedawnione:
             print(f"  [{sekcja}] {klucz} -> {wartosc[:50]}")
-    print(f"\nSzablony opisu skopiuj osobno do templates/{kod}/ - to cale pliki HTML.")
+    if zgubione_znaczniki:
+        print(f"\nODRZUCONO {len(zgubione_znaczniki)} wierszy szablonu - tlumaczenie "
+              "gubi znacznik miejsca, czyli zrobiloby dziure w ofercie:")
+        for x in zgubione_znaczniki:
+            print(f"  {x}")
+    if nietrafione:
+        print(f"\nNIE TRAFIONO w {len(nietrafione)} kawalkow szablonu - tekst w pliku "
+              "zmienil sie od czasu eksportu. Powtorz eksport i korekte:")
+        for x in nietrafione:
+            print(f"  {x}")
+    if not zgubione_znaczniki and not nietrafione:
+        print("\nProza z opisu wczytana bez zastrzezen - szablonow nie trzeba "
+              "kopiowac osobno.")
     return 0
 
 
