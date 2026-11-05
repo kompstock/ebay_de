@@ -166,7 +166,15 @@
   "male slady uzytkowania w postaci otarc, delikatnych przebarwien": "Leichte Gebrauchsspuren wie Abrieb und geringe Verfärbungen.",
   "drobne ryski, otarcia": "Feine Kratzer und Abriebspuren.",
   "normalne slady uzytkowania, mozliwy profesjonalnie wykonany skin!": "Normale Gebrauchsspuren. Eine professionell angebrachte Dekorfolie kann vorhanden sein.",
-  "normalne, male slady uzytkowania, mozliwy profesjonlanie przygotowany skin!": "Normale, leichte Gebrauchsspuren. Eine professionell angebrachte Dekorfolie kann vorhanden sein."
+  "normalne, male slady uzytkowania, mozliwy profesjonlanie przygotowany skin!": "Normale, leichte Gebrauchsspuren. Eine professionell angebrachte Dekorfolie kann vorhanden sein.",
+  "drobne ryski, otarcia, mozliwe poswiatki": "Leichte Kratzer und Gebrauchsspuren, eventuell mit einem winzigen Fleck.",
+  "ryski/otarcia od klawiatury, poswiatki": "Kratzer und Abriebspuren durch die Tastatur, eventuell mit einem winzigen Fleck.",
+  "zasilacz zamiennik z przewodem,": "Ersatznetzteil mit Kabel.",
+  "drobne ryski, otarcia, mozliwe poswiaty": "Leichte Kratzer und Gebrauchsspuren, eventuell mit einem winzigen Fleck.",
+  "nowa": "Neu.",
+  "wystepuja delikatne ryski, otarcia, poswiatki": "Leichte Kratzer und Gebrauchsspuren vorhanden, eventuell mit einem winzigen Fleck.",
+  "oryginalna, czas pracy min. 1, 5h (uzywana)": "Originalakku, Mindestlaufzeit 1,5 Stunden (gebraucht).",
+  "nowa oryginalna": "Neuer Originalakku."
  },
  "_podpowiedzi": {
   "laptop poleasingowy": "Business-Notebook aus Leasingrücklauf",
