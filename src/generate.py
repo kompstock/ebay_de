@@ -9,8 +9,9 @@ Zasady egzekwowane twardo:
      -> pole zostaje puste, wartosc laduje w kolejce review.
   4. Polskie slowo lub znak diakrytyczny w gotowym opisie
      -> produkt NIE trafia do CSV.
-  5. Klasa stanu ([Klasa A-]) nie pojawia sie w opisie.
-     Sluzy wylacznie do wyboru ConditionID.
+  5. Klasa stanu ([Klasa A-]) nie pojawia sie w OPISIE.
+     Wybiera ConditionID, a od 13.11.2026 idzie takze na koniec TYTULU -
+     ale tylko w profilach bez GW24 ('klasa_w_tytule' w settings.json).
 
 Laptopy i komputery sa rozdzielone przez PROFIL PRODUKTU
 (settings["profile_produktu"], wybierany przez typ_produktu() z kategorii XML).
@@ -1199,8 +1200,19 @@ def build_title(attrs: dict, settings: dict, aspects: dict,
     #   - dopisek wariantu, bo bez niego oferta GW24 mialaby tytul identyczny
     #     z oryginalem, czyli bylaby prawdziwym duplikatem.
     # Skracamy wylacznie dane techniczne, od konca.
+    # Klasa stanu na samym koncu, w ogonie CHRONIONYM przed obcieciem. Jest
+    # faktem o towarze, wiec przy ciasnym tytule ustepuja jej slowa pod
+    # wyszukiwarke ('PC Portable', 'FHD'), a nie odwrotnie.
+    # Warianty GW24 jej nie dostaja - ich ogon to juz '24 Monate Garantie'
+    # i tytul i tak dobija do osiemdziesiatki.
+    klasa = ""
+    if (profil or {}).get("klasa_w_tytule"):
+        stopien = condition_class(attrs.get("Kondycja sprzętu", ""))
+        if stopien:
+            klasa = settings.get("format_klasy_tytulu", "{k}").format(k=stopien)
     ogon = [sufiks_tytulu(attrs.get("Zainstalowany system", ""), aspects),
-            normalize_space((profil or {}).get("dopisek_tytulu", ""))]
+            normalize_space((profil or {}).get("dopisek_tytulu", "")),
+            klasa]
     ogon_tekst = normalize_space(" ".join(x for x in ogon if x))
     limit = 80 - (len(ogon_tekst) + 1 if ogon_tekst else 0)
     # Skracamy CALYMI czlonami, nie slowami. Ciecie w polowie czlonu dawalo

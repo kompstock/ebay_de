@@ -230,7 +230,8 @@
       "_uwaga_tastatur_layout": "Stala, nie wartosc z feedu. Naklejki niemieckie trafiaja na kazda klawiature, wiec oryginalny uklad (QWERTY US, Nordic) nie jest tym, co dostaje kupujacy. Profile komputerow nie maja tego klucza - wiersz u nich w ogole nie wychodzi, bo klawiatura nie wchodzi w sklad zestawu.",
       "gwarancja": "12 Monate Garantie",
       "_uwaga_gwarancja": "Okres gwarancji bierze sie STAD, nigdy z feedu. Zasada jest jedna dla calego asortymentu: oferta glowna 12 miesiecy, blizniak GW24 dwadziescia cztery - takze wtedy, gdy sklep wpisal w feedzie co innego. Inaczej nowy sprzet z 24 miesiacami w feedzie mialby blizniaka nieodrozialnego od oryginalu. Nowy typ towaru = ustaw tu okres i gotowe, szablon go tylko wyswietla przez {{garantie}}.",
-      "_uwaga_szablon_gw24": "Profile GW24 celowo uzywaja TEGO SAMEGO szablonu co bazowe - rozni je wylacznie wartosc 'gwarancja'. Osobne pliki description-*-gw24.html byly kopiami rozniacymi sie jedna linia i zostaly usuniete."
+      "_uwaga_szablon_gw24": "Profile GW24 celowo uzywaja TEGO SAMEGO szablonu co bazowe - rozni je wylacznie wartosc 'gwarancja'. Osobne pliki description-*-gw24.html byly kopiami rozniacymi sie jedna linia i zostaly usuniete.",
+      "klasa_w_tytule": true
     },
     "Desktop-PC": {
       "_zrodlo": "Wylacznie XML sklepowy (feed_url). Komputery z Allegro nie wchodza - pilnuje tego allegro.kategorie_zrodlowe plus straznik w src/allegro.py.",
@@ -314,7 +315,8 @@
         "_domyslnie": "Tower"
       },
       "gwarancja": "12 Monate Garantie",
-      "zdania_wiodace": "zdania_wiodace_pecety"
+      "zdania_wiodace": "zdania_wiodace_pecety",
+      "klasa_w_tytule": true
     },
     "Desktop-PC nowy": {
       "_about": "Nowe komputery skladane (zestawy do gier). Ta sama kategoria XML co poleasingowe, wiec wybiera je wariant po polu kondycji - patrz typ_produktu_warianty.",
@@ -410,7 +412,8 @@
         },
         "_domyslnie": "Tower"
       },
-      "_uwaga_gwarancja": "Feed podaje przy tych zestawach 24 miesiace, ale oferta glowna i tak dostaje 12 - patrz zasada w profilu Notebook. Dopiero blizniak GW24 daje 24."
+      "_uwaga_gwarancja": "Feed podaje przy tych zestawach 24 miesiace, ale oferta glowna i tak dostaje 12 - patrz zasada w profilu Notebook. Dopiero blizniak GW24 daje 24.",
+      "klasa_w_tytule": true
     },
     "Notebook GW24": {
       "szablon": "description-notebook.html",
@@ -647,7 +650,8 @@
       "dopisek_tytulu": "24 Monate Garantie",
       "mnoznik_ceny": 1.2,
       "ads": 0.1
-    }
+    },
+    "_about_klasa_w_tytule": "Czy doklejac klase stanu (A, A-) na koniec tytulu. Tylko profile BEZ GW24: ich ogon to juz \"24 Monate Garantie\" i tytul dobija do 80 znakow. Zapis ustawia kraj przez \"format_klasy_tytulu\" (domyslnie sam znak). Klasa idzie do ogona CHRONIONEGO - ustepuja jej slowa pod wyszukiwarke, nie odwrotnie."
   },
   "sekcja_business_notebook": "<div class=\"kpx-sec\"><h2 class=\"kpx-h2\"><span>Warum ein Business-Notebook?</span></h2><p>Ger&auml;te aus der Business-Serie werden f&uuml;r Unternehmen gebaut, nicht f&uuml;r den Elektromarkt. Das merkt man jeden Tag.</p><ul class=\"kpx-ul\"><li>Robustes Geh&auml;use aus Magnesium oder Karbon statt d&uuml;nnem Kunststoff.</li><li>F&uuml;r den t&auml;glichen Dauereinsatz entwickelt und entsprechend getestet.</li><li>Hochwertige Tastatur mit sp&uuml;rbarem Druckpunkt.</li><li>Langlebige Komponenten und lange Ersatzteilverf&uuml;gbarkeit.</li><li>Wartungsfreundlich konstruiert &ndash; Servicearbeiten sind ohne Spezialwerkzeug m&ouml;glich.</li></ul></div>",
   "_uwaga_sekcja_business": "Celowo bez obietnicy rozbudowy RAM - w wielu modelach pamiec jest wlutowana, a FAQ odsyla do kontaktu przed zakupem.",

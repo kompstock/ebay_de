@@ -619,13 +619,21 @@ class WariantGwarancyjny(unittest.TestCase):
 
     def test_tytul_rozni_sie_i_trzyma_system(self):
         """Gdyby dopisek wypadl przy obcinaniu, tytul bylby identyczny z oryginalem -
-        czyli oferta bylaby prawdziwym duplikatem."""
+        czyli oferta bylaby prawdziwym duplikatem.
+
+        Sufiks systemu tez nie moze wypasc, ale od 13.11.2026 jest nim samo
+        'Win11' albo 'Win10' - edycje Pro i Home zdjeto z tytulu swiadomie
+        (patrz SkrotSystemuWTytule). Test pilnuje wiec SAMEGO SUFIKSU, a nie
+        edycji, ktorej juz tam z zalozenia nie ma.
+        """
         org = self.wg_sku[self.ORYGINAL]["*Title"]
         gw = self.wg_sku[self.BLIZNIAK]["*Title"]
         self.assertNotEqual(org, gw)
         self.assertIn("24 Monate Garantie", gw)
         self.assertLessEqual(len(gw), 80)
-        self.assertRegex(gw, r"Win\d+ (Pro|Home)", "edycja systemu nie moze zostac ucieta")
+        self.assertRegex(gw, r"\bWin\d+\b", "sufiks systemu nie moze zostac uciety")
+        self.assertNotRegex(gw, r"\bWin\d+ (Pro|Home)\b",
+                            "edycja systemu zostala zdjeta z tytulu - patrz sufiks_tytulu")
 
     def test_pecet_tez_dostaje_blizniaka(self):
         """Komputer poleasingowy ma wlasny profil GW24 i wlasny szablon."""
@@ -2418,6 +2426,100 @@ class ScalanieProfilu(unittest.TestCase):
         }
         self.assertEqual(g.profil_produktu("Komputery", settings)["formfaktor"],
                          {"z_atrybutu": "Obudowa"})
+
+
+class KlasaWTytule(unittest.TestCase):
+    """Klasa stanu (A, A-) na koncu tytulu - ale tylko bez GW24.
+
+    Do 13.11.2026 klasa sluzyla WYLACZNIE do wyboru ConditionID i celowo nie
+    wychodzila na zewnatrz. Decyzja sie zmienila: kupujacy ma ja widziec
+    w tytule. Warianty GW24 jej nie dostaja, bo ich ogon to juz
+    '24 Monate Garantie' i tytul dobija do osiemdziesiatki.
+    """
+
+    def modul(self):
+        sys.path.insert(0, str(ROOT / "src"))
+        import generate
+        return generate
+
+    def tytul(self, g, klasa_w_tytule, kondycja="[Klasa A-] laptop poleasingowy",
+              dopisek="Garantie", format_klasy=None):
+        settings = {"format_przekatnej": "{n} Zoll"}
+        if format_klasy:
+            settings["format_klasy_tytulu"] = format_klasy
+        aspects = {"sufiks_tytulu": {"Windows 11 Pro": "Win11"}}
+        attrs = {"Producent": "Lenovo", "Model": "ThinkPad T490",
+                 "Procesor": "i5-8265U, 6MB Cache, 8 gen.", "Ilość pamięci RAM": "8GB",
+                 "Dysk": "256GB", "Typ dysku": "SSD", "Przekątna ekranu": '14"',
+                 "Zainstalowany system": "Windows 11 Pro", "Kondycja sprzętu": kondycja}
+        profil = {"dopisek_tytulu": dopisek}
+        if klasa_w_tytule:
+            profil["klasa_w_tytule"] = True
+        return g.build_title(attrs, settings, aspects, profil)
+
+    def test_profil_bez_gw24_dostaje_klase_na_koncu(self):
+        g = self.modul()
+        self.assertTrue(self.tytul(g, True).endswith(" A-"), self.tytul(g, True))
+
+    def test_profil_gw24_klasy_nie_dostaje(self):
+        g = self.modul()
+        tytul = self.tytul(g, False, dopisek="24 Monate Garantie")
+        self.assertFalse(tytul.rstrip().endswith("A-"), tytul)
+        self.assertIn("24 Monate Garantie", tytul)
+
+    def test_brak_klasy_w_feedzie_nie_dokleja_niczego(self):
+        """Nowy sprzet klasy nie ma - tytul ma zostac bez ogona na sucho."""
+        g = self.modul()
+        tytul = self.tytul(g, True, kondycja="Nowy, zapakowany fabrycznie")
+        self.assertFalse(tytul.rstrip().endswith("A"), tytul)
+        self.assertTrue(tytul.rstrip().endswith("Garantie"), tytul)
+
+    def test_rynek_moze_zmienic_zapis_klasy(self):
+        g = self.modul()
+        self.assertTrue(self.tytul(g, True, format_klasy="Klasse {k}").endswith("Klasse A-"))
+
+    def test_klasa_jest_w_ogonie_chronionym(self):
+        """Przy ciasnym tytule ustepuja DANE TECHNICZNE, nie klasa - inaczej
+        klasa znikalaby z czesci ofert i kupujacy nie wiedzialby, czy jej brak
+        cos znaczy."""
+        g = self.modul()
+        settings = {"format_przekatnej": "{n} Zoll"}
+        aspects = {"sufiks_tytulu": {"Windows 11 Pro": "Win11"}}
+        attrs = {"Producent": "Lenovo", "Model": "ThinkPad T490 bardzo dlugi model " * 3,
+                 "Procesor": "i5-8265U, 6MB Cache, 8 gen.", "Ilość pamięci RAM": "8GB",
+                 "Dysk": "256GB", "Typ dysku": "SSD", "Przekątna ekranu": '14"',
+                 "Zainstalowany system": "Windows 11 Pro",
+                 "Kondycja sprzętu": "[Klasa A] laptop poleasingowy"}
+        tytul = g.build_title(attrs, settings, aspects,
+                              {"dopisek_tytulu": "Garantie", "klasa_w_tytule": True})
+        self.assertLessEqual(len(tytul), 80, tytul)
+        self.assertTrue(tytul.endswith("Win11 Garantie A"), tytul)
+
+
+class SkrotSystemuWTytule(unittest.TestCase):
+    """W tytule ma byc samo 'Win11' albo 'Win10', bez Pro i Home.
+
+    Decyzja Marka z 13.11.2026, podjeta mimo danych: 89% ofert to Pro, wiec
+    skrocenie zdejmuje z tytulu fraze, ktorej kupujacy szukaja. Pelna nazwa
+    systemu zostaje w opisie i w aspekcie, wiec informacja nie ginie.
+    """
+
+    def test_mapy_wszystkich_rynkow_skracaja_windowsa(self):
+        import json
+        for plik in ("config/aspects.json", "config/kraje/it/aspects.json",
+                     "config/kraje/es/aspects.json", "config/kraje/fr/aspects.json"):
+            with self.subTest(plik=plik):
+                mapa = json.loads((ROOT / plik).read_text(encoding="utf-8"))["sufiks_tytulu"]
+                zle = {k: v for k, v in mapa.items()
+                       if not k.startswith("_") and isinstance(v, str)
+                       and re.match(r"^Win[\d/]+\s+\S", v)}
+                self.assertEqual(zle, {}, f"zostaly nieskrocone: {zle}")
+
+    def test_chromeos_i_macos_zostaja_nietkniete(self):
+        import json
+        mapa = json.loads((ROOT / "config/aspects.json").read_text(encoding="utf-8"))["sufiks_tytulu"]
+        self.assertEqual(mapa.get("Chrome OS"), "ChromeOS")
+        self.assertEqual(mapa.get("Mac OS Ventura"), "macOS")
 
 
 if __name__ == "__main__":
