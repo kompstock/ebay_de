@@ -1,0 +1,22 @@
+# Modele z ograniczona rozbudowa. Wpisujesz wiersz POD naglowkiem, bez znaku # na poczatku.
+#
+# model     - nazwa jak w feedzie, z marka albo bez: Lenovo ThinkPad E15 Gen 2
+# procesor  - puste = caly model; wpisany (np. i5-1135G7) = tylko ten procesor;
+#             fragment nazwy (np. Ryzen 5 albo Intel) = wszystkie takie procesory w tym modelu
+# max_ram   - puste = regula domyslna; liczba = najwyzej tyle GB; 0 = RAM-u nie ruszamy
+# max_dysk  - puste = regula domyslna; liczba = najwyzej tyle GB; 0 = dysku nie ruszamy
+# uwagi     - dowolny opis, dla Ciebie
+#
+# Calkowity brak rozbudowy modelu:        Dell Latitude 7400;;0;0;wlutowany RAM
+# RAM najwyzej 16 GB, dysk bez zmian:     Lenovo ThinkPad E15 Gen 2;;16;;
+# Tylko ten procesor, dysk najwyzej 960:  HP EliteBook 840 G6;i5-8365U;;960;
+#
+# Model mozna wpisac ZAWCZASU, zanim pojawi sie w feedzie - wtedy od pierwszego
+# dnia wystawi sie juz z ograniczeniem. Wiersz 'model + procesor' wygrywa z wierszem
+# samego modelu. Gotowa liste wszystkich modeli z feedu daje plik warianty-modele.csv
+# z podgladu (tools/podglad_wariantow.py) - stamtad kopiujesz wiersze tutaj.
+model;procesor;max_ram;max_dysk;uwagi
+Lenovo ThinkPad T14 Gen 1;Ryzen 5;24;;8 GB wlutowane + 1 gniazdo, kosc najwyzej 16 GB
+Lenovo ThinkPad T14 Gen 1;Intel;24;;8 GB wlutowane + 1 gniazdo, kosc najwyzej 16 GB
+Lenovo ThinkPad T14 Gen 2;Ryzen 5;24;;8 GB wlutowane + 1 gniazdo, kosc najwyzej 16 GB
+Lenovo ThinkPad T14 Gen 2;Intel;24;;8 GB wlutowane + 1 gniazdo, kosc najwyzej 16 GB

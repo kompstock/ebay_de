@@ -1,0 +1,65 @@
+{
+  "_about": "Cennik i reguly wariantow RAM/dysk. Cena wariantu = cena bazy z feedu + doplata za RAM + doplata za dysk. Kwoty w zlotowkach brutto - tak samo jak cena w feedzie; euro, VAT i oplaty liczy dalej generator. Wartosci przeniesione 1:1 z repo shoper-allegro-sync (variant_prices.json), zeby eBay i Allegro liczyly to samo.",
+
+  "_wlaczone": "Przelacznik calej sciezki ofert wariantowych w codziennym przebiegu generatora. false = generator dziala dokladnie jak dotad (plik sluzy tylko narzedziom podgladu). true = laptopy ida nowa sciezka: zwykla oferta konfiguracji podstawowej z SKU 'SHOPER-ID:<ID>' + oferta wariantowa, a feed Allegro nie jest dociagany. UWAGA: pierwsza aktualizacja po wlaczeniu zeruje dotychczasowe aukcje laptopow (stare SKU nie sa juz w obiegu).",
+  "wlaczone": false,
+
+  "_ram_doplaty": "Zapis 'z>na': doplata za rozbudowe RAM-u. '8>16': 200 znaczy: z 8 na 16 GB kosztuje 200 zl. Brak wpisu = takiej rozbudowy nie oferujemy.",
+  "ram_doplaty": {
+    "4>8": 100,
+    "4>16": 300,
+    "8>12": 100,
+    "8>16": 200,
+    "8>24": 400,
+    "8>32": 550,
+    "16>24": 200,
+    "16>32": 400,
+    "16>64": 1200,
+    "32>64": 800
+  },
+
+  "_ram_standard_ddr4": "Dla pamieci DDR4 proponujemy tylko te rozmiary. Inny rozmiar (np. 24) wchodzi wylacznie wtedy, gdy lista ograniczen wskazuje go wprost jako maksimum modelu.",
+  "ram_standard_ddr4": [8, 16, 32],
+
+  "_max_ram": "Domyslny sufit rozbudowy RAM-u wedlug pola 'Typ pamieci RAM' z feedu. INNY to zwykle pamiec wlutowana - domyslnie bez rozbudowy. Typ, ktorego tu nie ma (DDR3, DDR5, brak wpisu), dostaje 'max_ram_domyslnie'.",
+  "max_ram_wg_typu": {
+    "DDR4": 32,
+    "INNY": 0
+  },
+  "max_ram_domyslnie": 16,
+
+  "_dysk": "'dysk_cele_gb' to dyski, ktore montujemy. 'dysk_grupy' sklejaja rozmiary kosztujace tyle samo (480, 500 i 512 to jedna polka) - doplaty podajemy miedzy grupami, a z dysku nie robimy wiekszego z tej samej grupy.",
+  "dysk_cele_gb": [240, 480, 960, 2000],
+  "dysk_grupy": {
+    "128": [120, 128],
+    "256": [240, 256],
+    "512": [480, 500, 512],
+    "1000": [960, 1000, 1024],
+    "2000": [2000, 2048]
+  },
+  "dysk_doplaty": {
+    "128>256": 100,
+    "128>512": 250,
+    "128>1000": 600,
+    "128>2000": 950,
+    "256>512": 200,
+    "256>1000": 550,
+    "256>2000": 850,
+    "512>1000": 350,
+    "512>2000": 700
+  },
+
+  "_max_dysk_przy_ram": "Przy 8 GB RAM proponujemy dysk najwyzej 960 GB - wiekszy dysk z najmniejsza pamiecia to konfiguracja, ktorej nikt nie kupuje.",
+  "max_dysk_przy_ram": {
+    "8": 960
+  },
+
+  "_marki_bez_rozbudowy": "Wlutowana pamiec i wlasne dyski. Wyjatek dla konkretnego modelu wpisuje sie w config/warianty-limity.csv. Chromebooki sa wylaczone zawsze, niezaleznie od tej listy.",
+  "marki_bez_rozbudowy": ["Apple"],
+
+  "_min_stan_bazy": "Warianty wystawiamy dopiero, gdy wpis bazowy ma w magazynie co najmniej tyle sztuk. Ponizej wszystkie warianty dostaja 0 (oferta zostaje, wraca sama, gdy stan wzrosnie). Powod: zwykla oferta i wszystkie warianty biora z tych samych sztuk, a eBay nie ma wspolnej puli. 0 = bez progu.",
+  "min_stan_bazy": 10,
+
+  "_max_sztuk_na_wariant": "Tyle sztuk pokazuje kazdy wariant (najwyzej tyle, ile ma baza). Limit sprzedazy eBaya liczy cene razy ilosc KAZDEGO wariantu osobno, wiec ta liczba mnozy sie przez liczbe wariantow. 0 = pelny stan bazy na kazdym wariancie.",
+  "max_sztuk_na_wariant": 2
+}

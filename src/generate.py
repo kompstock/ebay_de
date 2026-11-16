@@ -40,6 +40,8 @@ import xml.etree.ElementTree as ET
 import allegro
 import duplikaty
 import gwarancja
+import oferty_wariantowe
+import warianty
 from collections import Counter
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -1052,7 +1054,7 @@ def formfaktor_de(attrs: dict, profil: dict) -> str:
         return ""
     return cfg.get("mapa", {}).get(attrs.get(cfg["z_atrybutu"], ""), cfg.get("_domyslnie", ""))
 def render_description(szablony, attrs, images, translations, aspects, settings, review,
-                       kategoria_xml: str = ""):
+                       kategoria_xml: str = "", pamiec: dict | None = None):
     typ = typ_produktu(kategoria_xml, settings, attrs)
     profil = profil_produktu(kategoria_xml, settings, attrs)
     format_przekatnej = settings.get("format_przekatnej", "{n} Zoll")
@@ -1086,8 +1088,11 @@ def render_description(szablony, attrs, images, translations, aspects, settings,
     manufacturer = brand_name(attrs.get("Producent", ""))
     model = attrs.get("Model", "")
     jedn = settings.get("jednostki_pojemnosci")
-    ram = clean_capacity(attrs.get("Ilość pamięci RAM", ""), jedn)
-    disk = clean_capacity(attrs.get("Dysk", ""), jedn)
+    # 'pamiec' podaje oferta wariantowa: w jej opisie maja stac wszystkie opcje do
+    # wyboru ("8 / 16 / 32 GB"), a nie konfiguracja jednej sztuki - inaczej opis
+    # twierdzilby cos, co jest prawda tylko dla jednego wariantu.
+    ram = (pamiec or {}).get("ram") or clean_capacity(attrs.get("Ilość pamięci RAM", ""), jedn)
+    disk = (pamiec or {}).get("disk") or clean_capacity(attrs.get("Dysk", ""), jedn)
     finish = translations["screen_finish"].get(attrs.get("Powłoka matrycy", ""), "")
     gpu_type = translations["gpu_type"].get(attrs.get("Rodzaj karty graficznej", ""), "")
     operating_system = wpis_bez_wzgledu_na_wielkosc(
@@ -1174,14 +1179,18 @@ def render_description(szablony, attrs, images, translations, aspects, settings,
                            settings.get("znaki_dozwolone", ()))
     return ("", f"opis: niedotlumaczony ({leak})") if leak else (out, "")
 def build_title(attrs: dict, settings: dict, aspects: dict,
-                profil: dict | None = None) -> str:
+                profil: dict | None = None, pamiec: dict | None = None) -> str:
     kandydaci = cpu_candidates(zrodlo_procesora(attrs),
                                settings.get("format_generacji_cpu", "{n}. Gen"))
     cpu = kandydaci[0] if kandydaci else ""
     parts = [brand_name(attrs.get("Producent", "")), attrs.get("Model", ""),
              cpu.replace("Intel Core ", "").replace("AMD ", ""),
-             clean_capacity(attrs.get("Ilość pamięci RAM", ""), settings.get("jednostki_pojemnosci")),
-             clean_capacity(attrs.get("Dysk", ""), settings.get("jednostki_pojemnosci")),
+             # Oferta wariantowa podaje zakres ("8-32 GB RAM", "256 GB-2 TB") zamiast
+             # jednej konfiguracji - patrz 'pamiec' w render_description().
+             (pamiec or {}).get("ram_tytul")
+             or clean_capacity(attrs.get("Ilość pamięci RAM", ""), settings.get("jednostki_pojemnosci")),
+             (pamiec or {}).get("dysk_tytul")
+             or clean_capacity(attrs.get("Dysk", ""), settings.get("jednostki_pojemnosci")),
              attrs.get("Typ dysku", ""),
              screen_size_de(attrs.get("Przekątna ekranu", ""),
                             settings.get("format_przekatnej", "{n} Zoll")),
@@ -1222,7 +1231,7 @@ def build_title(attrs: dict, settings: dict, aspects: dict,
         czlony.pop()
     title = normalize_space(" ".join(czlony))
     return normalize_space(f"{title} {ogon_tekst}") if ogon_tekst else title
-def build_row(offer, attrs, cfg, headers, review):
+def build_row(offer, attrs, cfg, headers, review, pamiec: dict | None = None):
     settings, translations = cfg["settings"], cfg["translations"]
     aspects, manufacturers = cfg["aspects"], cfg["manufacturers"]
     kol, asp = nazwy_kolumn(cfg)
@@ -1244,7 +1253,7 @@ def build_row(offer, attrs, cfg, headers, review):
     images = images[: int(settings["max_images"])]
     description, desc_error = render_description(
         cfg["szablony"], attrs, images, translations, aspects, settings, review,
-        kategoria_xml)
+        kategoria_xml, pamiec)
     if desc_error:
         return None, desc_error
     ports = parse_ports_raw(attrs.get("Złącza zewnętrzne", ""))
@@ -1300,7 +1309,7 @@ def build_row(offer, attrs, cfg, headers, review):
         headers[0]: "Add",
         "CustomLabel": attrs.get("SKU", ""),
         "*Category": kategoria,
-        "*Title": build_title(attrs, settings, aspects, profil),
+        "*Title": build_title(attrs, settings, aspects, profil, pamiec),
         # Nowy towar ma ConditionID wprost z profilu - klasa [Klasa X] dotyczy
         # wylacznie sprzetu poleasingowego i dla nowego zawsze byla by pusta.
         "*ConditionID": values_condition,
@@ -1450,16 +1459,37 @@ def wygasajace(aktywne: dict, dni: int) -> dict:
         "najblizsza": min(daty).date().isoformat() if daty else None,
         "bez_daty_zakonczenia": len(aktywne) - len(daty),
     }
-def wczytaj_raport(path: Path, site: str) -> tuple[dict[str, dict], list[str]]:
+def wczytaj_raport(path: Path, site: str,
+                   wariantowe: dict | None = None) -> tuple[dict[str, dict], list[str]]:
     """Raport aktywnych ofert z eBaya = nasza pamiec o tym, co juz wystawione.
     Zwraca (mapa SKU -> dane, lista SKU zdublowanych).
     Zdublowany SKU jest pomijany - nie zgadujemy, ktora aukcje ruszyc.
+
+    Oferty WARIANTOWE (jedna aukcja, w niej wybor RAM-u i dysku) pomijamy w calosci.
+    eBay wypisuje taka oferte jako wiersz oferty i po jednym wierszu na wariant -
+    wszystkie z tym samym numerem i z wypelniona kolumna 'Variation details', ktora
+    przy zwyklej aukcji jest pusta. Ta sciezka zna tylko uklad "jedna aukcja = jeden
+    SKU": wiersze wariantow wzielaby za osobne aukcje i, nie znajdujac ich SKU
+    w feedzie, kazala je wyzerowac. Sprawdzone na raporcie z 15.11.2026: dla jednej
+    oferty wariantowej powstalo 9 wierszy Revise z iloscia 0. Takie oferty prowadzi
+    modul warianty.py. 'wariantowe', jesli podane, dostaje {numer oferty: [SKU
+    pominietych wierszy]} - do raportu, zeby pominiecie bylo widac.
+
+    Zwykla aukcja konfiguracji podstawowej moze stac OBOK oferty wariantowej tego
+    samego laptopa - tak zdecydowal wlasciciel (16.11.2026). Dlatego wiersze
+    wariantowe nie blokuja wystawienia zwyklej aukcji: po prostu ich tu nie ma.
     """
     mapa: dict[str, dict] = {}
     sku_zdublowane: set[str] = set()
     with path.open(encoding="utf-8-sig", newline="") as handle:
         for wiersz in csv.DictReader(handle):
             if (wiersz.get("Listing site") or "").strip().upper() != site.upper():
+                continue
+            if (wiersz.get("Variation details") or "").strip():
+                if wariantowe is not None:
+                    numer = (wiersz.get("Item number") or "").strip()
+                    wariantowe.setdefault(numer, []).append(
+                        (wiersz.get("Custom label (SKU)") or "").strip())
                 continue
             sku = (wiersz.get("Custom label (SKU)") or "").strip()
             if not sku:
@@ -1693,6 +1723,27 @@ def licz_wg_kategorii(wiersze: list[dict], settings: dict) -> dict[str, int]:
     licznik: Counter = Counter(
         nazwy.get(w.get("*Category", ""), w.get("*Category") or "(brak)") for w in wiersze)
     return dict(sorted(licznik.items()))
+WARIANTY_DOMYSLNIE = "config/warianty.json"
+WARIANTY_LIMITY_DOMYSLNIE = "config/warianty-limity.csv"
+def ustawienia_wariantow(settings: dict) -> tuple[dict | None, list, list[str]]:
+    """(cennik, lista ograniczen, bledy) dla sciezki ofert wariantowych albo (None, [], []).
+
+    Przelacznik to 'wlaczone' w config/warianty.json. Brak pliku albo 'wlaczone': false
+    znaczy, ze generator dziala co do znaku jak dotad. Blad w pliku wlaczonej sciezki
+    wraca jako komunikat - generate() robi z niego blokade z czytelnym powodem.
+    """
+    sciezka = ROOT / settings.get("warianty_plik", WARIANTY_DOMYSLNIE)
+    if not sciezka.is_file():
+        return None, [], []
+    try:
+        cennik = load_json(sciezka)
+    except ValueError as exc:
+        return None, [], [f"{sciezka.name}: plik nie jest poprawnym JSON-em ({exc})"]
+    if not cennik.get("wlaczone"):
+        return None, [], []
+    limity, bledy = warianty.wczytaj_limity(
+        ROOT / (cennik.get("limity_plik") or WARIANTY_LIMITY_DOMYSLNIE))
+    return cennik, limity, warianty.sprawdz_cennik(cennik) + bledy
 def zapisz_add(sciezka: Path, headers: list[str], wiersze: list[dict], akcja: str,
                kod_rynku: str = "DE") -> None:
     """Zapisuje plik Add/VerifyAdd razem z wierszem 'Info' szablonu eBaya.
@@ -1708,7 +1759,9 @@ def zapisz_add(sciezka: Path, headers: list[str], wiersze: list[dict], akcja: st
                          f"Template=fx_category_template_EBAY_{kod_rynku.upper()}"])
         writer.writerow(headers)
         for wiersz in wiersze:
-            wiersz[headers[0]] = akcja
+            # Wiersz wariantu oferty wariantowej MUSI miec pusta akcje: z wpisana eBay
+            # czyta go jako osobna oferte (sprawdzone 15.11.2026).
+            wiersz[headers[0]] = "" if wiersz.get("Relationship") == "Variation" else akcja
             writer.writerow([wiersz[h] for h in headers])
 KOLUMNY_REVISE = ["Action", "Category name", "Item number", "Title", "Listing site", "Currency",
                   "Start price", "Buy It Now price", "Available quantity", "Relationship",
@@ -1963,6 +2016,7 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
                        "wyglada na niepelne pobranie, przerywam")
     aktywne: dict[str, dict] = {}
     sku_zdublowane: list[str] = []
+    wariantowe: dict[str, list[str]] = {}
     if tryb in ("nowe", "aktualizacja"):
         if not raport or not raport.is_file():
             blokady.append(f"tryb '{tryb}' wymaga eksportu aktywnych ofert z eBaya - "
@@ -1972,12 +2026,28 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
                            f"z eBaya - brak kolumn: "
                            f"{', '.join(brakujace_kolumny_raportu(raport))}")
         else:
-            aktywne, sku_zdublowane = wczytaj_raport(raport, settings["listing_site"])
-            if not aktywne:
+            aktywne, sku_zdublowane = wczytaj_raport(raport, settings["listing_site"], wariantowe)
+            # Rynek, na ktorym stoja same oferty wariantowe, nie jest "zlym eksportem".
+            if not aktywne and not wariantowe:
                 blokady.append(f"plik {raport.name} nie ma ani jednej oferty dla serwisu "
                                f"'{settings['listing_site']}' - zly eksport albo zly serwis")
             for sku in sku_zdublowane:
                 review.add("konflikt", sku, "ten sam SKU ma kilka aktywnych aukcji - pomijam")
+    # Oferty wariantowe (config/warianty.json, 'wlaczone'): laptopy przechodza na nowa
+    # sciezke. Wpis bazowy rodziny dostaje SKU 'SHOPER-ID:<ID>' i idzie dalej jak kazdy
+    # produkt, wpisy z poczekalni znikaja z listy. Wylaczone = nic sie tu nie dzieje.
+    plan_wariantow = None
+    ten_modul = sys.modules[__name__]
+    cennik_wariantow, limity_wariantow, bledy_wariantow = cfg.get("warianty") or (None, [], [])
+    if bledy_wariantow:
+        blokady.append("oferty wariantowe: " + "; ".join(bledy_wariantow))
+    elif cennik_wariantow and not blokady:
+        plan_wariantow = oferty_wariantowe.przygotuj(
+            produkty, cfg, ten_modul, cennik_wariantow, limity_wariantow,
+            sku_na_ebay=list(aktywne) + [s for lista in wariantowe.values() for s in lista],
+            sufiks_gw=SUFIKS_GW)
+        produkty = plan_wariantow["produkty"]
+        skipped["laptop w poczekalni"] += len(plan_wariantow["poczekalnia"])
     # Duplikaty rozstrzygamy TU, przed budowaniem wierszy: wstrzymana oferta
     # ma w ogole nie trafic na eBay. Krok nie zabiera zadnej aukcji - modul
     # nigdy nie wstrzymuje SKU aktywnego, a nieaktywne nie podlega zerowaniu
@@ -2040,6 +2110,29 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
                 profil = profil_produktu(text(offer.find("./cat")), settings, attrs)
                 nazwa = profil.get("plik_add", "ebay-add.csv")
             pliki_add.setdefault(nazwa, []).append(wiersz)
+        if plan_wariantow:
+            juz_wariantowe = (oferty_wariantowe.przypiete_z_raportu(raport, settings["listing_site"])
+                              if tryb == "nowe" else {})
+            for rodzina in plan_wariantow["rodziny"]:
+                if rodzina["id_bazy"] in juz_wariantowe:
+                    skipped["wariantowa: juz wystawiona"] += 1
+                    continue
+                try:
+                    wiersze_oferty, powod = oferty_wariantowe.zbuduj_oferte(
+                        rodzina, cfg, headers, ten_modul, review, plan_wariantow["dopiski"])
+                except (ValueError, TypeError, KeyError) as exc:
+                    wiersze_oferty, powod = None, f"blad {type(exc).__name__} {exc}"
+                if not wiersze_oferty:
+                    skipped["wariantowa: " + powod.split(":")[0]] += 1
+                    continue
+                plan_wariantow["ofert_w_pliku"] += 1
+                wiersze_add.append(wiersze_oferty[0])
+                nazwa = "ebay-add.csv"
+                if rozdziel:
+                    profil = profil_produktu(text(rodzina["baza"]["offer"].find("./cat")), settings,
+                                             rodzina["baza"]["attrs"])
+                    nazwa = profil.get("plik_add", "ebay-add.csv")
+                pliki_add.setdefault(nazwa, []).extend(wiersze_oferty)
         for nazwa, wiersze in sorted(pliki_add.items()):
             zapisz_add(output_dir / nazwa, headers,
                        wiersze, "VerifyAdd" if tryb == "test" else "Add",
@@ -2139,6 +2232,15 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
             # Zerowanie wyglada tak samo w obu plikach: towaru nie ma w feedzie.
             wiersze_revise.append(wiersz)
             wiersze_ograniczone.append(dict(wiersz))
+        if plan_wariantow:
+            # Warianty ida w tym samym pliku co zwykle aukcje: jeden wiersz na wariant,
+            # w ktorym zmienila sie cena albo ilosc (uklad sprawdzony 16.11.2026).
+            wiersze_wariantow, plan_wariantow["aktualizacja"] = oferty_wariantowe.wiersze_aktualizacji(
+                plan_wariantow["rodziny"],
+                oferty_wariantowe.oferty_z_raportu(raport, settings["listing_site"]),
+                cfg, headers, ten_modul, review, plan_wariantow["dopiski"])
+            wiersze_revise.extend(wiersze_wariantow)
+            wiersze_ograniczone.extend(dict(w) for w in wiersze_wariantow)
         if aktywne and zerowane / len(aktywne) > float(settings["max_udzial_zerowanych"]):
             blokady.append(f"zerowanie objelo by {zerowane} z {len(aktywne)} aukcji "
                            f"({zerowane / len(aktywne):.0%}) - to wyglada na blad feedu, przerywam")
@@ -2167,6 +2269,15 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
         "produktow_w_kategorii": skipped["w_kategorii"],
         "produktow_z_zapasem": len(produkty),
         "aktywnych_na_ebay": len(aktywne),
+        # Oferty z wariantami RAM/dysk: ta sciezka ich nie rusza (patrz wczytaj_raport).
+        "oferty_wariantowe_pominiete": {"ofert": len(wariantowe),
+                                        "wierszy_raportu": sum(len(x) for x in wariantowe.values()),
+                                        "numery": sorted(wariantowe)[:50]},
+        "warianty": ({"wlaczone": True, "rodzin": len(plan_wariantow["rodziny"]),
+                      "w_poczekalni": len(plan_wariantow["poczekalnia"]),
+                      "ofert_wariantowych_w_pliku": plan_wariantow["ofert_w_pliku"],
+                      "aktualizacja": plan_wariantow["aktualizacja"]}
+                     if plan_wariantow else {"wlaczone": False}),
         "wygasaja": wygasajace(aktywne, int(settings.get("ostrzegaj_o_wygasaniu_dni", 7))),
         "sku_zdublowane": sku_zdublowane,
         "do_wystawienia": len(wiersze_add),
@@ -2235,6 +2346,8 @@ def main() -> int:
     parser.add_argument("--sku-reczne", type=Path,
                         help="lista SKU aukcji prowadzonych poza generatorem; nadpisuje settings.sku_reczne_plik")
     parser.add_argument("--nbp-rate", type=float)
+    parser.add_argument("--warianty", type=Path,
+                        help="plik ustawien ofert wariantowych; nadpisuje config/warianty.json")
     parser.add_argument("--kraj", default="de",
                         help="rynek docelowy; plik config/kraje/<kod>.json")
     parser.add_argument("--output-dir", type=Path)
@@ -2253,6 +2366,8 @@ def main() -> int:
         settings["sku_reczne_plik"] = str(args.sku_reczne)
     if args.min_produktow is not None:
         settings["min_produktow_w_feedzie"] = args.min_produktow
+    if args.warianty:
+        settings["warianty_plik"] = str(args.warianty)
     pliki = kraj.get("pliki") or {}
     output_dir = args.output_dir or (ROOT / "output" / kraj["kod"].lower())
     # Kraj w budowie sprawdzamy ZANIM cokolwiek wczytamy - inaczej zamiast
@@ -2278,13 +2393,16 @@ def main() -> int:
         "headers": read_headers(ROOT / pliki["naglowek"]),
         "vocab": load_json(ROOT / pliki["slownik"]),
     }
+    cfg["warianty"] = ustawienia_wariantow(settings)
     feed = args.feed_file.read_bytes() if args.feed_file else fetch_bytes(settings["feed_url"])
     raport, zrodlo_raportu = wskaz_raport(settings, args.raport)
     extra: dict = {"zrodlo_raportu": zrodlo_raportu}
     # --feed-file znaczy "dane podaje ja" - tak jak --nbp-rate. Bez --allegro-file
     # nie schodzimy po nic do sieci, zeby testy szly offline i szybko.
     offline = bool(args.feed_file) and not args.allegro_file
-    if settings.get("allegro", {}).get("enabled") and not offline:
+    # Wlaczone oferty wariantowe zastepuja feed Allegro: warianty RAM/dysk liczymy
+    # sami, wiec ofert Allegro nie dociagamy i nie scalamy.
+    if settings.get("allegro", {}).get("enabled") and not offline and not cfg["warianty"][0]:
         surowy, zrodlo = allegro.wybierz_zrodlo(settings["allegro"], ROOT, args.allegro_file)
         feed, raport_allegro = allegro.scal(feed, surowy, cfg)
         extra.update(raport_allegro)
