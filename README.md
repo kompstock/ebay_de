@@ -29,9 +29,9 @@ Te same aukcje, te same ceny, te same numery — różni się **wyłącznie kolu
 |---|---|
 | poniżej 10 szt. | `0` — aukcja schodzi |
 | 10–24 szt. | `2` |
-| 25–50 szt. | `4` |
-| 51–99 szt. | `5` |
-| od 100 szt. | `8` |
+| 25–50 szt. | `3` |
+| 51–99 szt. | `3` |
+| od 100 szt. | `4` |
 
 **Wgrywasz jeden z dwóch plików, nigdy oba.** Prawdziwy mówi prawdę o magazynie,
 pomocniczy dawkuje zapas. Progi zmienisz w `config/settings.json` →
