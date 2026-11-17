@@ -352,13 +352,13 @@ class PrzelacznikTests(unittest.TestCase):
         cls.bez, _ = cls.przebieg("pierwsze", wlaczone=False)
 
     @classmethod
-    def przebieg(cls, tryb, raport=None, wlaczone=True, feed=FEED):
+    def przebieg(cls, tryb, raport=None, wlaczone=True, feed=FEED, kraj="de", ustawienia=None):
         wynik = Path(tempfile.mkdtemp())
-        polecenie = [sys.executable, str(ROOT / "src" / "generate.py"), "--tryb", tryb,
+        polecenie = [sys.executable, str(ROOT / "src" / "generate.py"), "--kraj", kraj, "--tryb", tryb,
                      "--feed-file", str(feed), "--raport", str(raport or ROOT / "tests" / "fixtures" / "aktywne.csv"),
                      "--nbp-rate", "4.26", "--min-produktow", "1", "--output-dir", str(wynik)]
         if wlaczone:
-            polecenie += ["--warianty", str(cls.ustawienia)]
+            polecenie += ["--warianty", str(ustawienia or cls.ustawienia)]
         kod = subprocess.run(polecenie, check=False, capture_output=True)
         assert kod.returncode in (0, 2), kod.stderr.decode("utf-8", "replace")[-2000:]
         return wynik, json.loads((wynik / "generation-report.json").read_text(encoding="utf-8"))
@@ -411,6 +411,62 @@ class PrzelacznikTests(unittest.TestCase):
         self.assertEqual((domyslnie / "ebay-add.csv").read_bytes(), (self.bez / "ebay-add.csv").read_bytes())
         self.assertFalse(any(x["CustomLabel"].startswith("SHOPER-ID") for x in self.add(self.bez)[1]))
 
+    def test_przelacznik_tylko_dla_wybranego_rynku(self):
+        # Decyzja wlasciciela 17.11.2026: nowy system najpierw tylko na Francji.
+        tylko_fr = self.katalog / "warianty-fr.json"
+        dane = json.loads(self.ustawienia.read_text(encoding="utf-8"))
+        tylko_fr.write_text(json.dumps(dict(dane, wlaczone=["fr"])), encoding="utf-8")
+        niemcy, raport_de = self.przebieg("pierwsze", ustawienia=tylko_fr)
+        francja, raport_fr = self.przebieg("pierwsze", kraj="fr", ustawienia=tylko_fr)
+        self.assertEqual(raport_de["warianty"], {"wlaczone": False})
+        self.assertEqual((niemcy / "ebay-add.csv").read_bytes(), (self.bez / "ebay-add.csv").read_bytes())
+        self.assertTrue(raport_fr["warianty"]["wlaczone"])
+        self.assertEqual(raport_fr["blokady"], [])
+        sku = [x["CustomLabel"] for x in self.add(francja)[1]]
+        self.assertIn("SHOPER-ID:7681-FRA", sku)
+        self.assertIn("SHOPER-ID:7681:warianty-FRA", sku)
+        self.assertTrue(any(s_.startswith("SHOPER-ID:7681-") and s_.endswith("GB-FRA") or
+                            s_.endswith("TB-FRA") for s_ in sku), sku)
+        self.assertFalse([s_ for s_ in sku if s_.startswith("4220")], sku)
+        # pusta lista albo rynek spoza listy = wylaczone
+        nigdzie = self.katalog / "warianty-nigdzie.json"
+        nigdzie.write_text(json.dumps(dict(dane, wlaczone=[])), encoding="utf-8")
+        self.assertEqual(self.przebieg("pierwsze", kraj="fr", ustawienia=nigdzie)[1]["warianty"],
+                         {"wlaczone": False})
+
+    def test_budzet_ogranicza_oferty_wariantowe(self):
+        # Limit sprzedazy eBaya: komplet ofert wariantowych go przekracza, wiec wlasciciel
+        # podaje budzet w zlotowkach. Oferta, ktora sie nie miesci, czeka - zwykla zostaje.
+        dane = json.loads(self.ustawienia.read_text(encoding="utf-8"))
+        ciasny = self.katalog / "warianty-budzet.json"
+        ciasny.write_text(json.dumps(dict(dane, budzet_pln=1000)), encoding="utf-8")
+        wynik, raport = self.przebieg("pierwsze", ustawienia=ciasny)
+        sku = [x["CustomLabel"] for x in self.add(wynik)[1]]
+        self.assertIn("SHOPER-ID:7681", sku)
+        self.assertNotIn("SHOPER-ID:7681:warianty", sku)
+        self.assertEqual(raport["pominieto"].get("wariantowa: nie miesci sie w budzecie"), 1)
+        self.assertEqual(raport["warianty"]["ofert_wariantowych_w_pliku"], 0)
+        luzny = self.katalog / "warianty-budzet-duzy.json"
+        luzny.write_text(json.dumps(dict(dane, budzet_pln=10_000_000)), encoding="utf-8")
+        wynik, raport = self.przebieg("pierwsze", ustawienia=luzny)
+        self.assertIn("SHOPER-ID:7681:warianty", [x["CustomLabel"] for x in self.add(wynik)[1]])
+        self.assertGreater(raport["warianty"]["wartosc_ofert_wariantowych_pln"], 1000)
+        # w trybie 'nowe' do budzetu liczy sie tez to, co juz stoi na eBayu
+        dopelniony = self.katalog / "warianty-budzet-pelny.json"
+        dopelniony.write_text(json.dumps(dict(dane, budzet_pln=raport["warianty"]["wartosc_ofert_wariantowych_pln"])),
+                              encoding="utf-8")
+        obca = [["307999999999", "Inna wariantowa", "RAM=8 GB|SSD=256 GB", "SHOPER-ID:55555-8GB-256GB", "2", "EUR", "500.0", "", "DE"],
+                ["305999999998", "Zwykla", "", "3959", "5", "EUR", "200.0", "", "DE"]]
+        plik = Path(tempfile.mkdtemp()) / "aktywne.csv"
+        with plik.open("w", encoding="utf-8-sig", newline="") as uchwyt:
+            zapis = csv.writer(uchwyt)
+            zapis.writerow(["Item number", "Title", "Variation details", "Custom label (SKU)", "Available quantity",
+                            "Currency", "Start price", "End date", "Listing site"])
+            zapis.writerows(obca)
+        wynik, raport = self.przebieg("nowe", raport=plik, ustawienia=dopelniony)
+        self.assertNotIn("SHOPER-ID:7681:warianty", [x["CustomLabel"] for x in self.add(wynik)[1]])
+        self.assertEqual(raport["pominieto"].get("wariantowa: nie miesci sie w budzecie"), 1)
+
     def test_laptop_dostaje_zwykla_oferte_i_oferte_wariantowa(self):
         naglowek, wiersze = self.add(self.dodanie)
         akcja = naglowek[0]
@@ -419,7 +475,9 @@ class PrzelacznikTests(unittest.TestCase):
         # zwykla oferta konfiguracji podstawowej - z sygnatura ID Shopera, ze zwykla cena i iloscia
         zwykla = next(x for x in wiersze if x["CustomLabel"] == "SHOPER-ID:7681")
         self.assertEqual((zwykla[akcja], zwykla["Relationship"]), ("Add", ""))
-        self.assertTrue(float(zwykla["*StartPrice"]) > 0 and zwykla["*Quantity"] == "51")
+        # 51 sztuk w magazynie -> 5 na eBayu: progi stanow obowiazuja juz przy wystawianiu
+        self.assertTrue(float(zwykla["*StartPrice"]) > 0)
+        self.assertEqual(zwykla["*Quantity"], "5")
         # oferta wariantowa tego samego wpisu: wiersz oferty + warianty z pusta akcja
         oferta = next(x for x in wiersze if x["CustomLabel"] == "SHOPER-ID:7681:warianty")
         warianty_ = [x for x in wiersze if x["Relationship"] == "Variation"]
@@ -434,9 +492,10 @@ class PrzelacznikTests(unittest.TestCase):
         # stare SKU Shopera laptopow nie ida juz na eBay
         self.assertNotIn("4220", sku)
         self.assertNotIn("3809", sku)
-        # laptop z 6 sztukami: zwykla oferta tak, wariantowa nie (prog 10)
-        self.assertIn("SHOPER-ID:7452", sku)
-        self.assertNotIn("SHOPER-ID:7452:warianty", sku)
+        # laptop z 6 sztukami: ponizej progow stanow, wiec na razie nie wystawiamy ani zwyklej
+        # oferty (ilosc bylaby 0), ani wariantowej (prog 10)
+        self.assertFalse([s_ for s_ in sku if s_.startswith("SHOPER-ID:7452")], sku)
+        self.assertEqual(self.raport_dodania["pominieto"].get("baza ponizej progu stanu"), 2)
         self.assertEqual(self.raport_dodania["warianty"]["ofert_wariantowych_w_pliku"], 1)
 
     def test_komputery_ida_po_staremu_bez_zadnej_zmiany(self):
@@ -451,7 +510,6 @@ class PrzelacznikTests(unittest.TestCase):
         sku = [x["CustomLabel"] for x in self.add(wynik)[1]]
         self.assertFalse([s for s in sku if s.startswith("SHOPER-ID:7681")], sku)
         self.assertEqual(raport["pominieto"].get("wariantowa: juz wystawiona"), 1)
-        self.assertIn("SHOPER-ID:7452", sku)                  # tego jeszcze nie bylo na eBayu
 
     def test_aktualizacja_bez_zmian_nie_rusza_wariantow(self):
         wynik, raport = self.przebieg("aktualizacja", raport=self.raport_ebay())

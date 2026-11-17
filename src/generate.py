@@ -1731,6 +1731,10 @@ def ustawienia_wariantow(settings: dict) -> tuple[dict | None, list, list[str]]:
     Przelacznik to 'wlaczone' w config/warianty.json. Brak pliku albo 'wlaczone': false
     znaczy, ze generator dziala co do znaku jak dotad. Blad w pliku wlaczonej sciezki
     wraca jako komunikat - generate() robi z niego blokade z czytelnym powodem.
+
+    'wlaczone' moze byc tez lista rynkow, np. ["FR"]: nowa sciezka dziala wtedy tylko
+    na wymienionych rynkach, a pozostale ida po staremu. Tak wlasciciel przechodzi
+    na nowy system rynek po rynku, zaczynajac od tego, gdzie moze usunac stare oferty.
     """
     sciezka = ROOT / settings.get("warianty_plik", WARIANTY_DOMYSLNIE)
     if not sciezka.is_file():
@@ -1739,7 +1743,11 @@ def ustawienia_wariantow(settings: dict) -> tuple[dict | None, list, list[str]]:
         cennik = load_json(sciezka)
     except ValueError as exc:
         return None, [], [f"{sciezka.name}: plik nie jest poprawnym JSON-em ({exc})"]
-    if not cennik.get("wlaczone"):
+    wlaczone = cennik.get("wlaczone")
+    if isinstance(wlaczone, (list, tuple)):
+        rynek = str(settings.get("kod", "")).strip().upper()
+        wlaczone = bool(rynek) and rynek in {str(x).strip().upper() for x in wlaczone}
+    if not wlaczone:
         return None, [], []
     limity, bledy = warianty.wczytaj_limity(
         ROOT / (cennik.get("limity_plik") or WARIANTY_LIMITY_DOMYSLNIE))
@@ -2104,6 +2112,17 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
                 skipped[blad.split(":")[0]] += 1
                 review.add("blokada", attrs.get("SKU", ""), blad)
                 continue
+            if plan_wariantow and attrs.get("SKU", "").startswith(warianty.PRZEDROSTEK_SKU):
+                # Zwykla oferta wpisu bazowego w nowej sciezce wchodzi na eBay od razu
+                # z iloscia wedlug progow stanow (te same progi, ktore potem trzyma
+                # ebay-revise-stany.csv). Pelny stan w pliku Add - np. 923 sztuki -
+                # zjadlby limit sprzedazy jedna oferta. Ponizej pierwszego progu oferty
+                # nie wystawiamy wcale: z iloscia 0 eBay jej nie przyjmie.
+                ilosc_startowa = ogranicz_stan(int(wiersz["*Quantity"]), regula)
+                if ilosc_startowa <= 0:
+                    skipped["baza ponizej progu stanu"] += 1
+                    continue
+                wiersz["*Quantity"] = str(ilosc_startowa)
             wiersze_add.append(wiersz)
             nazwa = "ebay-add.csv"
             if rozdziel:
@@ -2113,7 +2132,19 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
         if plan_wariantow:
             juz_wariantowe = (oferty_wariantowe.przypiete_z_raportu(raport, settings["listing_site"])
                               if tryb == "nowe" else {})
-            for rodzina in plan_wariantow["rodziny"]:
+            # Budzet: laczna wartosc ofert wariantowych na tym rynku (cena x ilosc kazdego
+            # wariantu, w zlotowkach) - to, co juz stoi, plus to, co wchodzi do pliku.
+            # Limit sprzedazy eBaya liczy wlasnie tak, a komplet ofert go przekracza.
+            # Kolejnosc: od najwiekszego stanu bazy. 0 albo brak = bez ograniczenia.
+            budzet_pln = float(cennik_wariantow.get("budzet_pln") or 0)
+            zajete_pln = 0.0
+            if budzet_pln and tryb == "nowe":
+                zajete_pln = cfg["rate"] * sum(
+                    v["cena"] * v["ilosc"]
+                    for o in oferty_wariantowe.oferty_z_raportu(raport, settings["listing_site"]).values()
+                    for v in o["warianty"])
+            plan_wariantow["budzet_pln"] = budzet_pln or None
+            for rodzina in sorted(plan_wariantow["rodziny"], key=lambda r: -r["baza"]["stan"]):
                 if rodzina["id_bazy"] in juz_wariantowe:
                     skipped["wariantowa: juz wystawiona"] += 1
                     continue
@@ -2125,6 +2156,12 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
                 if not wiersze_oferty:
                     skipped["wariantowa: " + powod.split(":")[0]] += 1
                     continue
+                koszt_pln = oferty_wariantowe.wartosc_oferty(wiersze_oferty) * cfg["rate"]
+                if budzet_pln and zajete_pln + koszt_pln > budzet_pln:
+                    skipped["wariantowa: nie miesci sie w budzecie"] += 1
+                    continue
+                zajete_pln += koszt_pln
+                plan_wariantow["wartosc_pln"] = round(zajete_pln, 2)
                 plan_wariantow["ofert_w_pliku"] += 1
                 wiersze_add.append(wiersze_oferty[0])
                 nazwa = "ebay-add.csv"
@@ -2276,6 +2313,8 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
         "warianty": ({"wlaczone": True, "rodzin": len(plan_wariantow["rodziny"]),
                       "w_poczekalni": len(plan_wariantow["poczekalnia"]),
                       "ofert_wariantowych_w_pliku": plan_wariantow["ofert_w_pliku"],
+                      "budzet_pln": plan_wariantow.get("budzet_pln"),
+                      "wartosc_ofert_wariantowych_pln": plan_wariantow.get("wartosc_pln"),
                       "aktualizacja": plan_wariantow["aktualizacja"]}
                      if plan_wariantow else {"wlaczone": False}),
         "wygasaja": wygasajace(aktywne, int(settings.get("ostrzegaj_o_wygasaniu_dni", 7))),
