@@ -2294,8 +2294,19 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
                 plan_wariantow["rodziny"],
                 oferty_wariantowe.oferty_z_raportu(raport, settings["listing_site"]),
                 cfg, headers, ten_modul, review, plan_wariantow["dopiski"])
+            # Grupy wariantow ida NA KONCU pliku, kazda w calosci (wiersz oferty + jej
+            # warianty): eBay doczepia wiersz wariantu do najblizszego wiersza oferty nad nim.
             wiersze_revise.extend(wiersze_wariantow)
             wiersze_ograniczone.extend(dict(w) for w in wiersze_wariantow)
+        if wiersze_revise and any(w.get("Relationship") == "Variation" for w in wiersze_revise):
+            # Kontrola ukladu przed zapisem: kazdy wiersz wariantu musi stac pod wierszem
+            # SWOJEJ oferty. Zly uklad to nie odrzucony wiersz, tylko warianty doczepione
+            # do cudzej aukcji (17.11.2026) - wiec zatrzymujemy przebieg.
+            for lista in (wiersze_revise, wiersze_ograniczone):
+                zly = oferty_wariantowe.sprawdz_uklad_revise(lista)
+                if zly:
+                    blokady.append("plik aktualizacji: " + zly)
+                    break
         if aktywne and zerowane / len(aktywne) > float(settings["max_udzial_zerowanych"]):
             blokady.append(f"zerowanie objelo by {zerowane} z {len(aktywne)} aukcji "
                            f"({zerowane / len(aktywne):.0%}) - to wyglada na blad feedu, przerywam")

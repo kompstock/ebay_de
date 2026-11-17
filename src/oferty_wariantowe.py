@@ -288,10 +288,11 @@ def oferty_z_raportu(sciezka: Path, site: str) -> dict[str, dict]:
                 continue
             numer = (wiersz.get("Item number") or "").strip()
             oferta = oferty.setdefault(numer, {"id": rozlozone["id"], "tytul": "", "waluta": "EUR",
-                                               "warianty": []})
+                                               "sku_oferty": "", "warianty": []})
             oferta["tytul"] = (wiersz.get("Title") or "").strip() or oferta["tytul"]
             oferta["waluta"] = (wiersz.get("Currency") or "EUR").strip()
             if rozlozone["oferta"]:
+                oferta["sku_oferty"] = sku
                 continue
             oferta["warianty"].append({
                 "sku": sku, "ram": rozlozone["ram"], "dysk": rozlozone["dysk"],
@@ -306,10 +307,21 @@ def wiersze_aktualizacji(rodziny: list[dict], na_ebay: dict[str, dict], cfg: dic
                          headers: list[str], g, review, dopiski=()) -> tuple[list[dict], dict]:
     """Wiersze 'Revise' dla wariantow, w zwyklym szablonie pliku aktualizacji generatora.
 
-    Uklad sprawdzony na zywej ofercie 307285168505 (16.11.2026): jeden wiersz na wariant,
-    Action=Revise, numer oferty, Relationship=Variation, 'Relationship details' przepisane
-    z raportu eBaya, nowa cena i ilosc. Wiersz dostaje tylko wariant, w ktorym cos sie
-    zmienilo - tak samo jak zwykle aukcje w ebay-revise.csv.
+    UKLAD: dla kazdej oferty, w ktorej cos sie zmienilo, najpierw WIERSZ OFERTY
+    (Action=Revise, numer oferty, SKU oferty, bez ceny, ilosci i Relationship), a pod
+    nim wiersze jej wariantow (Action i numer PUSTE, Relationship=Variation,
+    'Relationship details' z raportu, nowa cena i ilosc). Tak jak w sprawdzonym
+    tescie zmiany SKU z 15.11.2026.
+
+    Dlaczego tak: eBay doczepia kazdy wiersz 'Variation' do NAJBLIZSZEGO wiersza
+    oferty nad nim, a kolumne z numerem w wierszu wariantu ignoruje. 17.11.2026 plik
+    FR mial jeden wiersz z numerem na wariant (bez wiersza oferty) i eBay uznal
+    wszystkie 130 wariantow ze stu ofert za warianty pierwszej zwyklej aukcji w pliku
+    - wynik: jeden blad 21916635 i nic nie zostalo zmienione. Pojedynczy wiersz
+    wariantu z 16.11 przeszedl tylko dlatego, ze byl w pliku sam.
+
+    Wiersz dostaje tylko wariant, w ktorym cos sie zmienilo - tak samo jak zwykle
+    aukcje w ebay-revise.csv.
 
     Skad cena i ilosc:
       * rodzina ma oferte i dosc sztuk -> to, co wyszloby dzis z zbuduj_oferte(),
@@ -331,6 +343,7 @@ def wiersze_aktualizacji(rodziny: list[dict], na_ebay: dict[str, dict], cfg: dic
             for dziecko in (zbudowane or [])[1:]:
                 dzis[dziecko["CustomLabel"]] = (float(dziecko["*StartPrice"]), int(dziecko["*Quantity"]))
         licznik["brakujace_warianty"] += len(set(dzis) - {v["sku"] for v in oferta["warianty"]})
+        zmienione = []
         for v in oferta["warianty"]:
             cena, ilosc = dzis.get(v["sku"], (v["cena"], 0))
             if cena == v["cena"] and ilosc == v["ilosc"]:
@@ -339,12 +352,23 @@ def wiersze_aktualizacji(rodziny: list[dict], na_ebay: dict[str, dict], cfg: dic
             licznik["zmiana_ceny"] += cena != v["cena"]
             licznik["zmiana_ilosci"] += ilosc != v["ilosc"]
             licznik["wyzerowane"] += ilosc == 0 and v["ilosc"] != 0
-            wiersze.append({
-                "Action": "Revise", "Category name": "", "Item number": numer, "Title": oferta["tytul"],
-                "Listing site": listing_site, "Currency": oferta["waluta"],
+            zmienione.append({
+                "Action": "", "Category name": "", "Item number": "", "Title": "",
+                "Listing site": "", "Currency": "",
                 "Start price": f"{cena:.1f}", "Buy It Now price": "", "Available quantity": str(ilosc),
                 "Relationship": "Variation", "Relationship details": v["szczegoly"],
                 "Custom label (SKU)": v["sku"]})
+        if not zmienione:
+            continue
+        licznik.setdefault("ofert_zmienionych", 0)
+        licznik["ofert_zmienionych"] += 1
+        wiersze.append({
+            "Action": "Revise", "Category name": "", "Item number": numer, "Title": oferta["tytul"],
+            "Listing site": listing_site, "Currency": oferta["waluta"],
+            "Start price": "", "Buy It Now price": "", "Available quantity": "",
+            "Relationship": "", "Relationship details": "",
+            "Custom label (SKU)": oferta.get("sku_oferty") or warianty.sku_oferty(oferta["id"], dopiski)})
+        wiersze.extend(zmienione)
     return wiersze, licznik
 
 
@@ -391,6 +415,28 @@ def przygotuj(produkty: list, cfg: dict, g, cennik: dict, limity: list[dict],
     return {"produkty": zostaja, "rodziny": wynik["rodziny"], "poczekalnia": wynik["poczekalnia"],
             "bez_rodziny": wynik["bez_rodziny"], "dopiski": dopiski, "ofert_w_pliku": 0,
             "aktualizacja": None}
+
+
+def sprawdz_uklad_revise(wiersze: list[dict]) -> str:
+    """'' gdy uklad pliku aktualizacji jest dobry, inaczej opis pierwszego bledu.
+
+    Wiersz wariantu (Relationship=Variation) musi miec pusta akcje i numer i stac pod
+    wierszem oferty wariantowej (SKU z koncowka ':warianty'), a nie pod zwykla aukcja."""
+    rodzic = None
+    for numer, w in enumerate(wiersze, start=1):
+        if w.get("Relationship") == "Variation":
+            if w.get("Action") or w.get("Item number"):
+                return f"wiersz {numer}: wariant {w.get('Custom label (SKU)')} ma akcje albo numer oferty"
+            if rodzic is None:
+                return f"wiersz {numer}: wariant {w.get('Custom label (SKU)')} nie stoi pod wierszem swojej oferty"
+            ten = warianty.rozloz_sku(w.get("Custom label (SKU)") or "")
+            if not ten or ten["id"] != rodzic["id"]:
+                return (f"wiersz {numer}: wariant {w.get('Custom label (SKU)')} stoi pod oferta "
+                        f"{rodzic['sku']} - to nie jego oferta")
+        else:
+            r = warianty.rozloz_sku(w.get("Custom label (SKU)") or "")
+            rodzic = dict(r, sku=w.get("Custom label (SKU)")) if r and r["oferta"] else None
+    return ""
 
 
 def wartosc_oferty(wiersze: list[dict]) -> float:

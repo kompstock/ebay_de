@@ -201,6 +201,10 @@ class OfertaTests(unittest.TestCase):
         self.assertEqual(ow.wartosc_oferty(self.wiersze), oczekiwana)
 
 
+def oferty_wariantowe_uklad(wiersze):
+    return ow.sprawdz_uklad_revise(wiersze)
+
+
 class TrzySchematyTests(unittest.TestCase):
     """Zwykle oferty, oferty wariantowe i dubel bazy w jednym raporcie eBaya - kazda sciezka
     ma widziec tylko swoje wiersze."""
@@ -293,10 +297,16 @@ class AktualizacjaTests(unittest.TestCase):
         # Tak wygladal test na zywej ofercie 16.11.2026: jeden wariant mial 612 EUR i 3 sztuki.
         ostatni = self.wiersze[-1]
         wiersze, licznik = self.aktualizacja(zmiany={ostatni["CustomLabel"]: ("9999.0", "3")})
-        self.assertEqual(len(wiersze), 1)
-        w0 = wiersze[0]
-        self.assertEqual((w0["Action"], w0["Item number"], w0["Relationship"]), ("Revise", self.NUMER, "Variation"))
+        self.assertEqual(len(wiersze), 2)
+        oferta, w0 = wiersze
+        # wiersz oferty: numer i SKU oferty, bez ceny, ilosci i Relationship
+        self.assertEqual((oferta["Action"], oferta["Item number"], oferta["Relationship"]), ("Revise", self.NUMER, ""))
+        self.assertEqual(oferta["Custom label (SKU)"], self.wiersze[0]["CustomLabel"])
+        self.assertEqual((oferta["Start price"], oferta["Available quantity"]), ("", ""))
+        # wiersz wariantu: pusta akcja i numer, pod swoja oferta
+        self.assertEqual((w0["Action"], w0["Item number"], w0["Relationship"]), ("", "", "Variation"))
         self.assertEqual(w0["Relationship details"], ostatni["RelationshipDetails"])
+        self.assertEqual(ow.sprawdz_uklad_revise(wiersze), "")
         self.assertEqual(w0["Custom label (SKU)"], ostatni["CustomLabel"])
         self.assertEqual(float(w0["Start price"]), float(ostatni["*StartPrice"]))
         self.assertEqual(w0["Available quantity"], "2")
@@ -306,17 +316,18 @@ class AktualizacjaTests(unittest.TestCase):
     def test_baza_ponizej_progu_zeruje_warianty_ale_nie_rusza_cen(self):
         ponizej = dict(self.rodziny, **{"4220": dict(self.rodzina, aktywna=False)})
         wiersze, licznik = self.aktualizacja(rodziny=ponizej)
-        self.assertEqual(len(wiersze), len(self.wiersze) - 1)
-        self.assertEqual({x["Available quantity"] for x in wiersze}, {"0"})
+        dzieci = [x for x in wiersze if x["Relationship"] == "Variation"]
+        self.assertEqual((len(wiersze), len(dzieci)), (len(self.wiersze), len(self.wiersze) - 1))
+        self.assertEqual({x["Available quantity"] for x in dzieci}, {"0"})
         wg_sku = {d["CustomLabel"]: d for d in self.wiersze[1:]}
-        for x in wiersze:
+        for x in dzieci:
             self.assertEqual(float(x["Start price"]), float(wg_sku[x["Custom label (SKU)"]]["*StartPrice"]))
-        self.assertEqual(licznik["wyzerowane"], len(wiersze))
+        self.assertEqual(licznik["wyzerowane"], len(dzieci))
 
     def test_wpis_bazowy_zniknal_z_feedu(self):
         bez = {k: v for k, v in self.rodziny.items() if k != "4220"}
         wiersze, licznik = self.aktualizacja(rodziny=bez)
-        self.assertEqual({x["Available quantity"] for x in wiersze}, {"0"})
+        self.assertEqual({x["Available quantity"] for x in wiersze if x["Relationship"]}, {"0"})
         self.assertEqual(licznik["oferty_bez_wpisu_bazowego"],
                          [f"{self.NUMER} (ID Shopera {self.rodzina['id_bazy']})"])
 
@@ -325,13 +336,43 @@ class AktualizacjaTests(unittest.TestCase):
                 f"SHOPER-ID:{self.rodzina['id_bazy']}-64GB-2TB", "2", "EUR", "999.0", "", "DE"]
         wiersze, _ = self.aktualizacja(dodatkowe=[obcy])
         self.assertEqual([(x["Custom label (SKU)"], x["Available quantity"], x["Start price"]) for x in wiersze],
-                         [(obcy[3], "0", "999.0")])
+                         [(self.wiersze[0]["CustomLabel"], "", ""), (obcy[3], "0", "999.0")])
 
     def test_wyzerowany_wariant_nie_wraca_do_pliku_codziennie(self):
         ponizej = dict(self.rodziny, **{"4220": dict(self.rodzina, aktywna=False)})
         zera = {d["CustomLabel"]: (d["*StartPrice"], "0") for d in self.wiersze[1:]}
         wiersze, _ = self.aktualizacja(rodziny=ponizej, zmiany=zera)
         self.assertEqual(wiersze, [])
+
+    def test_kontrola_ukladu_lapie_blad_z_17_listopada(self):
+        # Dokladnie to, co poszlo na eBay.fr 17.11.2026: zwykla aukcja, a pod nia wiersze
+        # wariantow cudzych ofert z wlasnym numerem i akcja.
+        zly = [{"Action": "Revise", "Item number": "307286571727", "Relationship": "",
+                "Custom label (SKU)": "SHOPER-ID:7451-FRA"},
+               {"Action": "Revise", "Item number": "307286571890", "Relationship": "Variation",
+                "Custom label (SKU)": "SHOPER-ID:10423-32GB-960GB-FRA"}]
+        self.assertIn("ma akcje albo numer", ow.sprawdz_uklad_revise(zly))
+        bez_rodzica = [dict(zly[0]), dict(zly[1], Action="", **{"Item number": ""})]
+        self.assertIn("nie stoi pod wierszem swojej oferty", ow.sprawdz_uklad_revise(bez_rodzica))
+        cudzy = [{"Action": "Revise", "Item number": "1", "Relationship": "", "Custom label (SKU)": "SHOPER-ID:7451:warianty-FRA"},
+                 {"Action": "", "Item number": "", "Relationship": "Variation", "Custom label (SKU)": "SHOPER-ID:10423-8GB-256GB-FRA"}]
+        self.assertIn("to nie jego oferta", ow.sprawdz_uklad_revise(cudzy))
+
+    def test_kilka_ofert_kazda_w_swojej_grupie(self):
+        # Dwie oferty wariantowe ze zmianami: kazdy wariant stoi pod wierszem swojej oferty.
+        druga = self.rodziny["3809"]
+        wiersze_drugiej, _ = ow.zbuduj_oferte(dict(druga, aktywna=True), self.cfg, self.headers, g, _Bez())
+        if not wiersze_drugiej:
+            self.skipTest("feed testowy nie ma drugiej rodziny z wariantami")
+        dodatkowe = [["307000000099", "Druga", wiersze_drugiej[0]["RelationshipDetails"], wiersze_drugiej[0]["CustomLabel"],
+                      "22", "EUR", "1.0", "", "DE"]]
+        dodatkowe += [["307000000099", "Druga", d["RelationshipDetails"], d["CustomLabel"], "9", "EUR", "1.0", "", "DE"]
+                      for d in wiersze_drugiej[1:]]
+        ostatni = self.wiersze[-1]
+        wiersze, licznik = self.aktualizacja(zmiany={ostatni["CustomLabel"]: ("9999.0", "3")}, dodatkowe=dodatkowe)
+        self.assertEqual(ow.sprawdz_uklad_revise(wiersze), "")
+        self.assertEqual([x["Item number"] for x in wiersze if x["Action"]], sorted([self.NUMER, "307000000099"]))
+        self.assertEqual(licznik["ofert_zmienionych"], 2)
 
     def test_obce_oferty_i_inny_rynek_sa_pomijane(self):
         dodatkowe = [["305000000001", "Zwykla", "", "4220", "5", "EUR", "299.0", "", "DE"],
@@ -536,7 +577,11 @@ class PrzelacznikTests(unittest.TestCase):
         for nazwa in ("ebay-revise.csv", "ebay-revise-stany.csv"):
             wiersze = {x["Custom label (SKU)"]: x for x in self.revise(wynik, nazwa)}
             w_ = wiersze[wariant["CustomLabel"]]
-            self.assertEqual((w_["Action"], w_["Relationship"], w_["Item number"]), ("Revise", "Variation", "307000000002"), nazwa)
+            self.assertEqual((w_["Action"], w_["Relationship"], w_["Item number"]), ("", "Variation", ""), nazwa)
+            oferta = wiersze["SHOPER-ID:7681:warianty"]
+            self.assertEqual((oferta["Action"], oferta["Item number"], oferta["Relationship"]), ("Revise", "307000000002", ""), nazwa)
+            lista = self.revise(wynik, nazwa)
+            self.assertEqual(oferty_wariantowe_uklad(lista), "", nazwa)
             self.assertEqual((float(w_["Start price"]), w_["Available quantity"]), (float(wariant["*StartPrice"]), "2"), nazwa)
             self.assertEqual(w_["Relationship details"], wariant["RelationshipDetails"])
             zwykla = wiersze["SHOPER-ID:7681"]
