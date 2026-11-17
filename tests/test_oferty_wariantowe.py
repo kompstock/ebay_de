@@ -1,4 +1,5 @@
 """Testy skladania oferty wariantowej eBaya (wiersz oferty + wiersze wariantow)."""
+import os
 import csv
 import json
 import subprocess
@@ -8,6 +9,10 @@ import unittest
 import xml.etree.ElementTree as ET
 from collections import Counter
 from pathlib import Path
+
+# Testy nie czytaja przelacznika z config/warianty.json (plik wlasciciela) - patrz
+# ustawienia_wariantow() w generate.py. Kto chce nowej sciezki, podaje --warianty.
+os.environ.setdefault("EBAY_BEZ_WARIANTOW", "1")
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
@@ -390,8 +395,8 @@ class PrzelacznikTests(unittest.TestCase):
             cena, ilosc = w_["*StartPrice"], w_["*Quantity"]
             if sku.endswith(":warianty"):
                 cena, ilosc = "1.0", "22"
-            elif w_["Relationship"] != "Variation" and sku.startswith("SHOPER-ID"):
-                ilosc = "5"                      # 51 sztuk po progach stanow
+            elif sku == "3959":
+                ilosc = "3"                      # komputer: 47 sztuk po progach stanow starej sciezki
             cena, ilosc = (zmiany or {}).get(sku, (cena, ilosc))
             wariantowa = sku.endswith(":warianty") or w_["Relationship"] == "Variation"
             wyjscie.append([numer_wariantowej if wariantowa else f"30500000{len(wyjscie):04d}", "Oferta",
@@ -475,9 +480,9 @@ class PrzelacznikTests(unittest.TestCase):
         # zwykla oferta konfiguracji podstawowej - z sygnatura ID Shopera, ze zwykla cena i iloscia
         zwykla = next(x for x in wiersze if x["CustomLabel"] == "SHOPER-ID:7681")
         self.assertEqual((zwykla[akcja], zwykla["Relationship"]), ("Add", ""))
-        # 51 sztuk w magazynie -> 5 na eBayu: progi stanow obowiazuja juz przy wystawianiu
+        # 51 sztuk w magazynie -> 2 na eBayu: w nowej sciezce wszystko po 2 sztuki
         self.assertTrue(float(zwykla["*StartPrice"]) > 0)
-        self.assertEqual(zwykla["*Quantity"], "5")
+        self.assertEqual(zwykla["*Quantity"], "2")
         # oferta wariantowa tego samego wpisu: wiersz oferty + warianty z pusta akcja
         oferta = next(x for x in wiersze if x["CustomLabel"] == "SHOPER-ID:7681:warianty")
         warianty_ = [x for x in wiersze if x["Relationship"] == "Variation"]
@@ -498,12 +503,17 @@ class PrzelacznikTests(unittest.TestCase):
         self.assertEqual(self.raport_dodania["pominieto"].get("baza ponizej progu stanu"), 2)
         self.assertEqual(self.raport_dodania["warianty"]["ofert_wariantowych_w_pliku"], 1)
 
-    def test_komputery_ida_po_staremu_bez_zadnej_zmiany(self):
+    def test_komputery_ida_po_staremu_tylko_z_iloscia_wedlug_progow(self):
+        # Komputery nie maja wariantow: te same wiersze co przy wylaczonym przelaczniku,
+        # rozni sie wylacznie ilosc - wedlug progow stanow zamiast pelnego stanu.
         _, wlaczone = self.add(self.dodanie)
         _, wylaczone = self.add(self.bez)
-        komputery = lambda wiersze: [x for x in wiersze if x["CustomLabel"] in ("3959", "4967", "10362")]
-        self.assertTrue(komputery(wylaczone))
-        self.assertEqual(komputery(wlaczone), komputery(wylaczone))
+        wg_sku = lambda wiersze: {x["CustomLabel"]: x for x in wiersze if x["CustomLabel"] in ("3959", "4967", "10362")}
+        nowe, stare = wg_sku(wlaczone), wg_sku(wylaczone)
+        self.assertEqual({k: v["*Quantity"] for k, v in stare.items()}, {"3959": "47", "10362": "16"})
+        self.assertEqual({k: v["*Quantity"] for k, v in nowe.items()}, {"3959": "3", "10362": "2"})
+        for sku, wiersz in nowe.items():
+            self.assertEqual(dict(wiersz, **{"*Quantity": ""}), dict(stare[sku], **{"*Quantity": ""}), sku)
 
     def test_nowe_nie_wystawia_drugi_raz(self):
         wynik, raport = self.przebieg("nowe", raport=self.raport_ebay())
@@ -531,6 +541,8 @@ class PrzelacznikTests(unittest.TestCase):
             self.assertEqual(w_["Relationship details"], wariant["RelationshipDetails"])
             zwykla = wiersze["SHOPER-ID:7681"]
             self.assertEqual((zwykla["Relationship"], float(zwykla["Start price"])), ("", float(wariant["*StartPrice"])), nazwa)
+            # zwykla oferta bazy: pelny plik mowi prawde o magazynie, plik stanow daje 2 sztuki
+            self.assertEqual(zwykla["Available quantity"], "51" if nazwa == "ebay-revise.csv" else "2", nazwa)
             # dotychczasowa aukcja tego laptopa po SKU Shopera wypada z obiegu - dostaje zero
             self.assertEqual(wiersze["4220"]["Available quantity"], "0", nazwa)
 

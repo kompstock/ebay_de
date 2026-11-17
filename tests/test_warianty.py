@@ -1,4 +1,5 @@
 """Testy siatki wariantow RAM/dysk. Kazdy pilnuje reguly, ktora ustalil wlasciciel."""
+import os
 import copy
 import csv
 import json
@@ -9,6 +10,10 @@ import unittest
 import xml.etree.ElementTree as ET
 from decimal import Decimal
 from pathlib import Path
+
+# Testy nie czytaja przelacznika z config/warianty.json (plik wlasciciela) - patrz
+# ustawienia_wariantow() w generate.py. Kto chce nowej sciezki, podaje --warianty.
+os.environ.setdefault("EBAY_BEZ_WARIANTOW", "1")
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
@@ -410,6 +415,14 @@ class RodzinyTests(unittest.TestCase):
         self.assertEqual(stany("923"), (True, {2}))
         # Ponizej progu rodzina nie znika - oferta ma zostac i wrocic, gdy stan wzrosnie.
         self.assertEqual(len(rodziny([laptop("B", stan="3")], cennik)["rodziny"][0]["warianty"]), 11)
+
+    def test_jedna_zasada_ilosci_dla_calej_nowej_sciezki(self):
+        # Decyzja wlasciciela 17.11.2026: "na nowym wszystko na 2 sztuki" - zwykla oferta
+        # bazy i kazdy wariant licza ilosc ta sama funkcja.
+        cennik = dict(CENNIK, min_stan_bazy=10, max_sztuk_na_wariant=2)
+        self.assertEqual([w.ilosc_na_ebay(s, cennik) for s in (0, 9, 10, 51, 923)], [0, 0, 2, 2, 2])
+        self.assertEqual(w.ilosc_na_ebay(1, dict(cennik, min_stan_bazy=0)), 1)        # nigdy wiecej niz w magazynie
+        self.assertEqual(w.ilosc_na_ebay(40, dict(cennik, max_sztuk_na_wariant=0)), 40)
 
     def test_sku_wariantu_to_id_shopera_i_konfiguracja(self):
         # ID, nie SKU Shopera: SKU ktos moze zmienic przez przypadek, ID nadaje Shoper.

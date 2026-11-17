@@ -1,4 +1,5 @@
 """Testy bramek jakosci. Kazdy pilnuje bledu, ktory realnie wystapil."""
+import os
 import csv
 import html
 import json
@@ -9,6 +10,10 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+
+# Testy nie czytaja przelacznika z config/warianty.json (plik wlasciciela) - patrz
+# ustawienia_wariantow() w generate.py. Kto chce nowej sciezki, podaje --warianty.
+os.environ.setdefault("EBAY_BEZ_WARIANTOW", "1")
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = ROOT / "tests" / "fixtures" / "sample.xml"
@@ -1165,7 +1170,9 @@ class StanyOgraniczone(unittest.TestCase):
         import generate
         regula = generate.regula_stanow(json.loads(
             (ROOT / "config" / "settings.json").read_text(encoding="utf-8")))
-        oczekiwane = {0: 0, 9: 0, 10: 2, 24: 2, 25: 4, 50: 4, 51: 5, 99: 5, 100: 8, 5000: 8}
+        # Decyzja wlasciciela z 17.11.2026: ponizej 10 -> 0, 10-24 -> 2, 25-50 -> 3,
+        # 51-99 -> 3, od 100 -> 4.
+        oczekiwane = {0: 0, 9: 0, 10: 2, 24: 2, 25: 3, 50: 3, 51: 3, 99: 3, 100: 4, 5000: 4}
         self.assertEqual({ile: generate.ogranicz_stan(ile, regula) for ile in oczekiwane},
                          oczekiwane)
         # Kod i config musza mowic to samo - inaczej brak wpisu w configu
