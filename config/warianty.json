@@ -1,8 +1,11 @@
 {
   "_about": "Cennik i reguly wariantow RAM/dysk. Cena wariantu = cena bazy z feedu + doplata za RAM + doplata za dysk. Kwoty w zlotowkach brutto - tak samo jak cena w feedzie; euro, VAT i oplaty liczy dalej generator. Wartosci przeniesione 1:1 z repo shoper-allegro-sync (variant_prices.json), zeby eBay i Allegro liczyly to samo.",
 
-  "_wlaczone": "Przelacznik calej sciezki ofert wariantowych w codziennym przebiegu generatora. false = generator dziala dokladnie jak dotad (plik sluzy tylko narzedziom podgladu). true = laptopy ida nowa sciezka: zwykla oferta konfiguracji podstawowej z SKU 'SHOPER-ID:<ID>' + oferta wariantowa, a feed Allegro nie jest dociagany. UWAGA: pierwsza aktualizacja po wlaczeniu zeruje dotychczasowe aukcje laptopow (stare SKU nie sa juz w obiegu).",
-  "wlaczone": false,
+  "_wlaczone": "Przelacznik sciezki ofert wariantowych w codziennym przebiegu generatora. false = wszedzie po staremu. true = na wszystkich rynkach. Lista, np. [\"FR\"] = tylko na wymienionych rynkach, reszta po staremu. Na wlaczonym rynku laptopy ida nowa sciezka: zwykla oferta konfiguracji podstawowej z SKU 'SHOPER-ID:<ID>' + oferta wariantowa, a feed Allegro nie jest dociagany. UWAGA: stare aukcje laptopow na takim rynku wypadaja z obiegu - najpierw je usun, potem pusc tryb 'pierwsze'.",
+  "wlaczone": ["FR"],
+
+  "_budzet_pln": "Ile zlotych limitu sprzedazy eBaya moga zajac oferty WARIANTOWE na jednym rynku (cena razy ilosc kazdego wariantu; liczy sie to, co juz stoi, plus to, co wchodzi do pliku). Generator bierze oferty od najwiekszego stanu bazy i przestaje, gdy nastepna by sie nie zmiescila - reszta czeka na wiekszy budzet. Zwyklych ofert budzet nie dotyczy. 0 = bez ograniczenia.",
+  "budzet_pln": 0,
 
   "_ram_doplaty": "Zapis 'z>na': doplata za rozbudowe RAM-u. '8>16': 200 znaczy: z 8 na 16 GB kosztuje 200 zl. Brak wpisu = takiej rozbudowy nie oferujemy.",
   "ram_doplaty": {
