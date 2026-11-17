@@ -32,6 +32,7 @@ import html
 import json
 import hashlib
 import math
+import os
 import re
 import sys
 import unicodedata
@@ -1736,6 +1737,13 @@ def ustawienia_wariantow(settings: dict) -> tuple[dict | None, list, list[str]]:
     na wymienionych rynkach, a pozostale ida po staremu. Tak wlasciciel przechodzi
     na nowy system rynek po rynku, zaczynajac od tego, gdzie moze usunac stare oferty.
     """
+    # Testy generatora uruchamiaja go na danych wzorcowych i nie moga zalezec od tego,
+    # jak wlasciciel ustawil przelacznik w swoim pliku - inaczej wlaczenie nowej sciezki
+    # zatrzymaloby krok "Uruchom testy", a z nim caly codzienny przebieg. Zmienna
+    # EBAY_BEZ_WARIANTOW wylacza wiec odczyt domyslnego pliku; plik podany wprost
+    # (--warianty) dziala zawsze.
+    if os.environ.get("EBAY_BEZ_WARIANTOW") and "warianty_plik" not in settings:
+        return None, [], []
     sciezka = ROOT / settings.get("warianty_plik", WARIANTY_DOMYSLNIE)
     if not sciezka.is_file():
         return None, [], []
@@ -1930,8 +1938,8 @@ def nadpisz_ceny_reczne(feed_bytes: bytes, ceny: dict, sufiks_kraju: str,
 STANY_OGRANICZONE_DOMYSLNIE = {
     "plik": "ebay-revise-stany.csv",
     # [granica, wartosc] - ilosc mniejsza niz granica schodzi do wartosci.
-    "progi": [[10, 0], [25, 2], [51, 4], [100, 5]],
-    "powyzej": 8,
+    "progi": [[10, 0], [25, 2], [51, 3], [100, 3]],
+    "powyzej": 4,
 }
 def opis_modelu_ceny(c: dict) -> str:
     """Model cenowy slowami. Idzie do raportu i na strone, zeby nie trzeba bylo
@@ -1956,8 +1964,8 @@ def ogranicz_stan(ilosc: int, regula: dict) -> int:
     """Prawdziwy stan magazynowy -> stan pokazywany na eBayu w pliku pomocniczym.
 
     Progi dzialaja na zasadzie "mniej niz granica", od najnizszej w gore.
-    Domyslnie: ponizej 10 sztuk aukcja schodzi do zera, 10-24 pokazuje 2,
-    25-50 pokazuje 5, 51-99 pokazuje 8, od 100 w gore pokazuje 10.
+    Domyslnie (decyzja wlasciciela z 17.11.2026): ponizej 10 sztuk aukcja schodzi
+    do zera, 10-24 pokazuje 2, 25-50 pokazuje 3, 51-99 pokazuje 3, od 100 w gore 4.
     """
     for granica, wartosc in sorted(regula["progi"], key=lambda para: int(para[0])):
         if ilosc < int(granica):
@@ -2112,15 +2120,22 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
                 skipped[blad.split(":")[0]] += 1
                 review.add("blokada", attrs.get("SKU", ""), blad)
                 continue
-            if plan_wariantow and attrs.get("SKU", "").startswith(warianty.PRZEDROSTEK_SKU):
-                # Zwykla oferta wpisu bazowego w nowej sciezce wchodzi na eBay od razu
-                # z iloscia wedlug progow stanow (te same progi, ktore potem trzyma
-                # ebay-revise-stany.csv). Pelny stan w pliku Add - np. 923 sztuki -
-                # zjadlby limit sprzedazy jedna oferta. Ponizej pierwszego progu oferty
-                # nie wystawiamy wcale: z iloscia 0 eBay jej nie przyjmie.
-                ilosc_startowa = ogranicz_stan(int(wiersz["*Quantity"]), regula)
+            if plan_wariantow:
+                # Na rynku z nowa sciezka oferta wchodzi na eBay od razu z iloscia, ktora
+                # i tak dostalaby nazajutrz z pliku stanow - pelny stan w pliku Add
+                # (np. 923 sztuki) zjadlby limit sprzedazy jedna oferta. Zwykla oferta
+                # wpisu bazowego ('SHOPER-ID:<ID>') liczy sie jak warianty: od progu
+                # stanu bazy, stala liczba sztuk. Reszta (komputery, GW24) - wedlug progow
+                # stanow starej sciezki. Ilosc 0 = nie wystawiamy, eBay jej nie przyjmie.
+                stan_w_magazynie = int(wiersz["*Quantity"])
+                if attrs.get("SKU", "").startswith(warianty.PRZEDROSTEK_SKU):
+                    ilosc_startowa = warianty.ilosc_na_ebay(stan_w_magazynie, cennik_wariantow)
+                    powod_pominiecia = "baza ponizej progu stanu"
+                else:
+                    ilosc_startowa = ogranicz_stan(stan_w_magazynie, regula)
+                    powod_pominiecia = "ponizej progu stanu"
                 if ilosc_startowa <= 0:
-                    skipped["baza ponizej progu stanu"] += 1
+                    skipped[powod_pominiecia] += 1
                     continue
                 wiersz["*Quantity"] = str(ilosc_startowa)
             wiersze_add.append(wiersz)
@@ -2208,7 +2223,10 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
             # aukcji, tylko ja zerowalo. Sprawdzone na raporcie z 21.10.2026: zdjeloby
             # 3 zywe aukcje IT, ktore maja wpis bazowy (DE wycofane), a wloskiego nie.
             wpisana = reczne.get(sku)
-            if wpisana is None:
+            if plan_wariantow and sku.startswith(warianty.PRZEDROSTEK_SKU):
+                # Zwykla oferta wpisu bazowego w nowej sciezce: ta sama zasada co warianty.
+                ilosc_ograniczona = warianty.ilosc_na_ebay(nowa_ilosc, cennik_wariantow)
+            elif wpisana is None:
                 ilosc_ograniczona = ogranicz_stan(nowa_ilosc, regula)
             else:
                 # Nigdy wiecej, niz naprawde lezy w magazynie. Wpis "20" przy

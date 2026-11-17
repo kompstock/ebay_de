@@ -490,6 +490,19 @@ def siatka(ram: int, dysk: int, typ_ram: str, cennik: dict, limit: dict) -> tupl
     return konfiguracje, sorted(set(braki))
 
 
+def ilosc_na_ebay(stan_bazy: int, cennik: dict) -> int:
+    """Ile sztuk pokazuje na eBayu oferta nowej sciezki przy danym stanie wpisu bazowego.
+
+    Jedna zasada dla zwyklej oferty bazy i dla kazdego wariantu (decyzja wlasciciela
+    z 17.11.2026: "na nowym wszystko na 2 sztuki"): ponizej 'min_stan_bazy' zero,
+    od progu w gore 'max_sztuk_na_wariant' (albo pelny stan, gdy to ustawienie jest 0).
+    """
+    if stan_bazy < int(cennik.get("min_stan_bazy", 0) or 0):
+        return 0
+    maks = int(cennik.get("max_sztuk_na_wariant", 0) or 0)
+    return min(stan_bazy, maks) if maks else stan_bazy
+
+
 def atrybuty_wariantu(attrs: dict, ram: int, dysk: int) -> dict:
     """Atrybuty konfiguracji dorobionej z bazy. Nowy dysk montujemy zawsze jako SSD -
     takze gdy baza miala HDD albo SSD+HDD (tak samo jak na Allegro)."""
@@ -545,7 +558,6 @@ def zbuduj_rodziny(produkty, cennik: dict, limity: list[dict], funkcje: dict,
       'bez_rodziny'  - wpisy, dla ktorych nie da sie zlozyc klucza albo odczytac
                        RAM/dysku/ceny; ida po staremu, jako oferty bez wariantow.
     """
-    max_sztuk = int(cennik.get("max_sztuk_na_wariant", 0) or 0)
     min_stan = int(cennik.get("min_stan_bazy", 0) or 0)
     przypiete = {str(x) for x in przypiete}
     grupy: dict[tuple, list[dict]] = {}
@@ -584,7 +596,7 @@ def zbuduj_rodziny(produkty, cennik: dict, limity: list[dict], funkcje: dict,
         # dostaja 0 - tak samo jak zwykla aukcja przy malym stanie - a powyzej stala,
         # mala liczbe sztuk. Decyzja wlasciciela z 16.11.2026: od 10 sztuk, po 2.
         aktywna = baza["stan"] >= min_stan
-        stan = 0 if not aktywna else (min(baza["stan"], max_sztuk) if max_sztuk else baza["stan"])
+        stan = ilosc_na_ebay(baza["stan"], cennik)
         warianty = []
         for k in konfiguracje:
             doplata = k["doplata_ram"] + k["doplata_dysk"]
