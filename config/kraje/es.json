@@ -75,6 +75,8 @@
   "faq_windows": "<details><summary>&iquest;Windows est&aacute; activado de forma permanente?</summary><div class=\"kpx-a\">S&iacute;. La licencia digital est&aacute; almacenada en el dispositivo y permanece activa incluso despu&eacute;s de restablecer Windows.</div></details>",
   "_faq_windows": "Blok FAQ doklejany do opisu, gdy system to Windows. HTML, bo trafia wprost do oferty. Pusty napis = sekcja nie powstaje.",
   "format_przekatnej": "{n}\"",
+  "_slowo_dotyku_tytulu": "Laptop z ekranem dotykowym (Ekran dotykowy = Tak) dostaje to slowo NA POCZATKU tytulu - decyzja wlasciciela z 17.11.2026. Slowo jest chronione przed obcieciem, tak jak klasa na koncu. Puste = bez dopisku.",
+  "slowo_dotyku_tytulu": "Táctil",
   "skroty_rozdzielczosci": {
     "1920 x 1080": "FHD",
     "1920x1080": "FHD",

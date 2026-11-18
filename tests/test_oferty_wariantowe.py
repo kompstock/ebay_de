@@ -251,6 +251,46 @@ class TrzySchematyTests(unittest.TestCase):
         self.assertEqual(przypieta["baza"]["sku"], "4220")
 
 
+class PoczekalniaStronaTests(unittest.TestCase):
+    """Strona poczekalni: czytelna dla czlowieka i odporna na to, co ktos wpisze w Shoperze."""
+
+    @staticmethod
+    def wpis(powod, id_, **inne):
+        return dict({"rodzina": "W1", "opis": "Lenovo ThinkPad E15 | i5 | klasa A", "id_wystawionego": "10",
+                     "sku_wystawionego": "S10", "ram_wystawionego": 8, "dysk_wystawionego": 256,
+                     "stan_wystawionego": 40, "url_wystawionego": "https://kompre.pl/pl/p/x/10",
+                     "id": id_, "sku": "S" + id_, "ram": 8, "dysk": 256, "stan": 3, "cena_xml": 999,
+                     "cena_wystawionego": 1199, "cena_ze_wzoru": None, "powod": powod, "roznice": [],
+                     "url": "https://kompre.pl/pl/p/y/" + id_}, **inne)
+
+    def test_duble_na_gorze_roznice_obok_siebie_i_bez_wstrzykiwania(self):
+        strona = ow.strona_poczekalni([
+            self.wpis(w.POWOD_WARIANT, "12", ram=16, cena_ze_wzoru=1399),
+            self.wpis(w.POWOD_DUBEL, "11", roznice=[{"pole": "Stan obudowy", "wystawiony": "",
+                                                    "ten": "<script>alert(1)</script>"}],
+                      url="javascript:alert(1)"),
+        ], "FR", "2026-11-17 12:00 UTC")
+        self.assertLess(strona.index('id="dubel"'), strona.index('id="wariant"'))
+        self.assertNotIn("<script>", strona)
+        self.assertIn("&lt;script&gt;", strona)
+        self.assertNotIn('href="javascript:', strona)
+        self.assertIn('href="https://kompre.pl/pl/p/x/10"', strona)
+        self.assertIn("(-400.00)", strona)                 # 999 w Shoperze kontra 1399 z cennika
+        self.assertIn("Stan obudowy", strona)
+        ampersand = ow.strona_poczekalni([self.wpis(w.POWOD_DUBEL, "13", opis="Dell & HP <b>")])
+        self.assertIn("Dell &amp; HP &lt;b&gt;", ampersand)
+
+    def test_pusta_poczekalnia_tez_daje_strone(self):
+        strona = ow.strona_poczekalni([], "FR")
+        self.assertIn("<title>Poczekalnia · FR</title>", strona)
+        self.assertEqual(ow.poczekalnia_wg_powodu([])["Dubel"], 0)
+
+    def test_csv_ma_wszystkie_kolumny(self):
+        wiersz = ow.wiersze_poczekalni([self.wpis(w.POWOD_DUBEL, "11")])[0]
+        self.assertEqual(set(wiersz), set(ow.KOLUMNY_POCZEKALNI))
+        self.assertEqual((wiersz["link"], wiersz["sku_wystawionego"]), ("https://kompre.pl/pl/p/y/11", "S10"))
+
+
 class AktualizacjaTests(unittest.TestCase):
     """Codzienna aktualizacja wariantow: raport eBaya + dzisiejszy feed -> wiersze Revise."""
     NAGLOWEK = ["Item number", "Title", "Variation details", "Custom label (SKU)", "Available quantity",
@@ -374,6 +414,26 @@ class AktualizacjaTests(unittest.TestCase):
         self.assertEqual([x["Item number"] for x in wiersze if x["Action"]], sorted([self.NUMER, "307000000099"]))
         self.assertEqual(licznik["ofert_zmienionych"], 2)
 
+    def test_drobna_zmiana_ceny_wariantu_ponizej_progu_nie_idzie_do_pliku(self):
+        # 17.11.2026: kurs NBP drgnal i 126 wariantow na FR dostalo +1 EUR, a zwykle oferty
+        # tych samych baz staly - bo maja prog 'prog_zmiany_ceny_eur'. Warianty maja ten sam.
+        prog = float(self.cfg["settings"]["prog_zmiany_ceny_eur"])
+        ostatni = self.wiersze[-1]
+        tuz_ponizej = f"{float(ostatni['*StartPrice']) + prog - 0.5:.1f}"
+        wiersze, licznik = self.aktualizacja(zmiany={ostatni["CustomLabel"]: (tuz_ponizej, ostatni["*Quantity"])})
+        self.assertEqual((wiersze, licznik["zmiana_ceny"]), ([], 0))
+        # Gdy zmienia sie ilosc, wiersz idzie - ale z cena, ktora stoi na eBayu.
+        wiersze, licznik = self.aktualizacja(zmiany={ostatni["CustomLabel"]: (tuz_ponizej, "7")})
+        self.assertEqual([(x["Start price"], x["Available quantity"]) for x in wiersze if x["Relationship"]],
+                         [(tuz_ponizej, ostatni["*Quantity"])])
+        self.assertEqual(licznik["zmiana_ceny"], 0)
+        # Na progu i powyzej - cena z dzisiejszego wzoru.
+        na_progu = f"{float(ostatni['*StartPrice']) + prog:.1f}"
+        wiersze, licznik = self.aktualizacja(zmiany={ostatni["CustomLabel"]: (na_progu, ostatni["*Quantity"])})
+        self.assertEqual([float(x["Start price"]) for x in wiersze if x["Relationship"]],
+                         [float(ostatni["*StartPrice"])])
+        self.assertEqual(licznik["zmiana_ceny"], 1)
+
     def test_obce_oferty_i_inny_rynek_sa_pomijane(self):
         dodatkowe = [["305000000001", "Zwykla", "", "4220", "5", "EUR", "299.0", "", "DE"],
                      ["307282655424", "Reczna", "RAM=8 GB|SSD=480GB", "10207:ram8:disk480", "1", "EUR", "369.0", "", "DE"],
@@ -398,13 +458,16 @@ class PrzelacznikTests(unittest.TestCase):
         cls.bez, _ = cls.przebieg("pierwsze", wlaczone=False)
 
     @classmethod
-    def przebieg(cls, tryb, raport=None, wlaczone=True, feed=FEED, kraj="de", ustawienia=None):
+    def przebieg(cls, tryb, raport=None, wlaczone=True, feed=FEED, kraj="de", ustawienia=None, reczne=None):
         wynik = Path(tempfile.mkdtemp())
         polecenie = [sys.executable, str(ROOT / "src" / "generate.py"), "--kraj", kraj, "--tryb", tryb,
                      "--feed-file", str(feed), "--raport", str(raport or ROOT / "tests" / "fixtures" / "aktywne.csv"),
                      "--nbp-rate", "4.26", "--min-produktow", "1", "--output-dir", str(wynik)]
         if wlaczone:
             polecenie += ["--warianty", str(ustawienia or cls.ustawienia)]
+        plik_reczny = Path(tempfile.mkdtemp()) / "sku-reczne.csv"
+        plik_reczny.write_text("SKU;ilosc;cena\n" + (reczne or ""), encoding="utf-8")
+        polecenie += ["--sku-reczne", str(plik_reczny)]
         kod = subprocess.run(polecenie, check=False, capture_output=True)
         assert kod.returncode in (0, 2), kod.stderr.decode("utf-8", "replace")[-2000:]
         return wynik, json.loads((wynik / "generation-report.json").read_text(encoding="utf-8"))
@@ -421,6 +484,11 @@ class PrzelacznikTests(unittest.TestCase):
             wiersze = list(csv.reader(uchwyt))
         return [dict(zip(wiersze[1], x)) for x in wiersze[2:]]
 
+    # Zwykla oferta bazy: RAM i dysk jak wariant, ale z "W" z przodu - inny SKU niz
+    # wariant bazowy tej samej konfiguracji (decyzja z 17.11.2026).
+    BAZA = "WSHOPER-ID:7681-8GB-256GB"
+    WARIANT_BAZOWY = "SHOPER-ID:7681-8GB-256GB"
+
     def raport_ebay(self, zmiany=None, dodatkowe=()):
         """Raport eBaya dzien po wgraniu pliku z przebiegu 'pierwsze': zwykla oferta bazy,
         oferta wariantowa i jeden komputer. 'zmiany': SKU -> (cena, ilosc) inne niz w pliku."""
@@ -431,15 +499,15 @@ class PrzelacznikTests(unittest.TestCase):
         wyjscie, numer_wariantowej = [], "307000000002"
         for w_ in wiersze:
             sku = w_["CustomLabel"]
-            if not (sku.startswith("SHOPER-ID:7681") or sku == "3959"):
+            if not (sku.startswith(("SHOPER-ID:7681", "WSHOPER-ID:7681")) or sku == "3959"):
                 continue
             cena, ilosc = w_["*StartPrice"], w_["*Quantity"]
             if sku.endswith(":warianty"):
                 cena, ilosc = "1.0", "22"
             elif sku == "3959":
                 ilosc = "3"                      # komputer: 47 sztuk po progach stanow starej sciezki
-            cena, ilosc = (zmiany or {}).get(sku, (cena, ilosc))
             wariantowa = sku.endswith(":warianty") or w_["Relationship"] == "Variation"
+            cena, ilosc = (zmiany or {}).get(sku, (cena, ilosc))
             wyjscie.append([numer_wariantowej if wariantowa else f"30500000{len(wyjscie):04d}", "Oferta",
                             w_["RelationshipDetails"] if wariantowa else "", sku, ilosc, "EUR", cena, "", "DE"])
             self.assertIn(w_[akcja], ("Add", ""))
@@ -450,6 +518,18 @@ class PrzelacznikTests(unittest.TestCase):
             zapis.writerow(pola)
             zapis.writerows(wyjscie)
         return plik
+
+    def test_poczekalnia_w_kazdym_przebiegu_z_nowa_sciezka(self):
+        # Wlasciciel przeglada duble recznie - lista ma byc w przebiegu, nie tylko w narzedziu.
+        for plik in (ow.PLIK_POCZEKALNI_CSV, ow.PLIK_POCZEKALNI_HTML):
+            self.assertTrue((self.dodanie / plik).exists(), plik)
+            self.assertFalse((self.bez / plik).exists(), plik)
+        with (self.dodanie / ow.PLIK_POCZEKALNI_CSV).open(encoding="utf-8-sig", newline="") as uchwyt:
+            self.assertEqual(next(csv.reader(uchwyt, delimiter=";")), ow.KOLUMNY_POCZEKALNI)
+        wr = self.raport_dodania["warianty"]
+        self.assertEqual(sum(wr["poczekalnia_wg_powodu"].values()), wr["w_poczekalni"])
+        self.assertEqual(wr["poczekalnia_pliki"], [ow.PLIK_POCZEKALNI_HTML, ow.PLIK_POCZEKALNI_CSV])
+        json.dumps(wr)                                   # raport musi dac sie zapisac (Decimal!)
 
     def test_wylaczony_przelacznik_nic_nie_zmienia(self):
         domyslnie, raport = self.przebieg("pierwsze", wlaczone=False)
@@ -469,7 +549,7 @@ class PrzelacznikTests(unittest.TestCase):
         self.assertTrue(raport_fr["warianty"]["wlaczone"])
         self.assertEqual(raport_fr["blokady"], [])
         sku = [x["CustomLabel"] for x in self.add(francja)[1]]
-        self.assertIn("SHOPER-ID:7681-FRA", sku)
+        self.assertIn(self.BAZA + "-FRA", sku)
         self.assertIn("SHOPER-ID:7681:warianty-FRA", sku)
         self.assertTrue(any(s_.startswith("SHOPER-ID:7681-") and s_.endswith("GB-FRA") or
                             s_.endswith("TB-FRA") for s_ in sku), sku)
@@ -488,7 +568,7 @@ class PrzelacznikTests(unittest.TestCase):
         ciasny.write_text(json.dumps(dict(dane, budzet_pln=1000)), encoding="utf-8")
         wynik, raport = self.przebieg("pierwsze", ustawienia=ciasny)
         sku = [x["CustomLabel"] for x in self.add(wynik)[1]]
-        self.assertIn("SHOPER-ID:7681", sku)
+        self.assertIn(self.BAZA, sku)
         self.assertNotIn("SHOPER-ID:7681:warianty", sku)
         self.assertEqual(raport["pominieto"].get("wariantowa: nie miesci sie w budzecie"), 1)
         self.assertEqual(raport["warianty"]["ofert_wariantowych_w_pliku"], 0)
@@ -519,7 +599,9 @@ class PrzelacznikTests(unittest.TestCase):
         sku = [x["CustomLabel"] for x in wiersze]
         self.assertEqual(self.raport_dodania["blokady"], [])
         # zwykla oferta konfiguracji podstawowej - z sygnatura ID Shopera, ze zwykla cena i iloscia
-        zwykla = next(x for x in wiersze if x["CustomLabel"] == "SHOPER-ID:7681")
+        zwykla = next(x for x in wiersze if x["CustomLabel"] == self.BAZA and x["Relationship"] == "")
+        # SKU zwyklej oferty niesie RAM i dysk, tak jak wariant (dla magazynu)
+        self.assertEqual(zwykla[akcja], "Add")
         self.assertEqual((zwykla[akcja], zwykla["Relationship"]), ("Add", ""))
         # 51 sztuk w magazynie -> 2 na eBayu: w nowej sciezce wszystko po 2 sztuki
         self.assertTrue(float(zwykla["*StartPrice"]) > 0)
@@ -530,6 +612,9 @@ class PrzelacznikTests(unittest.TestCase):
         self.assertEqual((oferta[akcja], oferta["*StartPrice"], oferta["*Quantity"]), ("Add", "", ""))
         self.assertTrue(warianty_ and all(x[akcja] == "" for x in warianty_))
         self.assertTrue(all(x["CustomLabel"].startswith("SHOPER-ID:7681-") for x in warianty_))
+        # zwykla oferta i wariant tej samej konfiguracji: ta sama tresc dla magazynu, rozne SKU
+        self.assertIn(self.WARIANT_BAZOWY, [x["CustomLabel"] for x in warianty_])
+        self.assertEqual(len(sku), len(set(sku)), "dwa wiersze z tym samym SKU")
         # wariant bazowy kosztuje tyle samo co zwykla oferta (dubel z decyzji wlasciciela)
         self.assertEqual(warianty_[0]["*StartPrice"], zwykla["*StartPrice"])
         # wiersze wariantow stoja bezposrednio pod swoja oferta
@@ -540,7 +625,7 @@ class PrzelacznikTests(unittest.TestCase):
         self.assertNotIn("3809", sku)
         # laptop z 6 sztukami: ponizej progow stanow, wiec na razie nie wystawiamy ani zwyklej
         # oferty (ilosc bylaby 0), ani wariantowej (prog 10)
-        self.assertFalse([s_ for s_ in sku if s_.startswith("SHOPER-ID:7452")], sku)
+        self.assertFalse([s_ for s_ in sku if s_.startswith(("SHOPER-ID:7452", "WSHOPER-ID:7452"))], sku)
         self.assertEqual(self.raport_dodania["pominieto"].get("baza ponizej progu stanu"), 2)
         self.assertEqual(self.raport_dodania["warianty"]["ofert_wariantowych_w_pliku"], 1)
 
@@ -559,7 +644,7 @@ class PrzelacznikTests(unittest.TestCase):
     def test_nowe_nie_wystawia_drugi_raz(self):
         wynik, raport = self.przebieg("nowe", raport=self.raport_ebay())
         sku = [x["CustomLabel"] for x in self.add(wynik)[1]]
-        self.assertFalse([s for s in sku if s.startswith("SHOPER-ID:7681")], sku)
+        self.assertFalse([s for s in sku if s.startswith(("SHOPER-ID:7681", "WSHOPER-ID:7681"))], sku)
         self.assertEqual(raport["pominieto"].get("wariantowa: juz wystawiona"), 1)
 
     def test_aktualizacja_bez_zmian_nie_rusza_wariantow(self):
@@ -570,13 +655,15 @@ class PrzelacznikTests(unittest.TestCase):
 
     def test_aktualizacja_poprawia_wariant_i_zwykla_oferte_w_jednym_pliku(self):
         wariant = next(x for x in self.add(self.dodanie)[1] if x["Relationship"] == "Variation")
-        zmiany = {wariant["CustomLabel"]: ("9999.0", "7"), "SHOPER-ID:7681": ("9999.0", "5")}
+        self.assertEqual(wariant["CustomLabel"], self.WARIANT_BAZOWY)
+        zmiany = {wariant["CustomLabel"]: ("9999.0", "7"), self.BAZA: ("9999.0", "5")}
         stara = ["305999999999", "Stara aukcja po SKU Shopera", "", "4220", "5", "EUR", "300.0", "", "DE"]
         wynik, raport = self.przebieg("aktualizacja", raport=self.raport_ebay(zmiany, [stara]))
         self.assertEqual(raport["blokady"], [])
         for nazwa in ("ebay-revise.csv", "ebay-revise-stany.csv"):
-            wiersze = {x["Custom label (SKU)"]: x for x in self.revise(wynik, nazwa)}
-            w_ = wiersze[wariant["CustomLabel"]]
+            wiersze = {x["Custom label (SKU)"]: x for x in self.revise(wynik, nazwa) if x["Relationship"] == ""}
+            w_ = next(x for x in self.revise(wynik, nazwa)
+                      if x["Relationship"] == "Variation" and x["Custom label (SKU)"] == wariant["CustomLabel"])
             self.assertEqual((w_["Action"], w_["Relationship"], w_["Item number"]), ("", "Variation", ""), nazwa)
             oferta = wiersze["SHOPER-ID:7681:warianty"]
             self.assertEqual((oferta["Action"], oferta["Item number"], oferta["Relationship"]), ("Revise", "307000000002", ""), nazwa)
@@ -584,13 +671,51 @@ class PrzelacznikTests(unittest.TestCase):
             self.assertEqual(oferty_wariantowe_uklad(lista), "", nazwa)
             self.assertEqual((float(w_["Start price"]), w_["Available quantity"]), (float(wariant["*StartPrice"]), "2"), nazwa)
             self.assertEqual(w_["Relationship details"], wariant["RelationshipDetails"])
-            zwykla = wiersze["SHOPER-ID:7681"]
+            zwykla = wiersze[self.BAZA]
             self.assertEqual((zwykla["Relationship"], float(zwykla["Start price"])), ("", float(wariant["*StartPrice"])), nazwa)
             # zwykla oferta bazy: pelny plik mowi prawde o magazynie, plik stanow daje 2 sztuki
             self.assertEqual(zwykla["Available quantity"], "51" if nazwa == "ebay-revise.csv" else "2", nazwa)
             # dotychczasowa aukcja tego laptopa po SKU Shopera wypada z obiegu - dostaje zero
             self.assertEqual(wiersze["4220"]["Available quantity"], "0", nazwa)
 
+
+    def test_reczna_ilosc_po_starym_sku_trafia_w_nowa_oferte(self):
+        # Wpis '4220;5' z czasow starej sciezki (4220 = SKU Shopera wpisu ID 7681) dziala
+        # bez przepisywania: zwykla oferta bazy i kazdy wariant pokazuja 5 sztuk.
+        wynik, raport = self.przebieg("pierwsze", reczne="4220;5;\n")
+        wiersze = self.add(wynik)[1]
+        zwykla = next(x for x in wiersze if x["CustomLabel"] == self.BAZA and x["Relationship"] == "")
+        warianty_ = [x for x in wiersze if x["Relationship"] == "Variation"]
+        self.assertEqual(zwykla["*Quantity"], "5")
+        self.assertEqual({x["*Quantity"] for x in warianty_}, {"5"})
+        self.assertEqual(raport["sku_reczne"]["przepisane_na_oferty_shoper_id"], {self.BAZA: "4220"})
+        # ...i to samo pod nowym zapisem; 0 = nie wystawiaj wcale
+        wynik, _ = self.przebieg("pierwsze", reczne="SHOPER-ID:7681;0;\n")
+        self.assertFalse([x for x in self.add(wynik)[1] if x["CustomLabel"].startswith(("SHOPER-ID:7681", "WSHOPER-ID:7681"))])
+        # Inny rynek: '4220' to aukcja niemiecka, na Francji stary SKU brzmial '4220FRA'.
+        tylko_fr = self.katalog / "warianty-fr-reczne.json"
+        tylko_fr.write_text(json.dumps(dict(json.loads(self.ustawienia.read_text(encoding="utf-8")),
+                                            wlaczone=["fr"])), encoding="utf-8")
+        francja, _ = self.przebieg("pierwsze", kraj="fr", ustawienia=tylko_fr, reczne="4220;5;\n")
+        zwykla_fr = next(x for x in self.add(francja)[1] if x["CustomLabel"] == self.BAZA + "-FRA"
+                         and x["Relationship"] == "")
+        self.assertEqual(zwykla_fr["*Quantity"], "2")
+
+    def test_przepisany_wpis_nie_chroni_starej_aukcji(self):
+        # Stara aukcja '4220' miala wpis na liscie recznej. Laptop stoi teraz pod SKU
+        # SHOPER-ID, wiec stara aukcja ma dostac zero, a nie dalej sprzedawac obok.
+        stara = ["305999999999", "Stara aukcja", "", "4220", "7", "EUR", "300.0", "", "DE"]
+        wynik, raport = self.przebieg("aktualizacja", raport=self.raport_ebay(dodatkowe=[stara]),
+                                      reczne="4220;5;\n")
+        self.assertEqual(raport["blokady"], [])
+        for nazwa in ("ebay-revise.csv", "ebay-revise-stany.csv"):
+            wiersze = {x["Custom label (SKU)"]: x for x in self.revise(wynik, nazwa) if x["Relationship"] == ""}
+            self.assertEqual(wiersze["4220"]["Available quantity"], "0", nazwa)
+            # jeden wiersz, nie "ustaw 5" i zaraz potem "ustaw 0"
+            self.assertEqual([x["Custom label (SKU)"] for x in self.revise(wynik, nazwa)].count("4220"), 1, nazwa)
+        stany = {x["Custom label (SKU)"]: x for x in self.revise(wynik, "ebay-revise-stany.csv")
+                 if x["Relationship"] == ""}
+        self.assertEqual(stany[self.BAZA]["Available quantity"], "5")
 
     def feed_z_dublem(self):
         """Feed testowy + drugi wpis o tych samych szesciu cechach co laptop 4220 (ID 7681):
@@ -613,9 +738,9 @@ class PrzelacznikTests(unittest.TestCase):
         # Pierwsze wystawienie: z dwoch takich samych wpisow wystawiamy tanszy, drugi czeka.
         wynik, raport = self.przebieg("pierwsze", feed=self.feed_z_dublem())
         sku = [x["CustomLabel"] for x in self.add(wynik)[1]]
-        self.assertIn("SHOPER-ID:99001", sku)
+        self.assertIn("WSHOPER-ID:99001-8GB-256GB", sku)
         self.assertIn("SHOPER-ID:99001:warianty", sku)
-        self.assertFalse([s_ for s_ in sku if s_.startswith("SHOPER-ID:7681")], sku)
+        self.assertFalse([s_ for s_ in sku if s_.startswith(("SHOPER-ID:7681", "WSHOPER-ID:7681"))], sku)
         self.assertNotIn("4220", sku)                         # wpis z poczekalni nie jest wystawiany wcale
         self.assertNotIn("KLON", sku)
         self.assertEqual(raport["warianty"]["w_poczekalni"], 1)
@@ -627,11 +752,12 @@ class PrzelacznikTests(unittest.TestCase):
         feed = self.feed_z_dublem()
         nowe, raport = self.przebieg("nowe", raport=self.raport_ebay(), feed=feed)
         sku = [x["CustomLabel"] for x in self.add(nowe)[1]]
-        self.assertFalse([s_ for s_ in sku if s_.startswith(("SHOPER-ID:99001", "SHOPER-ID:7681"))], sku)
+        self.assertFalse([s_ for s_ in sku if s_.startswith(("SHOPER-ID:99001", "SHOPER-ID:7681", "WSHOPER-ID:99001", "WSHOPER-ID:7681"))], sku)
         self.assertEqual(raport["warianty"]["w_poczekalni"], 1)
         akt, raport_akt = self.przebieg("aktualizacja", raport=self.raport_ebay(), feed=feed)
         self.assertEqual(raport_akt["blokady"], [])
-        ruszone = [x["Custom label (SKU)"] for x in self.revise(akt) if x["Custom label (SKU)"].startswith("SHOPER-ID:7681-")]
+        ruszone = [x["Custom label (SKU)"] for x in self.revise(akt)
+                   if x["Relationship"] == "Variation" and x["Custom label (SKU)"].startswith("SHOPER-ID:7681-")]
         self.assertEqual(ruszone, [])                         # warianty bez zmian: ta sama baza, te same ceny
 
 

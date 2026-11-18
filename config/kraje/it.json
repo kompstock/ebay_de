@@ -51,6 +51,8 @@
   },
   "_slowa": "'Sì' i 'No' oraz 'Unità' sa z listy dozwolonych wartosci w szablonie IT. 'Non applicabile' to pole tekstowe (MPN), wiec eBay nie sprawdza go slownikiem - potwierdzi je dopiero VerifyAdd.",
   "format_przekatnej": "{n}\"",
+  "_slowo_dotyku_tytulu": "Laptop z ekranem dotykowym (Ekran dotykowy = Tak) dostaje to slowo NA POCZATKU tytulu - decyzja wlasciciela z 17.11.2026. Slowo jest chronione przed obcieciem, tak jak klasa na koncu. Puste = bez dopisku.",
+  "slowo_dotyku_tytulu": "Touchscreen",
   "_format_przekatnej": "Wlosi zapisuja przekatna jako '15,6\"', Niemcy jako '15,6 Zoll'. Aspekt WYMAGANY - zly format to odrzucona oferta.",
   "_profile_kraju": "Nakladka jezykowa na 'profile_produktu' z settings.json. Klucze musza sie zgadzac z nazwami profili. Tu wchodzi tylko to, co czyta kupujacy albo slownik eBaya - reszta profilu (reguly, ConditionID, kategorie) zostaje wspolna. PUSTE: czeka na tlumaczenia od Marka.",
   "profile_kraju": {

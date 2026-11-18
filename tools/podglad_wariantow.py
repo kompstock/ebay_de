@@ -35,6 +35,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
 import generate as g      # noqa: E402
+import oferty_wariantowe  # noqa: E402
 import warianty           # noqa: E402
 
 TYP_LAPTOPA = "Notebook"
@@ -119,21 +120,7 @@ def main() -> int:
                 "stan", "stan_bazy", "sku_ebay", "sku_oferty_ebay", "id_shoper", "sku_shoper", "limit",
                 "braki_cennika"], podglad)
 
-    wiersze_pocz = [{
-        "rodzina": p["rodzina"], "opis": p["opis"], "id_wystawionego": p["id_wystawionego"],
-        "id_shoper": p["id"], "sku_shoper": p["sku"],
-        "ram_gb": p["ram"], "dysk_gb": p["dysk"], "stan": p["stan"],
-        "cena_xml": zl(p["cena_xml"]), "cena_wystawionego": zl(p["cena_wystawionego"]),
-        "cena_ze_wzoru": zl(p["cena_ze_wzoru"]),
-        "xml_minus_wzor": zl(p["cena_xml"] - p["cena_ze_wzoru"]) if p["cena_ze_wzoru"] is not None else "",
-        "co_to_jest": p["powod"], "ile_roznic": len(p["roznice"]),
-        "roznice": " || ".join(f"{x['pole']}: wystawiony [{x['wystawiony'] or '-'}] / ten [{x['ten'] or '-'}]"
-                               for x in p["roznice"]),
-    } for p in poczekalnia]
-    zapisz_csv(args.output_dir / "warianty-poczekalnia.csv",
-               ["rodzina", "opis", "id_wystawionego", "id_shoper", "sku_shoper", "ram_gb", "dysk_gb", "stan",
-                "cena_xml", "cena_wystawionego", "cena_ze_wzoru", "xml_minus_wzor", "co_to_jest",
-                "ile_roznic", "roznice"], wiersze_pocz)
+    oferty_wariantowe.zapisz_poczekalnie(args.output_dir, poczekalnia)
 
     zapisz_csv(args.output_dir / "warianty-modele.csv", warianty.KOLUMNY_LISTY_MODELI,
                warianty.lista_modeli(laptopy, rodziny, cennik, limity, funkcje))

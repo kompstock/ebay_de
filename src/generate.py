@@ -1224,13 +1224,18 @@ def build_title(attrs: dict, settings: dict, aspects: dict,
             normalize_space((profil or {}).get("dopisek_tytulu", "")),
             klasa]
     ogon_tekst = normalize_space(" ".join(x for x in ogon if x))
-    limit = 80 - (len(ogon_tekst) + 1 if ogon_tekst else 0)
+    # Ekran dotykowy: slowo rynku ('Touchscreen', 'Tactile', 'Táctil') NA POCZATKU
+    # tytulu - decyzja wlasciciela z 17.11.2026. Chronione jak ogon: to cecha, ktora
+    # kupujacy filtruje, a przy dlugiej nazwie modelu ucieloby ja skracanie od konca.
+    glowa = (normalize_space(settings.get("slowo_dotyku_tytulu", ""))
+             if normalize_space(attrs.get("Ekran dotykowy", "")) == "Tak" else "")
+    limit = 80 - (len(ogon_tekst) + 1 if ogon_tekst else 0) - (len(glowa) + 1 if glowa else 0)
     # Skracamy CALYMI czlonami, nie slowami. Ciecie w polowie czlonu dawalo
     # smieci: "13,3" bez "Zoll", "256 GB" bez "SSD".
     czlony = [normalize_space(x) for x in parts if normalize_space(x)]
     while czlony and len(" ".join(czlony)) > limit:
         czlony.pop()
-    title = normalize_space(" ".join(czlony))
+    title = normalize_space(" ".join([glowa] + czlony))
     return normalize_space(f"{title} {ogon_tekst}") if ogon_tekst else title
 def build_row(offer, attrs, cfg, headers, review, pamiec: dict | None = None):
     settings, translations = cfg["settings"], cfg["translations"]
@@ -2050,7 +2055,7 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
             for sku in sku_zdublowane:
                 review.add("konflikt", sku, "ten sam SKU ma kilka aktywnych aukcji - pomijam")
     # Oferty wariantowe (config/warianty.json, 'wlaczone'): laptopy przechodza na nowa
-    # sciezke. Wpis bazowy rodziny dostaje SKU 'SHOPER-ID:<ID>' i idzie dalej jak kazdy
+    # sciezke. Wpis bazowy rodziny dostaje SKU 'WSHOPER-ID:<ID>-<RAM>-<dysk>' i idzie dalej jak kazdy
     # produkt, wpisy z poczekalni znikaja z listy. Wylaczone = nic sie tu nie dzieje.
     plan_wariantow = None
     ten_modul = sys.modules[__name__]
@@ -2064,6 +2069,13 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
             sufiks_gw=SUFIKS_GW)
         produkty = plan_wariantow["produkty"]
         skipped["laptop w poczekalni"] += len(plan_wariantow["poczekalnia"])
+        # Reczne ilosci (sku-reczne.csv) przepisane na oferty SHOPER-ID - takze wpisy
+        # po starym SKU Shopera. Ustawia tez ilosc wariantow tej rodziny.
+        plan_wariantow["reczne"] = oferty_wariantowe.reczne_ilosci(plan_wariantow, reczne)
+    reczne_bazy = plan_wariantow["reczne"] if plan_wariantow else {}
+    # Stare SKU, ktore przepisalismy na nowe oferty: nie chronia juz starej aukcji
+    # przed zerowaniem - ten laptop stoi teraz pod SKU 'WSHOPER-ID'.
+    reczne_przepisane = {x["wpis"] for x in reczne_bazy.values()}
     # Duplikaty rozstrzygamy TU, przed budowaniem wierszy: wstrzymana oferta
     # ma w ogole nie trafic na eBay. Krok nie zabiera zadnej aukcji - modul
     # nigdy nie wstrzymuje SKU aktywnego, a nieaktywne nie podlega zerowaniu
@@ -2085,6 +2097,12 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
         # w kartotece, a komplet duplikatow stoi w osobnym duplikaty.csv.
         skipped["duplikat: nie wystawiamy"] += len(wstrzymane)
     output_dir.mkdir(parents=True, exist_ok=True)
+    if plan_wariantow:
+        # Poczekalnia w kazdym przebiegu rynku z nowa sciezka, takze pusta - strona
+        # z plikami linkuje do niej na stale, wiec link nie moze prowadzic donikad.
+        oferty_wariantowe.zapisz_poczekalnie(
+            output_dir, plan_wariantow["poczekalnia"], (cfg.get("kraj") or {}).get("kod", ""),
+            datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"))
     wiersze_add: list[dict] = []
     wiersze_revise: list[dict] = []
     wiersze_ograniczone: list[dict] = []
@@ -2124,11 +2142,14 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
                 # Na rynku z nowa sciezka oferta wchodzi na eBay od razu z iloscia, ktora
                 # i tak dostalaby nazajutrz z pliku stanow - pelny stan w pliku Add
                 # (np. 923 sztuki) zjadlby limit sprzedazy jedna oferta. Zwykla oferta
-                # wpisu bazowego ('SHOPER-ID:<ID>') liczy sie jak warianty: od progu
+                # wpisu bazowego ('WSHOPER-ID:<ID>-...') liczy sie jak warianty: od progu
                 # stanu bazy, stala liczba sztuk. Reszta (komputery, GW24) - wedlug progow
                 # stanow starej sciezki. Ilosc 0 = nie wystawiamy, eBay jej nie przyjmie.
                 stan_w_magazynie = int(wiersz["*Quantity"])
-                if attrs.get("SKU", "").startswith(warianty.PRZEDROSTEK_SKU):
+                if attrs.get("SKU", "") in reczne_bazy:
+                    ilosc_startowa = min(reczne_bazy[attrs["SKU"]]["ilosc"], stan_w_magazynie)
+                    powod_pominiecia = "reczna ilosc 0"
+                elif attrs.get("SKU", "").startswith(warianty.PRZEDROSTKI_SKU):
                     ilosc_startowa = warianty.ilosc_na_ebay(stan_w_magazynie, cennik_wariantow)
                     powod_pominiecia = "baza ponizej progu stanu"
                 else:
@@ -2222,8 +2243,8 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
             # zero, wiec dziedziczenie po numerze bazowym nie chronilo by wloskiej
             # aukcji, tylko ja zerowalo. Sprawdzone na raporcie z 21.10.2026: zdjeloby
             # 3 zywe aukcje IT, ktore maja wpis bazowy (DE wycofane), a wloskiego nie.
-            wpisana = reczne.get(sku)
-            if plan_wariantow and sku.startswith(warianty.PRZEDROSTEK_SKU):
+            wpisana = reczne_bazy[sku]["ilosc"] if sku in reczne_bazy else reczne.get(sku)
+            if plan_wariantow and sku.startswith(warianty.PRZEDROSTKI_SKU) and sku not in reczne_bazy:
                 # Zwykla oferta wpisu bazowego w nowej sciezce: ta sama zasada co warianty.
                 ilosc_ograniczona = warianty.ilosc_na_ebay(nowa_ilosc, cennik_wariantow)
             elif wpisana is None:
@@ -2258,7 +2279,7 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
         # tylko ilosci. Ceny NIE rusza - nie ma skad znac ceny takiego towaru,
         # a nadpisanie jej byloby zgadywaniem. Bierzemy te, ktora jest na aukcji.
         for sku, ilosc in sorted(reczne.items()):
-            if sku in w_feedzie or ilosc is None:
+            if sku in w_feedzie or ilosc is None or sku in reczne_przepisane:
                 continue
             biezaca = aktywne.get(sku)
             if not biezaca or biezaca["ilosc"] == ilosc:
@@ -2275,7 +2296,7 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
             wiersze_revise.append(wiersz)
             wiersze_ograniczone.append(dict(wiersz))
         for sku, biezaca in aktywne.items():
-            if sku in w_feedzie or biezaca["ilosc"] == 0 or sku in reczne:
+            if sku in w_feedzie or biezaca["ilosc"] == 0 or (sku in reczne and sku not in reczne_przepisane):
                 continue
             zerowane += 1
             wiersz = {
@@ -2341,6 +2362,17 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
                                         "numery": sorted(wariantowe)[:50]},
         "warianty": ({"wlaczone": True, "rodzin": len(plan_wariantow["rodziny"]),
                       "w_poczekalni": len(plan_wariantow["poczekalnia"]),
+                      "poczekalnia_wg_powodu": oferty_wariantowe.poczekalnia_wg_powodu(
+                          plan_wariantow["poczekalnia"]),
+                      "poczekalnia_duble": [
+                          {"opis": p["opis"], "id_wystawionego": p["id_wystawionego"], "id": p["id"],
+                           "sku": p["sku"], "cena_xml": float(p["cena_xml"]),
+                           "cena_wystawionego": float(p["cena_wystawionego"]), "roznic": len(p["roznice"]),
+                           "pola": [x["pole"] for x in p["roznice"]][:6]}
+                          for p in plan_wariantow["poczekalnia"]
+                          if p["powod"] == warianty.POWOD_DUBEL][:40],
+                      "poczekalnia_pliki": [oferty_wariantowe.PLIK_POCZEKALNI_HTML,
+                                            oferty_wariantowe.PLIK_POCZEKALNI_CSV],
                       "ofert_wariantowych_w_pliku": plan_wariantow["ofert_w_pliku"],
                       "budzet_pln": plan_wariantow.get("budzet_pln"),
                       "wartosc_ofert_wariantowych_pln": plan_wariantow.get("wartosc_pln"),
@@ -2362,6 +2394,7 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
             "poprawiono_ilosc": reczne_poprawione,
             "nadpisaly_prog_w_pliku_stanow": reczne_z_feedu,
             "przyciete_do_stanu_magazynu": reczne_przyciete[:20],
+            "przepisane_na_oferty_shoper_id": {k: v["wpis"] for k, v in sorted(reczne_bazy.items())},
             # Feed ma pierwszenstwo - inaczej lista po cichu zamrazalaby stan
             # prawdziwego produktu, gdyby jego kategoria kiedys doszla do feedu.
             "w_feedzie_wiec_prawdziwy_plik_bez_zmian": sorted(s for s in reczne if s in w_feedzie_all),

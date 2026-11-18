@@ -159,6 +159,11 @@ function rysuj(r, baza) {
     ["Do wystawienia", r.do_wystawienia],
     ["Do aktualizacji", r.do_aktualizacji + (r.w_tym_zerowanych ? " (w tym " + r.w_tym_zerowanych + " zerowanych)" : "")],
     ...(r.stany_ograniczone ? [["W pliku ze stanami", r.do_aktualizacji_ograniczone + " (" + r.stany_ograniczone.opis + ")"]] : []),
+    ...(r.warianty && r.warianty.wlaczone ? [["Oferty wariantowe", r.warianty.rodzin + " rodzin" +
+        (r.warianty.ofert_wariantowych_w_pliku ? ", " + r.warianty.ofert_wariantowych_w_pliku + " nowych w pliku" : "")],
+      ["W poczekalni", '<a href="' + baza + 'warianty-poczekalnia.html">' + r.warianty.w_poczekalni +
+        (r.warianty.poczekalnia_wg_powodu ? " (dubli: " + (r.warianty.poczekalnia_wg_powodu["Dubel"] || 0) + ")" : "") +
+        " – zobacz</a>"]] : []),
     ["Kurs NBP", r.nbp.rate + " (" + r.nbp.effective_date + ")"],
     ...(r.model_ceny ? [["Model ceny", r.model_ceny.opis]] : []),
     ["Pozycji do uzupełnienia", r.review_items]
@@ -173,6 +178,10 @@ function rysuj(r, baza) {
   // Plik pomocniczy tylko wtedy, gdy przebieg go zrobił - inaczej link byłby ślepy.
   if (r.stany_ograniczone) {
     pliki.push([r.stany_ograniczone.plik, "To samo, ale ilości " + r.stany_ograniczone.opis]);
+  }
+  if (r.warianty && r.warianty.poczekalnia_pliki) {
+    pliki.push(["warianty-poczekalnia.html", "Poczekalnia: duble i wpisy niewystawione, z różnicami — do czytania"],
+               ["warianty-poczekalnia.csv", "To samo w CSV, do Excela"]);
   }
   pliki.push(
     ["review.csv", "Czego brakuje w słownikach"],

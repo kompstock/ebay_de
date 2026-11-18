@@ -71,6 +71,8 @@
   },
   "faq_windows": "<details><summary>Windows est-il activ&eacute; de mani&egrave;re permanente&nbsp;?</summary><div class=\"kpx-a\">Oui. La licence num&eacute;rique est enregistr&eacute;e dans l&rsquo;appareil et reste active m&ecirc;me apr&egrave;s une r&eacute;initialisation de Windows.</div></details>",
   "format_przekatnej": "{n}\"",
+  "_slowo_dotyku_tytulu": "Laptop z ekranem dotykowym (Ekran dotykowy = Tak) dostaje to slowo NA POCZATKU tytulu - decyzja wlasciciela z 17.11.2026. Slowo jest chronione przed obcieciem, tak jak klasa na koncu. Puste = bez dopisku.",
+  "slowo_dotyku_tytulu": "Tactile",
   "jednostki_pojemnosci": {
     "GB": "Go",
     "TB": "To",

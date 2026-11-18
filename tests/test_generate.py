@@ -2503,6 +2503,37 @@ class KlasaWTytule(unittest.TestCase):
         self.assertTrue(tytul.endswith("Win11 Garantie A"), tytul)
 
 
+    def test_dotyk_na_poczatku_tytulu_w_jezyku_rynku(self):
+        """Decyzja wlasciciela z 17.11.2026: ekran dotykowy na poczatku tytulu, na kazdym
+        rynku w jego jezyku, chroniony przed obcieciem tak jak klasa na koncu."""
+        g = self.modul()
+        aspects = {"sufiks_tytulu": {"Windows 11 Pro": "Win11"}}
+        attrs = {"Producent": "Lenovo", "Model": "ThinkPad X380 Yoga bardzo dlugi model " * 3,
+                 "Procesor": "i5-8350U, 6MB Cache, 8 gen.", "Ilość pamięci RAM": "8GB",
+                 "Dysk": "256GB", "Typ dysku": "SSD", "Zainstalowany system": "Windows 11 Pro",
+                 "Kondycja sprzętu": "[Klasa A] laptop", "Ekran dotykowy": "Tak"}
+        profil = {"klasa_w_tytule": True}
+        for kraj in ("de", "it", "es", "fr"):
+            ustawienia = g.load_json(ROOT / "config" / "kraje" / f"{kraj}.json")
+            slowo = ustawienia["slowo_dotyku_tytulu"]
+            self.assertTrue(slowo, kraj)
+            tytul = g.build_title(attrs, ustawienia, aspects, profil)
+            self.assertTrue(tytul.startswith(slowo + " Lenovo"), (kraj, tytul))
+            self.assertLessEqual(len(tytul), 80, tytul)
+            self.assertTrue(tytul.endswith("Win11 A"), tytul)
+        bez = dict(attrs, **{"Ekran dotykowy": "Nie"})
+        self.assertTrue(g.build_title(bez, {"slowo_dotyku_tytulu": "Tactile"}, aspects, profil).startswith("Lenovo"))
+        # rynek bez ustawionego slowa - tytul jak dotad
+        self.assertTrue(g.build_title(attrs, {}, aspects, profil).startswith("Lenovo"))
+        # Slowo zabiera miejsce danym technicznym, nigdy nie przebija limitu 80 znakow -
+        # przy kazdej dlugosci nazwy modelu.
+        for dlugosc in range(4, 60):
+            dlugi = dict(attrs, Model="X" * dlugosc)
+            tytul = g.build_title(dlugi, {"slowo_dotyku_tytulu": "Touchscreen"}, aspects, profil)
+            self.assertLessEqual(len(tytul), 80, tytul)
+            self.assertTrue(tytul.startswith("Touchscreen ") and tytul.endswith(" A"), tytul)
+
+
 class SkrotSystemuWTytule(unittest.TestCase):
     """W tytule ma byc samo 'Win11' albo 'Win10', bez Pro i Home.
 

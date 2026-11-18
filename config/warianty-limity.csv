@@ -1,6 +1,7 @@
 # Modele z ograniczona rozbudowa. Wpisujesz wiersz POD naglowkiem, bez znaku # na poczatku.
 #
 # model     - nazwa jak w feedzie, z marka albo bez: Lenovo ThinkPad E15 Gen 2
+#             gwiazdka na koncu = cala seria, takze przyszle modele: Dell XPS*
 # procesor  - puste = caly model; wpisany (np. i5-1135G7) = tylko ten procesor;
 #             fragment nazwy (np. Ryzen 5 albo Intel) = wszystkie takie procesory w tym modelu
 # max_ram   - puste = regula domyslna; liczba = najwyzej tyle GB; 0 = RAM-u nie ruszamy
@@ -10,6 +11,8 @@
 # Calkowity brak rozbudowy modelu:        Dell Latitude 7400;;0;0;wlutowany RAM
 # RAM najwyzej 16 GB, dysk bez zmian:     Lenovo ThinkPad E15 Gen 2;;16;;
 # Tylko ten procesor, dysk najwyzej 960:  HP EliteBook 840 G6;i5-8365U;;960;
+# Cala seria bez rozbudowy:              Dell XPS*;;0;0;
+# (wiersz konkretnego modelu wygrywa z wierszem serii)
 #
 # Model mozna wpisac ZAWCZASU, zanim pojawi sie w feedzie - wtedy od pierwszego
 # dnia wystawi sie juz z ograniczeniem. Wiersz 'model + procesor' wygrywa z wierszem
@@ -20,3 +23,13 @@ Lenovo ThinkPad T14 Gen 1;Ryzen 5;24;;8 GB wlutowane + 1 gniazdo, kosc najwyzej 
 Lenovo ThinkPad T14 Gen 1;Intel;24;;8 GB wlutowane + 1 gniazdo, kosc najwyzej 16 GB
 Lenovo ThinkPad T14 Gen 2;Ryzen 5;24;;8 GB wlutowane + 1 gniazdo, kosc najwyzej 16 GB
 Lenovo ThinkPad T14 Gen 2;Intel;24;;8 GB wlutowane + 1 gniazdo, kosc najwyzej 16 GB
+Lenovo ThinkPad T14s Gen 1;;0;0;bez rozbudowy - decyzja z 17.11.2026
+Lenovo ThinkPad T14s Gen 2;;0;0;bez rozbudowy - decyzja z 17.11.2026
+Lenovo ThinkPad T14s Gen 3;;0;0;bez rozbudowy - decyzja z 17.11.2026
+Lenovo ThinkPad T14s Gen 4;;0;0;bez rozbudowy - decyzja z 17.11.2026
+Microsoft Surface*;;0;0;wszystkie Surface bez rozbudowy RAM i dysku - decyzja z 18.11.2026
+Dell XPS*;;0;0;wszystkie XPS bez rozbudowy RAM i dysku - decyzja z 18.11.2026
+Lenovo ThinkPad X13 Gen1;;0;;RAM wlutowany - dopisane 17.11.2026, do potwierdzenia
+Lenovo ThinkPad X13 Gen. 2;;0;;RAM wlutowany - dopisane 17.11.2026, do potwierdzenia
+Lenovo ThinkPad X13 Gen3;;0;;RAM wlutowany - dopisane 17.11.2026, do potwierdzenia
+Lenovo ThinkPad Yoga X380;;0;;RAM wlutowany - dopisane 17.11.2026, do potwierdzenia

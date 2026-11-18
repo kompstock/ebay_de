@@ -214,6 +214,31 @@ class LimityTests(unittest.TestCase):
         for wpis in ("ThinkPad E15", "ThinkPad E15 Gen 3", "E15 Gen 2"):
             self.assertEqual(self.limit([{"model": wpis, "max_ram": 0}])["max_ram"], 32, wpis)
 
+    def test_seria_z_gwiazdka_obejmuje_kazdy_model_serii(self):
+        # 18.11.2026: "wszystkie Surface i XPS bez rozbudowy" - takze modele, ktore dopiero przyjda.
+        xps = {"Producent": "Dell"}
+        for model in ("XPS 13 9310", "XPS 15 9500", "XPS 13 7390"):
+            for wpis in ("Dell XPS*", "XPS*", "dell xps *"):
+                wynik = self.limit([{"model": wpis, "max_ram": 0, "max_dysk": 0}], Model=model, **xps)
+                self.assertEqual((wynik["max_ram"], wynik["max_dysk"]), (0, 0), (model, wpis))
+        surface = self.limit([{"model": "Microsoft Surface*", "max_ram": 0, "max_dysk": 0}],
+                             Producent="Microsoft", Model="Surface laptop 3 (1868)")
+        self.assertEqual((surface["max_ram"], surface["max_dysk"]), (0, 0))
+        # inna seria tej samej marki zostaje bez zmian
+        latitude = self.limit([{"model": "Dell XPS*", "max_ram": 0, "max_dysk": 0}],
+                              Model="Latitude 7420", **xps)
+        self.assertEqual((latitude["max_ram"], latitude["max_dysk"]), (32, None))
+        # bez gwiazdki dopasowanie dalej dokladne
+        self.assertEqual(self.limit([{"model": "Dell XPS", "max_ram": 0}], Model="XPS 13 9310", **xps)["max_ram"], 32)
+
+    def test_wiersz_modelu_wygrywa_z_wierszem_serii(self):
+        wiersze = [{"model": "Dell XPS*", "max_ram": 0, "max_dysk": 0},
+                   {"model": "Dell XPS 15 9500", "max_ram": 16}]
+        wynik = self.limit(wiersze, Producent="Dell", Model="XPS 15 9500")
+        self.assertEqual((wynik["max_ram"], wynik["max_dysk"], wynik["zrodlo"]), (16, None, "lista, wiersz 3"))
+        reszta = self.limit(wiersze, Producent="Dell", Model="XPS 13 9310")
+        self.assertEqual((reszta["max_ram"], reszta["max_dysk"]), (0, 0))
+
     def test_wiersz_z_procesorem_wygrywa_z_wierszem_modelu(self):
         # Wartosci wiersza z procesorem sa celowo INNE niz (0, 0): tyle samo zwraca
         # blad "dwa wiersze tego samego modelu", wiec zero niczego by nie dowodzilo.
@@ -371,6 +396,49 @@ class RodzinyTests(unittest.TestCase):
         self.assertEqual(ceny(po), {(16, 480): 1599, (16, 960): 1949, (16, 2000): 2299,
                                     (32, 480): 1999, (32, 960): 2349, (32, 2000): 2699})
 
+    BEZ_RAM = [{"model": "ThinkPad E15 Gen 2", "procesor": "", "max_ram": 0, "max_dysk": None,
+                "uwagi": "", "wiersz": 2}]
+
+    def test_wiekszy_ram_w_modelu_bez_rozbudowy_dostaje_wlasna_oferte(self):
+        # 17.11.2026: T14 Gen 1 Ryzen 5 bez rozbudowy RAM-u. Baza 8 GB, a wpisy 24 GB
+        # (227 sztuk) wypadlyby z eBaya jako "takiej konfiguracji nie ma w ofercie".
+        wynik = rodziny([laptop("OSIEM", id_="1"), laptop("DWADZIESCIA4", id_="2", ram="24GB", dysk="500GB",
+                                                          cena="1599", stan="99"),
+                         laptop("DWADZIESCIA4-1TB", id_="3", ram="24GB", dysk="1TB", cena="1899", stan="128")],
+                        limity=self.BEZ_RAM)
+        bazy = {r["id_bazy"]: r for r in wynik["rodziny"]}
+        self.assertEqual(set(bazy), {"1", "2"})
+        self.assertEqual({v["ram"] for v in bazy["1"]["warianty"]}, {8})
+        self.assertEqual({v["ram"] for v in bazy["2"]["warianty"]}, {24})
+        # 24/1TB jest wariantem rodziny 24/500, a nie zgubionym wpisem
+        self.assertEqual([(p["id"], p["powod"], p["id_wystawionego"]) for p in wynik["poczekalnia"]],
+                         [("3", w.POWOD_WARIANT, "2")])
+        self.assertNotEqual(bazy["1"]["id"], bazy["2"]["id"])
+        self.assertFalse(any(p["powod"] == w.POWOD_SPOZA for p in wynik["poczekalnia"]))
+
+    def test_mniejszy_ram_pod_przypieta_baza_bez_rozbudowy_tez_nie_czeka(self):
+        # Oferta stoi na 24 GB, dochodzi 8 GB. Bez rozbudowy RAM-u oferty nie maja ani jednej
+        # wspolnej konfiguracji - to dwa rozne towary, nic sie nie dubluje.
+        duzy = laptop("DUZY", id_="10355", ram="24GB", dysk="512GB", cena="1599")
+        maly = laptop("MALY", id_="10207")
+        wynik = rodziny([duzy, maly], limity=self.BEZ_RAM, przypiete={"10355"})
+        self.assertEqual({r["id_bazy"] for r in wynik["rodziny"]}, {"10355", "10207"})
+        self.assertEqual(wynik["poczekalnia"], [])
+        # Z rozbudowa RAM-u wspolne konfiguracje sa (oba siegaja 16/32 GB) - wtedy czeka, jak dotad.
+        szesnascie = laptop("DUZY", id_="10355", ram="16GB", dysk="512GB", cena="1599")
+        z_rozbudowa = rodziny([szesnascie, maly], przypiete={"10355"})
+        self.assertEqual([p["powod"] for p in z_rozbudowa["poczekalnia"]], [w.POWOD_MNIEJSZA])
+
+    def test_poczekalnia_pokazuje_link_i_wystawiony_wpis(self):
+        a = laptop("A1", id_="1")
+        a[0].set("url", "https://kompre.pl/pl/p/a/1")
+        b = laptop("A2", id_="2", cena="1299", Bateria="nowa")
+        b[0].set("url", "https://kompre.pl/pl/p/b/2")
+        czeka = rodziny([a, b])["poczekalnia"][0]
+        self.assertEqual((czeka["url"], czeka["url_wystawionego"], czeka["sku_wystawionego"]),
+                         ("https://kompre.pl/pl/p/b/2", "https://kompre.pl/pl/p/a/1", "A1"))
+        self.assertEqual((czeka["ram_wystawionego"], czeka["dysk_wystawionego"]), (8, 256))
+
     def test_inna_klasa_to_osobna_rodzina(self):
         wynik = rodziny([laptop("A-"), laptop("A", cena="1399", **{"Kondycja sprzętu": "[Klasa A] laptop"})])
         self.assertEqual(sorted(r["klasa"] for r in wynik["rodziny"]), ["A", "A-"])
@@ -454,8 +522,16 @@ class RodzinyTests(unittest.TestCase):
                          {"id": "10207", "oferta": False, "zwykla": False, "ram": 16, "dysk": 2000,
                           "dopiski": ["GW24", "ITT"]})
         # Zwykla oferta konfiguracji podstawowej: sama sygnatura i ID.
-        self.assertEqual(w.sku_bazy("10207"), "SHOPER-ID:10207")
-        self.assertEqual(w.sku_bazy("10207", ["ITT"]), "SHOPER-ID:10207-ITT")
+        # 17.11.2026: zwykla oferta bazy tez niesie RAM i dysk - dla magazynu - ale z "W"
+        # z przodu, zeby nie miala tego samego SKU co wariant tej konfiguracji.
+        self.assertEqual(w.sku_bazy("10207", 8, 256), "WSHOPER-ID:10207-8GB-256GB")
+        self.assertEqual(w.sku_bazy("10207", 8, 256, ["ITT"]), "WSHOPER-ID:10207-8GB-256GB-ITT")
+        self.assertNotEqual(w.sku_bazy("10207", 16, 1000), w.sku_wariantu("10207", 16, 1000))
+        self.assertLessEqual(len(w.sku_bazy("99999", 64, 960, ["GW24", "SPAIN"])), 50)
+        # z raportu: zwykla oferta, przypieta po ID tak samo jak warianty
+        self.assertEqual(w.rozloz_sku("WSHOPER-ID:10207-8GB-2TB-FRA"),
+                         {"id": "10207", "oferta": False, "zwykla": True, "ram": 8, "dysk": 2000,
+                          "dopiski": ["FRA"]})
         self.assertEqual(w.rozloz_sku("SHOPER-ID:10207-ITT"),
                          {"id": "10207", "oferta": False, "zwykla": True, "ram": None, "dysk": None,
                           "dopiski": ["ITT"]})
@@ -464,7 +540,8 @@ class RodzinyTests(unittest.TestCase):
             self.assertEqual(w.rozloz_sku(wariant)["id"], "10207", wariant)
         # SKU zwyklych aukcji i oferty testowej ze starego formatu to nie nasza sygnatura.
         for obce in ("4553_20260216084009", "10207:warianty", "10207-8GB-480GB", "3888_20250724125241GW24ITT",
-                     "SHOPER-ID:", "SHOPER-ID:abc-8GB-480GB", "", None):
+                     "SHOPER-ID:", "SHOPER-ID:abc-8GB-480GB", "", None,
+                     "WSHOPER-ID:10207:warianty", "WSHOPER-ID:10207-FRA", "WWSHOPER-ID:10207-8GB-256GB"):
             self.assertIsNone(w.rozloz_sku(obce), obce)
 
     def test_wpis_bez_id_shopera_nie_dostaje_oferty_wariantowej(self):

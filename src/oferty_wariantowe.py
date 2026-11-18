@@ -330,6 +330,7 @@ def wiersze_aktualizacji(rodziny: list[dict], na_ebay: dict[str, dict], cfg: dic
     """
     wg_bazy = {r["id_bazy"]: r for r in rodziny}
     listing_site = cfg["settings"]["listing_site"]
+    prog_ceny = float(cfg["settings"].get("prog_zmiany_ceny_eur", 0) or 0)
     wiersze = []
     licznik = {"ofert": len(na_ebay), "bez_zmian": 0, "zmiana_ceny": 0, "zmiana_ilosci": 0,
                "wyzerowane": 0, "oferty_bez_wpisu_bazowego": [], "brakujace_warianty": 0}
@@ -346,6 +347,11 @@ def wiersze_aktualizacji(rodziny: list[dict], na_ebay: dict[str, dict], cfg: dic
         zmienione = []
         for v in oferta["warianty"]:
             cena, ilosc = dzis.get(v["sku"], (v["cena"], 0))
+            # Ten sam prog co przy zwyklych aukcjach ('prog_zmiany_ceny_eur'): bez niego
+            # kazde drgniecie kursu NBP dawalo ~130 wierszy wariantow dziennie, a zwykla
+            # oferta tej samej bazy stala bez zmian.
+            if abs(cena - v["cena"]) < prog_ceny:
+                cena = v["cena"]
             if cena == v["cena"] and ilosc == v["ilosc"]:
                 licznik["bez_zmian"] += 1
                 continue
@@ -381,7 +387,7 @@ def przygotuj(produkty: list, cfg: dict, g, cennik: dict, limity: list[dict],
 
     Zwraca plan: 'produkty' (lista dla dalszej czesci generatora), 'rodziny',
     'poczekalnia', 'dopiski'. Na liscie produktow:
-      * wpis bazowy kazdej rodziny ZOSTAJE, ale dostaje SKU 'SHOPER-ID:<ID>' -
+      * wpis bazowy kazdej rodziny ZOSTAJE, ale dostaje SKU 'WSHOPER-ID:<ID>-<RAM>-<dysk>' -
         dzieki temu jego zwykla oferte wystawia, aktualizuje i zeruje ta sama,
         stara czesc generatora co kazda inna aukcje (cena, progi stanow, kupon);
       * wpisy z poczekalni ZNIKAJA - nie sa wystawiane;
@@ -411,10 +417,44 @@ def przygotuj(produkty: list, cfg: dict, g, cennik: dict, limity: list[dict],
     z_poczekalni = {(p["id"], p["sku"]) for p in wynik["poczekalnia"]}
     zostaja = [(o, a) for o, a in produkty if (o.get("id", ""), a.get("SKU", "")) not in z_poczekalni]
     for rodzina in wynik["rodziny"]:
-        rodzina["baza"]["attrs"]["SKU"] = warianty.sku_bazy(rodzina["id_bazy"], dopiski)
+        baza = rodzina["baza"]
+        baza["attrs"]["SKU"] = warianty.sku_bazy(rodzina["id_bazy"], baza["ram"], baza["dysk"], dopiski)
     return {"produkty": zostaja, "rodziny": wynik["rodziny"], "poczekalnia": wynik["poczekalnia"],
             "bez_rodziny": wynik["bez_rodziny"], "dopiski": dopiski, "ofert_w_pliku": 0,
             "aktualizacja": None}
+
+
+def reczne_ilosci(plan: dict, reczne: dict) -> dict[str, dict]:
+    """Ilosci z config/sku-reczne.csv przepisane na oferty nowej sciezki.
+
+    Wpis moze stac pod (pierwszy trafiony wygrywa):
+      * pelnym SKU zwyklej oferty, np. 'WSHOPER-ID:10207-8GB-256GB-FRA',
+      * samym ID z rynkiem, np. 'SHOPER-ID:10207-FRA',
+      * STARYM SKU Shopera tak, jak stal na eBayu, np. '4771FRA' - dzieki temu
+        istniejace wpisy dzialaja bez przepisywania listy.
+    Rynek musi sie zgadzac, tak jak w starej sciezce: wpis '3888;5' (Niemcy) nie
+    ustawia ilosci na Francji, bo to inna aukcja.
+
+    Liczba obejmuje CALA rodzine: zwykla oferte bazy i kazdy wariant (najwyzej tyle,
+    ile lezy w magazynie) - zastepuje prog 'min_stan_bazy' i 'max_sztuk_na_wariant',
+    tak jak w starej sciezce zastepuje progi stanow. Pusta ilosc niczego nie zmienia.
+    Zwraca {SKU zwyklej oferty bazy: {'ilosc', 'wpis'}} i poprawia rodziny w planie.
+    """
+    wynik: dict[str, dict] = {}
+    for rodzina in plan["rodziny"]:
+        baza = rodzina["baza"]
+        nowe_sku = baza["attrs"]["SKU"]
+        kandydaci = [nowe_sku, warianty._z_dopiskami(f"{warianty.PRZEDROSTEK_SKU}{rodzina['id_bazy']}",   # noqa: SLF001
+                                                    plan["dopiski"]), baza["sku"]]
+        wpis = next((k for k in kandydaci if k and reczne.get(k) is not None), None)
+        if wpis is None:
+            continue
+        ilosc = min(int(reczne[wpis]), baza["stan"])
+        wynik[nowe_sku] = {"ilosc": int(reczne[wpis]), "wpis": wpis}
+        rodzina["aktywna"] = ilosc > 0
+        for v in rodzina["warianty"]:
+            v["stan"] = ilosc
+    return wynik
 
 
 def sprawdz_uklad_revise(wiersze: list[dict]) -> str:
@@ -442,6 +482,178 @@ def sprawdz_uklad_revise(wiersze: list[dict]) -> str:
 def wartosc_oferty(wiersze: list[dict]) -> float:
     """Cena razy ilosc wszystkich wariantow - tyle oferta zabiera z limitu sprzedazy eBaya."""
     return sum(float(d["*StartPrice"]) * int(d["*Quantity"]) for d in wiersze[1:])
+
+
+# --------------------------------------------------------------------------- #
+# poczekalnia: lista do recznego przegladu
+# --------------------------------------------------------------------------- #
+
+PLIK_POCZEKALNI_CSV = "warianty-poczekalnia.csv"
+PLIK_POCZEKALNI_HTML = "warianty-poczekalnia.html"
+
+KOLUMNY_POCZEKALNI = ["rodzina", "opis", "id_wystawionego", "sku_wystawionego", "id_shoper", "sku_shoper",
+                      "ram_gb", "dysk_gb", "stan", "cena_xml", "cena_wystawionego", "cena_ze_wzoru",
+                      "xml_minus_wzor", "co_to_jest", "ile_roznic", "roznice", "link", "link_wystawionego"]
+
+# Kolejnosc na stronie: najpierw to, co naprawde trzeba obejrzec.
+# POWOD_SPOZA nie wystepuje od 17.11.2026 - taki wpis dostaje wlasna rodzine (warianty.py).
+KOLEJNOSC_POWODOW = [warianty.POWOD_DUBEL, warianty.POWOD_MNIEJSZA, warianty.POWOD_WARIANT]
+OPIS_POWODU = {
+    warianty.POWOD_DUBEL: ("Dubel", "dubel",
+                           "Ten sam model, klasa, procesor, ekran i grafika, a do tego ten sam RAM i dysk "
+                           "co wystawiony wpis. Sprawdź różnice - może to inny towar, który powinien "
+                           "dostać inny opis w Shoperze."),
+    warianty.POWOD_SPOZA: ("Poza ofertą", "spoza",
+                           "Konfiguracja, której oferta nie ma wśród wariantów. Nie jest wystawiona."),
+    warianty.POWOD_MNIEJSZA: ("Mniejszy", "mniejsza",
+                              "Mniejsza konfiguracja niż wystawiony wpis. Wejdzie sama, gdy wystawiony "
+                              "się wyprzeda."),
+    warianty.POWOD_WARIANT: ("Jest jako wariant", "wariant",
+                             "Ta konfiguracja jest już w ofercie jako wariant, liczony z wpisu bazowego "
+                             "plus dopłata z cennika. Zwykle nic nie trzeba robić - spójrz tylko na cenę."),
+}
+
+
+def _zl(kwota) -> str:
+    return "" if kwota is None else f"{kwota:.2f}"
+
+
+def _konfig(ram, dysk) -> str:
+    if not ram or not dysk:
+        return "?"
+    dysk_txt = f"{dysk // 1000} TB" if dysk >= 1000 and dysk % 1000 == 0 else f"{dysk} GB"
+    return f"{ram} GB / {dysk_txt}"
+
+
+def wiersze_poczekalni(poczekalnia: list[dict]) -> list[dict]:
+    """Wiersze CSV poczekalni - te same kolumny w przebiegu generatora i w podgladzie."""
+    return [{
+        "rodzina": p["rodzina"], "opis": p["opis"], "id_wystawionego": p["id_wystawionego"],
+        "sku_wystawionego": p.get("sku_wystawionego", ""), "id_shoper": p["id"], "sku_shoper": p["sku"],
+        "ram_gb": p["ram"], "dysk_gb": p["dysk"], "stan": p["stan"],
+        "cena_xml": _zl(p["cena_xml"]), "cena_wystawionego": _zl(p["cena_wystawionego"]),
+        "cena_ze_wzoru": _zl(p["cena_ze_wzoru"]),
+        "xml_minus_wzor": _zl(p["cena_xml"] - p["cena_ze_wzoru"]) if p["cena_ze_wzoru"] is not None else "",
+        "co_to_jest": p["powod"], "ile_roznic": len(p["roznice"]),
+        "roznice": " || ".join(f"{x['pole']}: wystawiony [{x['wystawiony'] or '-'}] / ten [{x['ten'] or '-'}]"
+                               for x in p["roznice"]),
+        "link": p.get("url", ""), "link_wystawionego": p.get("url_wystawionego", ""),
+    } for p in poczekalnia]
+
+
+def _h(tekst) -> str:
+    return (str(tekst).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+            .replace('"', "&quot;"))
+
+
+def _link(url: str, tekst: str) -> str:
+    # Tylko adresy sklepu z feedu; cokolwiek innego zostaje zwyklym tekstem.
+    if url.startswith("https://") or url.startswith("http://"):
+        return f'<a href="{_h(url)}" target="_blank" rel="noopener">{_h(tekst)}</a>'
+    return _h(tekst)
+
+
+def strona_poczekalni(poczekalnia: list[dict], kraj: str = "", kiedy: str = "") -> str:
+    """Strona HTML poczekalni: rodziny pogrupowane, przy kazdym wpisie powod po ludzku,
+    ceny obok siebie i roznice w tabelce 'wystawiony / ten'. Bez skryptow i bez
+    zewnetrznych plikow - otwiera sie tak samo z dysku i ze strony GitHub Pages."""
+    wg_powodu = {p: [x for x in poczekalnia if x["powod"] == p] for p in KOLEJNOSC_POWODOW}
+    inne = [x for x in poczekalnia if x["powod"] not in OPIS_POWODU]
+    czesci = []
+    licznik = "".join(
+        f'<a class="kafel {OPIS_POWODU[p][1]}" href="#{OPIS_POWODU[p][1]}"><b>{len(wg_powodu[p])}</b>'
+        f'{_h(OPIS_POWODU[p][0])}</a>' for p in KOLEJNOSC_POWODOW)
+    for powod in KOLEJNOSC_POWODOW + (["inne"] if inne else []):
+        wpisy = wg_powodu.get(powod, inne)
+        nazwa, klasa, wyjasnienie = OPIS_POWODU.get(powod, ("Inne", "inne", ""))
+        czesci.append(f'<h2 id="{klasa}">{_h(nazwa)} <span>{len(wpisy)}</span></h2>'
+                      f'<p class="wyj">{_h(wyjasnienie)}</p>')
+        if not wpisy:
+            czesci.append('<p class="pusto">Brak.</p>')
+            continue
+        rodziny: dict[str, list[dict]] = {}
+        for p in wpisy:
+            rodziny.setdefault(p["rodzina"], []).append(p)
+        for grupa in rodziny.values():
+            pierwszy = grupa[0]
+            wystawiony = (f'{_link(pierwszy.get("url_wystawionego", ""), "ID " + str(pierwszy["id_wystawionego"]))}'
+                          f' · {_h(pierwszy.get("sku_wystawionego", ""))}'
+                          f' · {_konfig(pierwszy.get("ram_wystawionego"), pierwszy.get("dysk_wystawionego"))}'
+                          f' · {_zl(pierwszy["cena_wystawionego"])} zł'
+                          + (f' · {pierwszy["stan_wystawionego"]} szt.'
+                             if pierwszy.get("stan_wystawionego") is not None else ""))
+            karta = [f'<div class="karta"><div class="rodz">{_h(pierwszy["opis"])}</div>'
+                     f'<div class="wyst"><i>wystawiony</i>{wystawiony}</div>']
+            for p in grupa:
+                ceny = f'{_zl(p["cena_xml"])} zł w Shoperze'
+                if p["cena_ze_wzoru"] is not None:
+                    roznica = p["cena_xml"] - p["cena_ze_wzoru"]
+                    etykieta = "wystawiony" if powod == warianty.POWOD_DUBEL else "wariant w ofercie"
+                    ceny += (f' · {etykieta} {_zl(p["cena_ze_wzoru"])} zł'
+                             f' <em class="{"plus" if roznica > 0 else "minus" if roznica < 0 else ""}">'
+                             f'({roznica:+.2f})</em>')
+                karta.append(f'<div class="ten"><i>czeka</i>{_link(p.get("url", ""), "ID " + str(p["id"]))}'
+                             f' · {_h(p["sku"])} · {_konfig(p["ram"], p["dysk"])} · {p["stan"]} szt.'
+                             f'<div class="ceny">{ceny}</div>')
+                if p["roznice"]:
+                    karta.append('<table><tr><th>pole</th><th>wystawiony</th><th>ten</th></tr>' + "".join(
+                        f'<tr><td>{_h(x["pole"])}</td><td>{_h(x["wystawiony"] or "—")}</td>'
+                        f'<td>{_h(x["ten"] or "—")}</td></tr>' for x in p["roznice"]) + '</table>')
+                elif powod == warianty.POWOD_DUBEL:
+                    karta.append('<div class="brak">Opisy identyczne - różni się tylko ID i SKU.</div>')
+                karta.append('</div>')
+            karta.append('</div>')
+            czesci.append("".join(karta))
+    tytul = "Poczekalnia" + (f" · {kraj}" if kraj else "")
+    return f"""<!doctype html>
+<html lang="pl"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{_h(tytul)}</title>
+<style>
+ body{{font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:900px;margin:0 auto;
+      padding:24px 16px 60px;color:#14161a;line-height:1.5;background:#fff}}
+ h1{{font-size:22px;margin:0 0 4px}} .pod{{color:#5a5c62;margin:0 0 20px;font-size:15px}}
+ .kafle{{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:10px}}
+ .kafel{{flex:1 1 150px;border:1px solid #e0e0dd;border-radius:12px;padding:12px 14px;text-decoration:none;
+        color:#5a5c62;font-size:14px}} .kafel b{{display:block;font-size:26px;color:#14161a}}
+ .kafel.dubel{{border-color:#f3ccc8;background:#fdf1f0}} .kafel.spoza{{background:#fff8e8;border-color:#f0dfb4}}
+ h2{{font-size:17px;margin:34px 0 4px}} h2 span{{color:#5a5c62;font-weight:400}}
+ .wyj{{color:#5a5c62;font-size:14px;margin:0 0 12px}} .pusto{{color:#5a5c62}}
+ .karta{{border:1px solid #e0e0dd;border-radius:12px;padding:14px 16px;margin-bottom:12px;font-size:14px}}
+ .rodz{{font-weight:700;font-size:15px;margin-bottom:8px}}
+ .wyst,.ten{{padding:6px 0;border-top:1px solid #f0f0ee;overflow-wrap:anywhere}}
+ i{{display:inline-block;min-width:104px;font-style:normal;font-size:12px;text-transform:uppercase;
+    letter-spacing:.06em;color:#5a5c62}}
+ .ceny{{color:#5a5c62;margin:2px 0 0 108px}} em{{font-style:normal}} .plus{{color:#0f6b3c}} .minus{{color:#a01b12}}
+ .brak{{margin:4px 0 0 108px;color:#5a5c62}}
+ table{{border-collapse:collapse;margin:6px 0 2px 108px;font-size:13px;max-width:calc(100% - 108px)}}
+ th,td{{text-align:left;padding:4px 10px;border-bottom:1px solid #f0f0ee;vertical-align:top}}
+ th{{color:#5a5c62;font-weight:400}} td:first-child{{color:#5a5c62}}
+ a{{color:#14161a}}
+ @media (max-width:600px){{.ceny,.brak{{margin-left:0}} table{{margin-left:0;max-width:100%}}}}
+</style>
+<h1>{_h(tytul)}</h1>
+<p class="pod">Wpisy z Shopera, których generator nie wystawił, bo w rodzinie stoi już inny wpis
+(rodzina = model, klasa, procesor, rozdzielczość, dotyk, grafika). Nic tu nie jest zablokowane -
+to lista do spokojnego przejrzenia.{" Przebieg: " + _h(kiedy) + "." if kiedy else ""}</p>
+<div class="kafle">{licznik}</div>
+{"".join(czesci)}
+</html>
+"""
+
+
+def zapisz_poczekalnie(katalog: Path, poczekalnia: list[dict], kraj: str = "", kiedy: str = "") -> None:
+    """CSV (do Excela) i HTML (do czytania) w katalogu wynikow rynku."""
+    with (katalog / PLIK_POCZEKALNI_CSV).open("w", encoding="utf-8-sig", newline="") as uchwyt:
+        zapis = csv.DictWriter(uchwyt, fieldnames=KOLUMNY_POCZEKALNI, delimiter=";",
+                               lineterminator="\n", extrasaction="ignore")
+        zapis.writeheader()
+        zapis.writerows(wiersze_poczekalni(poczekalnia))
+    (katalog / PLIK_POCZEKALNI_HTML).write_text(strona_poczekalni(poczekalnia, kraj, kiedy), encoding="utf-8")
+
+
+def poczekalnia_wg_powodu(poczekalnia: list[dict]) -> dict[str, int]:
+    return {OPIS_POWODU.get(p, (p,))[0]: sum(1 for x in poczekalnia if x["powod"] == p)
+            for p in KOLEJNOSC_POWODOW}
 
 
 # --------------------------------------------------------------------------- #

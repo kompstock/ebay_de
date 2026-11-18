@@ -73,9 +73,13 @@ _PRZEJSCIE = re.compile(r"^(\d+)>(\d+)$")
 _GENERACJA = re.compile(r"\bgen\.?\s*(\d+)")
 _WOKOL_MYSLNIKA = re.compile(r"\s*-\s*")
 PRZEDROSTEK_SKU = "SHOPER-ID:"
+# Zwykla oferta bazy: "W" z przodu (decyzja wlasciciela 17.11.2026), zeby jej SKU
+# nie bylo takie samo jak SKU wariantu tej samej konfiguracji w ofercie wariantowej.
+PRZEDROSTEK_ZWYKLEJ = "W" + PRZEDROSTEK_SKU
+PRZEDROSTKI_SKU = (PRZEDROSTEK_SKU, PRZEDROSTEK_ZWYKLEJ)
 KONCOWKA_OFERTY = ":warianty"
 _SKU_WARIANTOWE = re.compile(
-    r"^SHOPER-ID:(?P<id>\d+)(?:(?P<oferta>:warianty)|-(?P<ram>\d+)GB-(?P<dysk>\d+)(?P<jedn>GB|TB))?"
+    r"^(?P<w>W?)SHOPER-ID:(?P<id>\d+)(?:(?P<oferta>:warianty)|-(?P<ram>\d+)GB-(?P<dysk>\d+)(?P<jedn>GB|TB))?"
     r"(?P<dopiski>(?:-[A-Za-z0-9]+)*)$")
 _GRAFIKA_NAWIAS = re.compile(r"\([^)]*\)")
 _GRAFIKA_DOPISEK = re.compile(r"\bfor\b.*$")
@@ -253,10 +257,14 @@ def _z_dopiskami(sku: str, dopiski) -> str:
     return "-".join([sku, *[d for d in dopiski if d]])
 
 
-def sku_bazy(id_shopera: str, dopiski=()) -> str:
-    """SKU zwyklej oferty konfiguracji podstawowej: 'SHOPER-ID:10207'. Ta sama sygnatura
-    co w ofercie wariantowej - obie stoja na tym samym wpisie Shopera."""
-    return _z_dopiskami(f"{PRZEDROSTEK_SKU}{id_shopera}", dopiski)
+def sku_bazy(id_shopera: str, ram: int, dysk: int, dopiski=()) -> str:
+    """SKU zwyklej oferty konfiguracji podstawowej: 'WSHOPER-ID:10207-8GB-256GB'.
+
+    Decyzje wlasciciela z 17.11.2026: magazyn ma widziec RAM i dysk takze przy zakupie
+    zwyklej oferty, tak samo jak przy wariancie - ale SKU ma byc INNE niz SKU wariantu
+    tej samej konfiguracji ('SHOPER-ID:10207-8GB-256GB'), stad 'W' z przodu. Dwie
+    oferty z tym samym SKU to ryzyko odrzucenia przez eBay."""
+    return "W" + sku_wariantu(id_shopera, ram, dysk, dopiski)
 
 
 def sku_oferty(id_shopera: str, dopiski=()) -> str:
@@ -269,9 +277,8 @@ def sku_wariantu(id_shopera: str, ram: int, dysk: int, dopiski=()) -> str:
 
     'SHOPER-ID:10207-16GB-960GB' = wez produkt o ID 10207, wloz 16 GB i dysk 960 GB.
     Sygnature 'SHOPER-ID:' wybral wlasciciel: w zamowieniu od razu widac, ze liczba
-    to ID ze Shopera, a nie SKU. Koncowke z konfiguracja ma KAZDY wariant: magazyn
-    widzi ja zawsze w tym samym miejscu, a zaden wariant nie ma SKU zwyklej oferty,
-    wiec stara sciezka generatora go nie pomyli. Calosc z GW24 i znacznikiem kraju
+    to ID ze Shopera, a nie SKU. Koncowke z konfiguracja ma KAZDY wariant i zwykla
+    oferta bazy (sku_bazy), wiec magazyn widzi ja zawsze w tym samym miejscu. Calosc z GW24 i znacznikiem kraju
     ma najwyzej ok. 37 znakow - eBay daje na SKU 50 (SKU Shopera bywa 39-znakowe).
     """
     return _z_dopiskami(f"{PRZEDROSTEK_SKU}{id_shopera}-{ram}GB-{etykieta_feedu(dysk)}", dopiski)
@@ -285,10 +292,13 @@ def rozloz_sku(sku: str) -> dict | None:
     if not trafienie:
         return None
     oferta = bool(trafienie["oferta"])
-    zwykla = not oferta and trafienie["ram"] is None        # 'SHOPER-ID:10207' - zwykla oferta bazy
+    if trafienie["w"] and (oferta or trafienie["ram"] is None):
+        return None                                         # 'W' ma tylko pelne SKU zwyklej oferty
+    # 'WSHOPER-ID:10207-8GB-256GB' albo stary zapis 'SHOPER-ID:10207' - zwykla oferta bazy
+    zwykla = bool(trafienie["w"]) or (not oferta and trafienie["ram"] is None)
     return {"id": trafienie["id"], "oferta": oferta, "zwykla": zwykla,
-            "ram": None if oferta or zwykla else int(trafienie["ram"]),
-            "dysk": (None if oferta or zwykla
+            "ram": None if trafienie["ram"] is None else int(trafienie["ram"]),
+            "dysk": (None if trafienie["ram"] is None
                      else int(trafienie["dysk"]) * (1000 if trafienie["jedn"] == "TB" else 1)),
             "dopiski": [d for d in trafienie["dopiski"].split("-") if d]}
 
@@ -310,7 +320,8 @@ def wczytaj_limity(sciezka: Path) -> tuple[list[dict], list[str]]:
     Plik wpisuje sie recznie, wiec czytamy go odpornie, tak jak sku-reczne.csv:
     separator z linii naglowka, wiersze puste i zaczynajace sie od '#' pomijane.
     Kolumny: model;procesor;max_ram;max_dysk;uwagi
-      model     - 'Lenovo ThinkPad E15 Gen 2' (marka moze byc albo nie)
+      model     - 'Lenovo ThinkPad E15 Gen 2' (marka moze byc albo nie);
+                  'Dell XPS*' z gwiazdka = kazdy model zaczynajacy sie od 'Dell XPS'
       procesor  - puste = caly model; 'i5-1135G7' = tylko ten procesor
       max_ram   - puste = regula domyslna, liczba = najwyzej tyle GB, 0 = RAM-u nie ruszamy
       max_dysk  - puste = regula domyslna, liczba = najwyzej tyle GB, 0 = dysku nie ruszamy
@@ -360,12 +371,26 @@ def wczytaj_limity(sciezka: Path) -> tuple[list[dict], list[str]]:
     return wiersze, bledy
 
 
+def czy_seria(wpisany: str) -> bool:
+    """'Dell XPS*' - gwiazdka na koncu = cala seria, takze modele, ktorych dzis nie ma w feedzie."""
+    return (wpisany or "").strip().endswith("*")
+
+
 def _pasuje_model(wpisany: str, attrs: dict, funkcje: dict) -> bool:
-    """Wpis z listy pasuje z marka albo bez: 'Lenovo ThinkPad E15 Gen 2' i 'ThinkPad E15 Gen 2'."""
-    wpis = _zapis_modelu(wpisany, funkcje)
+    """Wpis z listy pasuje z marka albo bez: 'Lenovo ThinkPad E15 Gen 2' i 'ThinkPad E15 Gen 2'.
+
+    Wpis z gwiazdka na koncu ('Dell XPS*', 'Microsoft Surface*') pasuje do kazdego modelu,
+    ktory sie tak ZACZYNA - decyzja wlasciciela z 18.11.2026: "wszystkie Surface i XPS
+    bez rozbudowy". Bez gwiazdki dopasowanie zostaje dokladne (E15 nie lapie E15 Gen 3)."""
+    seria = czy_seria(wpisany)
+    wpis = _zapis_modelu((wpisany or "").strip().rstrip("*"), funkcje)
     pelny = klucz_modelu(attrs, funkcje)
     sam_model = duplikaty._model(attrs, funkcje)     # noqa: SLF001
-    return bool(wpis) and wpis in (pelny, sam_model)
+    if not wpis:
+        return False
+    if seria:
+        return any(k and k.startswith(wpis) for k in (pelny, sam_model))
+    return wpis in (pelny, sam_model)
 
 
 def _waga_procesora(wpisany: str, attrs: dict, funkcje: dict) -> int:
@@ -388,7 +413,7 @@ def limit_rozbudowy(attrs: dict, nazwa: str, kategoria: str, cennik: dict,
     """Ile wolno rozbudowac te sztuke: {'max_ram', 'max_dysk', 'zrodlo', 'jawny_ram'}.
 
     Pierwszenstwo: wiersz 'model + procesor', potem wiersz samego modelu, potem
-    reguly domyslne. 'max_dysk' None znaczy "bez ograniczenia" (do najwiekszego
+    wiersz serii z gwiazdka ('Dell XPS*'), potem reguly domyslne. 'max_dysk' None znaczy "bez ograniczenia" (do najwiekszego
     dysku z cennika). Dwa pasujace wiersze o tym samym pierwszenstwie to blad
     listy - wtedy NIE rozbudowujemy wcale, bo nie wiadomo, ktory mial wygrac,
     a wariant wystawiony wbrew ograniczeniu to obietnica nie do spelnienia.
@@ -412,7 +437,8 @@ def limit_rozbudowy(attrs: dict, nazwa: str, kategoria: str, cennik: dict,
             continue
         waga = _waga_procesora(wiersz["procesor"], attrs, funkcje) if wiersz["procesor"] else 1
         if waga:
-            pasujace.append((waga, wiersz))
+            # Wiersz konkretnego modelu wygrywa z wierszem calej serii ('Dell XPS*').
+            pasujace.append((waga - 0.5 if czy_seria(wiersz["model"]) else waga, wiersz))
     if not pasujace:
         return limit
     najwyzsze = max(waga for waga, _ in pasujace)
@@ -532,7 +558,8 @@ def _wpis(offer, attrs: dict) -> dict:
             "ram": pojemnosc_gb(attrs.get(POLE_RAM, "")), "dysk": pojemnosc_gb(attrs.get(POLE_DYSKU, "")),
             "cena": _cena(offer), "stan": int(float(offer.get("stock", "0") or 0)),
             "nazwa": (offer.findtext("name") or "").strip(),
-            "kategoria": (offer.findtext("cat") or "").strip()}
+            "kategoria": (offer.findtext("cat") or "").strip(),
+            "url": (offer.get("url") or "").strip()}
 
 
 def _roznice(baza: dict, inny: dict, funkcje: dict) -> list[dict]:
@@ -579,12 +606,14 @@ def zbuduj_rodziny(produkty, cennik: dict, limity: list[dict], funkcje: dict,
         bez_rodziny.append({"sku": wpis["sku"], "id": wpis["id"], "nazwa": wpis["nazwa"], "powod": powod})
 
     rodziny, poczekalnia = [], []
-    for klucz in sorted(grupy):
+    kolejka = [(klucz, grupy[klucz], 0) for klucz in sorted(grupy)]
+    while kolejka:
+        klucz, wpisy, pokolenie = kolejka.pop(0)
         # Najmniejsza konfiguracja, a przy tej samej - najtanszy. To wybor przy
         # PIERWSZYM wystawieniu. Gdy oferta juz stoi na ktoryms wpisie (przypiete)
         # i ten wpis ma stan, zostaje on baza: nowy, tanszy dubel nie przejmuje
         # oferty sam, tylko czeka w poczekalni na reczne sprawdzenie.
-        wpisy = sorted(grupy[klucz], key=lambda w: (w["ram"], w["dysk"], w["cena"], w["id"]))
+        wpisy = sorted(wpisy, key=lambda w: (w["ram"], w["dysk"], w["cena"], w["id"]))
         juz_wystawione = [x for x in wpisy if x["id"] in przypiete]
         baza = juz_wystawione[0] if juz_wystawione else wpisy[0]
         reszta = [x for x in wpisy if x is not baza]
@@ -606,35 +635,71 @@ def zbuduj_rodziny(produkty, cennik: dict, limity: list[dict], funkcje: dict,
                 "doplata": doplata, "cena": baza["cena"] + doplata, "stan": stan,
             })
         wg_slotu = {(w["ram"], grupa_dysku(w["dysk"], cennik)): w for w in warianty}
-        identyfikator = id_rodziny(klucz)
+        # Rodzina "poboczna" (patrz nizej) dostaje identyfikator z wlasnej konfiguracji
+        # bazy - staly, dopoki taka konfiguracja jest w feedzie.
+        identyfikator = id_rodziny(klucz if not pokolenie else klucz + (f"{baza['ram']}/{baza['dysk']}",))
         rodziny.append({
             "id": identyfikator, "klucz": klucz, "klasa": klucz[2],
-            "opis": f"{funkcje['brand_name'](baza['attrs'].get('Producent', ''))} "
-                    f"{baza['attrs'].get('Model', '')} | {klucz[1]} | klasa {klucz[2]} | "
-                    f"{klucz[3] or 'rozdzielczosc ?'} | {klucz[4]} | {klucz[5] or 'grafika ?'}",
+            "opis": f"{_marka_i_model(baza['attrs'], funkcje)} | {klucz[1]} | klasa {klucz[2]} | "
+                    f"{klucz[3] or 'rozdzielczosc ?'} | {klucz[4]} | {klucz[5] or 'grafika ?'}"
+                    + (f" | osobno od {baza['ram']} GB / {baza['dysk']} GB" if pokolenie else ""),
             "baza": baza, "id_bazy": baza["id"], "sku_oferty": sku_oferty(baza["id"]),
             "przypieta": bool(juz_wystawione), "aktywna": aktywna,
             "warianty": warianty, "limit": limit, "braki_cennika": braki,
         })
+        poza_oferta = []
         for inny in reszta:
             wzor = wg_slotu.get((inny["ram"], grupa_dysku(inny["dysk"], cennik)))
             if (inny["ram"], inny["dysk"]) == (baza["ram"], baza["dysk"]):
                 powod = POWOD_DUBEL
             elif wzor:
                 powod = POWOD_WARIANT
-            elif (inny["ram"], inny["dysk"]) < (baza["ram"], baza["dysk"]):
+            elif ((inny["ram"], inny["dysk"]) < (baza["ram"], baza["dysk"])
+                  and _wspolne_konfiguracje(inny, wg_slotu, cennik, limit)):
+                # Mniejszy wpis, ktorego wlasna oferta powtarzalaby konfiguracje juz
+                # wystawione - czeka, az obecna baza sie wyprzeda. Mniejszy wpis BEZ
+                # wspolnych konfiguracji (np. 8 GB obok 24 GB w modelu bez rozbudowy
+                # RAM-u) to inny towar: idzie nizej, do wlasnej rodziny.
                 powod = POWOD_MNIEJSZA
             else:
-                powod = POWOD_SPOZA
+                # Wiekszej konfiguracji oferta nie obejmuje (model bez rozbudowy RAM-u,
+                # dysk ponad cennik). Taki wpis NIE moze zniknac z eBaya - to towar, ktory
+                # lezy na polce i niczego nie dubluje. Dostaje wlasna rodzine: wlasna
+                # zwykla oferte i wlasne warianty, liczone od siebie. Przyklad z 17.11.2026:
+                # T14 Gen 1 Ryzen 5 bez rozbudowy RAM-u - baza 8 GB, a wpisy 24 GB
+                # (227 sztuk) wypadlyby z wystawienia.
+                poza_oferta.append(inny)
+                continue
             poczekalnia.append({
                 "rodzina": identyfikator, "opis": rodziny[-1]["opis"], "id_wystawionego": baza["id"],
                 "sku": inny["sku"], "id": inny["id"], "ram": inny["ram"], "dysk": inny["dysk"],
                 "cena_xml": inny["cena"], "stan": inny["stan"],
                 "cena_wystawionego": baza["cena"],
+                "sku_wystawionego": baza["sku"], "ram_wystawionego": baza["ram"],
+                "dysk_wystawionego": baza["dysk"], "stan_wystawionego": baza["stan"],
+                "url": inny["url"], "url_wystawionego": baza["url"],
                 "cena_ze_wzoru": wzor["cena"] if wzor else None,
                 "powod": powod, "roznice": _roznice(baza, inny, funkcje),
             })
+        if poza_oferta:
+            kolejka.append((klucz, poza_oferta, pokolenie + 1))
     return {"rodziny": rodziny, "poczekalnia": poczekalnia, "bez_rodziny": bez_rodziny}
+
+
+def _marka_i_model(attrs: dict, funkcje: dict) -> str:
+    """'Apple MacBook Pro A1707', a nie 'Apple Apple MacBook Pro A1707', gdy model ma juz marke."""
+    marka = funkcje["brand_name"](attrs.get("Producent", ""))
+    model = (attrs.get("Model", "") or "").strip()
+    if marka and funkcje["norm"](model).startswith(funkcje["norm"](marka)):
+        return model
+    return f"{marka} {model}".strip()
+
+
+def _wspolne_konfiguracje(wpis: dict, wg_slotu: dict, cennik: dict, limit: dict) -> bool:
+    """Czy oferta liczona od 'wpis' mialaby choc jedna konfiguracje (RAM + grupa dysku)
+    z oferty, ktora juz stoi ('wg_slotu')."""
+    konfiguracje, _ = siatka(wpis["ram"], wpis["dysk"], wpis["attrs"].get(POLE_TYPU_RAM, ""), cennik, limit)
+    return any((k["ram"], grupa_dysku(k["dysk"], cennik)) in wg_slotu for k in konfiguracje)
 
 
 # --------------------------------------------------------------------------- #
