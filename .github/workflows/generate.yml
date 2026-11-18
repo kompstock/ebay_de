@@ -137,6 +137,31 @@ jobs:
                         f"{r['do_aktualizacji_ograniczone']} "
                         f"({r['stany_ograniczone']['opis']}) |")
               print(f"| Kurs NBP | {r['nbp']['rate']} z {r['nbp']['effective_date']} |")
+              wr = r.get("warianty") or {}
+              if wr.get("wlaczone"):
+                  print(f"| Oferty wariantowe | {wr['rodzin']} rodzin, nowych w pliku: "
+                        f"{wr['ofert_wariantowych_w_pliku']} |")
+                  akt = wr.get("aktualizacja") or {}
+                  if akt:
+                      print(f"| &nbsp;&nbsp;aktualizacja wariantow | {akt.get('ofert_zmienionych', 0)} ofert, "
+                            f"zmiana ceny {akt['zmiana_ceny']}, ilosci {akt['zmiana_ilosci']}, "
+                            f"wyzerowane {akt['wyzerowane']} |")
+                  print("\n### Poczekalnia (nic nie jest zablokowane)\n")
+                  print("| | |\n|---|---|")
+                  for powod, ile in (wr.get("poczekalnia_wg_powodu") or {}).items():
+                      print(f"| {powod} | {ile} |")
+                  duble = wr.get("poczekalnia_duble") or []
+                  if duble:
+                      print("\n**Duble** - ta sama konfiguracja co wystawiony wpis:\n")
+                      print("| rodzina | wystawiony ID | dubel ID | ceny zl (wyst. / dubel) | czym sie rozni |")
+                      print("|---|---|---|---|---|")
+                      for d in duble:
+                          pola = ", ".join(d["pola"]) or "niczym poza ID i SKU"
+                          # opis rodziny ma w sobie '|', ktory rozcialby tabele
+                          print(f"| {d['opis'].replace('|', '·')} | {d['id_wystawionego']} | {d['id']} "
+                                f"| {d['cena_wystawionego']:.0f} / {d['cena_xml']:.0f} | {pola} |")
+                  print(f"\nPelna lista z roznicami: `{kraj}/warianty-poczekalnia.html` "
+                        "na stronie z plikami albo w artefakcie przebiegu.\n")
               if r["sku_zdublowane"]:
                   print("\n### SKU z kilkoma aukcjami (pominiete)\n")
                   for s in r["sku_zdublowane"][:20]:
