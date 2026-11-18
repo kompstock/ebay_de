@@ -100,6 +100,9 @@ jobs:
         env:
           LISTA: ${{ steps.rynki.outputs.lista }}
           TRYB: ${{ inputs.tryb }}
+          # Adresy feedu tylko w sekretach - GitHub maskuje je w logach.
+          FEED_URL: ${{ secrets.FEED_URL }}
+          FEED_URL_ZAPAS: ${{ secrets.FEED_URL_ZAPAS }}
 
       - name: Podsumowanie
         if: always()
@@ -137,6 +140,13 @@ jobs:
                         f"{r['do_aktualizacji_ograniczone']} "
                         f"({r['stany_ograniczone']['opis']}) |")
               print(f"| Kurs NBP | {r['nbp']['rate']} z {r['nbp']['effective_date']} |")
+              zf = r.get("zrodlo_feedu") or {}
+              if zf:
+                  kiedy = f", plik z {zf['aktualizacja_pliku']}" if zf.get("aktualizacja_pliku") else ""
+                  znak = "" if zf.get("zrodlo") == "glowne" else "**UWAGA** "
+                  print(f"| Zrodlo danych | {znak}{zf.get('zrodlo')}{kiedy} |")
+                  for x in zf.get("odrzucone") or []:
+                      print(f"| &nbsp;&nbsp;pominiete: {x['zrodlo']} | {x['powod']} |")
               wr = r.get("warianty") or {}
               if wr.get("wlaczone"):
                   print(f"| Oferty wariantowe | {wr['rodzin']} rodzin, nowych w pliku: "
