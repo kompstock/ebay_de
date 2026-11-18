@@ -23,6 +23,8 @@ import csv
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+import warianty
+
 
 def _attrs(offer) -> dict[str, str]:
     return {a.get("name"): (a.text or "").strip() for a in offer.findall("./attrs/a")}
@@ -35,30 +37,66 @@ def wczytaj_liste(sciezka: Path, kolumna: str) -> tuple[list[str], str]:
     musial niczego instalowac. Stad CSV, nie XLSX - Excel zapisze taki plik
     przez 'Zapisz jako CSV'.
     """
+    lista, _, _, blad = wczytaj(sciezka, kolumna, "")
+    return lista, blad
+
+
+def id_z_wpisu(tekst: str) -> tuple[str | None, tuple[int, int] | None]:
+    """Kolumna ID listy GW24: (ID Shopera, (RAM, dysk) albo None) - albo (None, None).
+
+    Wlasciciel wpisuje samo ID ('10207') albo wkleja cale SKU z oferty
+    ('SHOPER-ID:10207-16GB-480GB', 'WSHOPER-ID:10207-8GB-256GB-FRA'). Osobna kolumna,
+    bo ten sam numer bywa w feedzie ID jednego wpisu i SKU innego (18.11.2026:
+    391 takich numerow, np. 3834 = ID torby i SKU wpisu 6283)."""
+    tekst = (tekst or "").strip()
+    if tekst.isdigit():
+        return tekst, None
+    rozlozone = warianty.rozloz_sku(tekst)
+    if not rozlozone:
+        return None, None
+    konfig = (rozlozone["ram"], rozlozone["dysk"]) if rozlozone["ram"] is not None else None
+    return rozlozone["id"], konfig
+
+
+def wczytaj(sciezka: Path, kolumna: str, kolumna_id: str = "ID"):
+    """(SKU, {ID: (wpis, konfiguracja)}, nieczytelne wpisy ID, powod bledu).
+
+    Kolumna ID jest opcjonalna - stary plik z sama kolumna SKU dziala bez zmian.
+    Blad tylko wtedy, gdy nie ma ANI kolumny SKU, ANI kolumny ID."""
     if not sciezka.is_file():
-        return [], ""                         # brak pliku = to samo co pusta lista
+        return [], {}, [], ""                 # brak pliku = to samo co pusta lista
     with sciezka.open(encoding="utf-8-sig", newline="") as handle:
-        proba = handle.read(4096)
-        handle.seek(0)
-        try:                                  # Excel zapisuje raz ',' raz ';'
-            dialekt = csv.Sniffer().sniff(proba, delimiters=",;\t")
-        except csv.Error:
-            dialekt = csv.excel
-        wiersze = list(csv.DictReader(handle, dialect=dialekt))
+        tekst = handle.read()
+    # Separator z LINII NAGLOWKA (Excel zapisuje raz ',' raz ';'), tak jak w liscie
+    # limitow. Zgadywanie z calego pliku (csv.Sniffer) mylilo sie po dopisaniu
+    # ';ID' do naglowka: stare wiersze z samym SKU nie maja zadnego separatora
+    # i cala lista wypadala z bledem - a bez listy aktualizacja zerowalaby GW24.
+    linie = [l for l in tekst.splitlines() if l.strip()]
+    naglowek = linie[0] if linie else ""
+    sep = max(";,\t", key=naglowek.count) if any(z in naglowek for z in ";,\t") else ";"
+    wiersze = list(csv.DictReader(linie, delimiter=sep))
     if not wiersze:
-        return [], ""                         # pusta lista = funkcja uspiona
+        return [], {}, [], ""                 # pusta lista = funkcja uspiona
     naglowki = {(k or "").strip().lower(): k for k in wiersze[0]}
     klucz = naglowki.get(kolumna.strip().lower())
-    if klucz is None:
-        return [], (f"{sciezka.name}: brak kolumny '{kolumna}' "
-                    f"(sa: {', '.join(str(k) for k in wiersze[0])})")
-    out, widziane = [], set()
+    klucz_id = naglowki.get(kolumna_id.strip().lower()) if kolumna_id else None
+    if klucz is None and klucz_id is None:
+        return [], {}, [], (f"{sciezka.name}: brak kolumny '{kolumna}' "
+                            f"(sa: {', '.join(str(k) for k in wiersze[0])})")
+    out, widziane, ids, nieczytelne = [], set(), {}, []
     for wiersz in wiersze:
-        sku = (wiersz.get(klucz) or "").strip()
+        sku = (wiersz.get(klucz) or "").strip() if klucz else ""
         if sku and sku not in widziane:
             widziane.add(sku)
             out.append(sku)
-    return out, ""
+        wpis = (wiersz.get(klucz_id) or "").strip() if klucz_id else ""
+        if wpis:
+            id_, konfig = id_z_wpisu(wpis)
+            if id_ is None:
+                nieczytelne.append(wpis)
+            else:
+                ids.setdefault(id_, (wpis, konfig))
+    return out, ids, nieczytelne, ""
 
 
 def _klonuj(offer, cfg: dict) -> ET.Element:
@@ -93,18 +131,23 @@ def dopnij(feed_bytes: bytes, cfg_all: dict, root_repo: Path,
         return feed_bytes, {}
 
     sciezka = root_repo / cfg.get("lista_sku", "config/gwarancja-24.csv")
-    lista, blad = wczytaj_liste(sciezka, cfg.get("kolumna_sku", "SKU"))
-    raport: dict = {"gw_lista": f"{sciezka.name} ({len(lista)} SKU)"}
+    lista, po_id, nieczytelne, blad = wczytaj(sciezka, cfg.get("kolumna_sku", "SKU"),
+                                              cfg.get("kolumna_id", "ID"))
+    raport: dict = {"gw_lista": f"{sciezka.name} ({len(lista)} SKU, {len(po_id)} ID)"}
     if blad:                                  # zly naglowek - to juz prawdziwy blad
         raport["gw_blad_listy"] = blad
         return feed_bytes, raport
 
     szukane = set(lista)
-    if not szukane:
+    znalezione_id: set[str] = set()
+    inna_konfiguracja: list[str] = []
+    if not szukane and not po_id:
         # Brak pliku albo pusta lista to normalny stan, nie awaria - funkcja spi,
         # dopoki ktos nie wpisze SKU. Mowimy to wprost, zeby raport nie wygladal
         # na bledny.
-        raport["gw_lista"] = f"{sciezka.name}: brak SKU, wariant gwarancyjny uspiony"
+        raport["gw_lista"] = f"{sciezka.name}: brak SKU i ID, wariant gwarancyjny uspiony"
+        if nieczytelne:
+            raport["gw_id_nieczytelne"] = nieczytelne
         return feed_bytes, raport
 
     settings = cfg_all["settings"]
@@ -123,9 +166,20 @@ def dopnij(feed_bytes: bytes, cfg_all: dict, root_repo: Path,
     for offer in list(root.findall("./o")):
         attrs = _attrs(offer)
         sku = attrs.get("SKU", "")
-        if sku not in szukane:
+        id_ = offer.get("id", "")
+        po_sku, wpis_id = sku in szukane, po_id.get(id_)
+        if not po_sku and not wpis_id:
             continue
         szukane.discard(sku)
+        if wpis_id:
+            znalezione_id.add(id_)
+            # Wklejone cale SKU wariantu, np. 16 GB / 480 GB: GW24 i tak dostaje laptop
+            # w konfiguracji z magazynu - to jest wpis bazowy, nie wariant. Mowimy o tym.
+            w_magazynie = (warianty.pojemnosc_gb(attrs.get(warianty.POLE_RAM, "")),
+                           warianty.pojemnosc_gb(attrs.get(warianty.POLE_DYSKU, "")))
+            if wpis_id[1] and wpis_id[1] != w_magazynie:
+                inna_konfiguracja.append(f"{wpis_id[0]}: wystawiam konfiguracje z magazynu "
+                                         f"{w_magazynie[0]} GB / {w_magazynie[1]} GB")
         kategoria = (offer.findtext("./cat") or "").strip()
         if typ_fn:
             typ = typ_fn(kategoria, settings, attrs)
@@ -150,6 +204,9 @@ def dopnij(feed_bytes: bytes, cfg_all: dict, root_repo: Path,
         # SKU z listy, ktorych nie bylo w feedzie. Bez tego lista po cichu gnije:
         # produkt wychodzi ze sprzedazy, wpis zostaje, nikt tego nie widzi.
         "gw_sku_poza_feedem": sorted(szukane),
+        "gw_id_poza_feedem": sorted(wpis for i, (wpis, _) in po_id.items() if i not in znalezione_id),
+        "gw_id_nieczytelne": nieczytelne,
+        "gw_id_inna_konfiguracja": inna_konfiguracja,
         "gw_pominieto": {k: sorted(v) for k, v in pominieto.items()},
     })
     return ET.tostring(root, encoding="utf-8"), raport

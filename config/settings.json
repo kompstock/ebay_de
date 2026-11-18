@@ -1,5 +1,12 @@
 {
-  "feed_url": "https://kompre.esolu-hub.pl/storage/feeds/kompre.xml",
+  "_feed_url": "Adresy feedu sa w sekretach repo, nie tutaj: FEED_URL = glowny (zamanxml/1, 1.xml), FEED_URL_ZAPAS = zapasowe, po jednym w linii - dzis tylko Pages zamanxml/1 (ten sam plik 1.xml, inny serwer GitHuba). Esolu NIE jest zapasem automatycznym (decyzja wlasciciela z 18.11.2026): gdy 1.xml przestanie dzialac, przebieg stanie z blokada, a wtedy recznie wpisuje sie adres esolu w sekret FEED_URL - bez zmiany kodu. Ten klucz dziala tylko wtedy, gdy sekretow brak (przebieg lokalny) - zostaw pusty, zeby adres nie stal w repo.",
+  "feed_url": "",
+  "zrodla_feedu": {
+    "_about": "Kiedy uznac feed za zepsuty i siegnac po nastepny adres. Plik musi byc poprawnym XML-em z co najmniej 'min_ofert' produktami. Gdy plik ma znacznik 'Last updated' (1.xml go ma), nie moze byc starszy niz 'max_wiek_h' godzin - zamanxml/1 odswieza sie w dzien co 45 min, w nocy co 3 h. 'proby' = ile razy pytamy jeden adres, zanim przejdziemy do nastepnego.",
+    "min_ofert": 1000,
+    "max_wiek_h": 12,
+    "proby": 2
+  },
   "nbp_url": "https://api.nbp.pl/api/exchangerates/rates/A/EUR/?format=json",
   "vat_percent": "19",
   "location": "Rogaszyce",
@@ -48,7 +55,7 @@
     ],
     "powyzej": 4
   },
-  "_uwaga_stany_ograniczone": "Drugi, opcjonalny plik trybu 'aktualizacja'. Te same wiersze co ebay-revise.csv, ale z podmieniona iloscia: progi to pary [granica, wartosc] dzialajace jako 'mniej niz granica', reszta dostaje 'powyzej'. Domyslnie ponizej 10 szt. -> 0, 10-24 -> 2, 25-50 -> 5, 51-99 -> 8, od 100 -> 10. Wgrywasz ALBO ten plik, ALBO prawdziwy - nie oba.",
+  "_uwaga_stany_ograniczone": "Drugi, opcjonalny plik trybu 'aktualizacja'. Te same wiersze co ebay-revise.csv, ale z podmieniona iloscia: progi to pary [granica, wartosc] dzialajace jako 'mniej niz granica', reszta dostaje 'powyzej'. Teraz ponizej 10 szt. -> 0, 10-24 -> 2, 25-50 -> 3, 51-99 -> 3, od 100 -> 4. Wgrywasz ALBO ten plik, ALBO prawdziwy - nie oba.",
   "product_safety_pictograms": "EBPSP201",
   "max_skipped_ratio": 0.3,
   "cena": {
@@ -234,7 +241,7 @@
       "klasa_w_tytule": true
     },
     "Desktop-PC": {
-      "_zrodlo": "Wylacznie XML sklepowy (feed_url). Komputery z Allegro nie wchodza - pilnuje tego allegro.kategorie_zrodlowe plus straznik w src/allegro.py.",
+      "_zrodlo": "Wylacznie XML sklepowy (FEED_URL). Komputery z Allegro nie wchodza - pilnuje tego allegro.kategorie_zrodlowe plus straznik w src/allegro.py.",
       "szablon": "description-desktop.html",
       "plik_add": "ebay-add-komputery.csv",
       "kategoria_ebay": "desktop",
@@ -464,7 +471,7 @@
       "ads": 0.1
     },
     "Desktop-PC GW24": {
-      "_zrodlo": "Wylacznie XML sklepowy (feed_url). Komputery z Allegro nie wchodza - pilnuje tego allegro.kategorie_zrodlowe plus straznik w src/allegro.py.",
+      "_zrodlo": "Wylacznie XML sklepowy (FEED_URL). Komputery z Allegro nie wchodza - pilnuje tego allegro.kategorie_zrodlowe plus straznik w src/allegro.py.",
       "szablon": "description-desktop.html",
       "plik_add": "ebay-add-komputery.csv",
       "kategoria_ebay": "desktop",
@@ -768,7 +775,7 @@
     "enabled": true,
     "lista_sku": "config/gwarancja-24.csv",
     "kolumna_sku": "SKU",
-    "_uwaga_lista": "Plik CSV z kolumna SKU - podaj SKU ORYGINALU, sufiks dokleja sie sam. Excel: 'Zapisz jako CSV'. Pusta lista = funkcja spi. SKU z listy, ktorych nie ma w feedzie, raport zglasza jako 'gw_sku_poza_feedem'.",
+    "_uwaga_lista": "Plik CSV z kolumna SKU i/albo ID - w SKU podaj SKU ORYGINALU (sufiks dokleja sie sam), w ID samo ID Shopera (10207) albo cale SKU skopiowane z oferty (SHOPER-ID:10207-8GB-256GB). Dwie kolumny, bo ten sam numer bywa ID jednego wpisu i SKU innego. Na rynku z ofertami wariantowymi oferta GW24 laptopa dostaje SKU WSHOPER-ID:10207-8GB-256GB-GW24-<rynek>. Excel: 'Zapisz jako CSV'. Pusta lista = funkcja spi. SKU z listy, ktorych nie ma w feedzie, raport zglasza jako 'gw_sku_poza_feedem'.",
     "sufiks_sku": "GW24",
     "_uwaga_mnoznik": "Mnoznik ceny siedzi teraz w profilu wariantu (profile_produktu.*.mnoznik_ceny).",
     "pole_wariantu": "Wariant gwarancyjny",

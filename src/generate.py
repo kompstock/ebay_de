@@ -177,6 +177,91 @@ def fetch_bytes(url: str, timeout: int = 120) -> bytes:
     request = urllib.request.Request(url, headers={"User-Agent": "kompre-ebay-csv/2.0"})
     with urllib.request.urlopen(request, timeout=timeout) as response:
         return response.read()
+
+
+# --------------------------------------------------------------------------- #
+# zrodlo danych: glowny feed + zapasowe, adresy w sekretach GitHuba
+# --------------------------------------------------------------------------- #
+# Decyzja wlasciciela z 18.11.2026: dane bierzemy z zamanxml/1 (1.xml), a esolu
+# zostaje jako zapas. ADRESY NIE STOJA W REPO: sa w sekretach FEED_URL (glowny)
+# i FEED_URL_ZAPAS (kolejne adresy, po jednym w linii albo po przecinku).
+# Do raportu, logow i na strone trafia tylko etykieta ('glowne', 'zapas 1'),
+# nigdy adres - strona z plikami jest publiczna.
+_ZNACZNIK_AKTUALIZACJI = re.compile(
+    rb"<!--\s*Last updated:\s*(\d{4}-\d{2}-\d{2} \d{2}:\d{2})\s*\(UTC([+-]\d{1,2})\)\s*-->")
+
+
+def zrodla_feedu(settings: dict, srodowisko=None) -> list[tuple[str, str]]:
+    """[(etykieta, adres)] w kolejnosci prob. Bez sekretow (np. przebieg lokalny)
+    zostaje 'feed_url' z settings.json, jesli ktos go tam wpisze."""
+    srodowisko = os.environ if srodowisko is None else srodowisko
+    glowny = (srodowisko.get("FEED_URL") or "").strip()
+    zapas = [a for a in re.split(r"[\s,;]+", srodowisko.get("FEED_URL_ZAPAS") or "") if a]
+    if not glowny and not zapas:
+        glowny = (settings.get("feed_url") or "").strip()
+    zrodla = [("glowne", glowny)] if glowny else []
+    return zrodla + [(f"zapas {i}", adres) for i, adres in enumerate(zapas, start=1)]
+
+
+def sprawdz_feed(dane: bytes, teraz: datetime, ustawienia: dict) -> tuple[str, str | None]:
+    """('' gdy plik nadaje sie do uzycia, inaczej powod; czas aktualizacji z pliku albo None).
+
+    Zapas ma sens tylko wtedy, gdy umiemy rozpoznac ZLY plik, a nie tylko brak pliku:
+    pusta odpowiedz, strona bledu zamiast XML-a, ucieta lista albo plik, ktorego
+    nikt od dawna nie odswiezal (1.xml ma w drugiej linii 'Last updated')."""
+    try:
+        korzen = ET.fromstring(dane)
+    except ET.ParseError as exc:
+        return f"to nie jest poprawny XML ({exc})", None
+    min_ofert = int(ustawienia.get("min_ofert", 0) or 0)
+    ofert = len(korzen.findall("./o"))
+    if ofert < min_ofert:
+        return f"tylko {ofert} produktow (minimum {min_ofert})", None
+    trafienie = _ZNACZNIK_AKTUALIZACJI.search(dane[:1000])
+    if not trafienie:
+        return "", None
+    strefa = timezone(timedelta(hours=int(trafienie[2])))
+    kiedy = datetime.strptime(trafienie[1].decode(), "%Y-%m-%d %H:%M").replace(tzinfo=strefa)
+    kiedy_utc = kiedy.astimezone(timezone.utc)
+    wiek_h = (teraz - kiedy_utc).total_seconds() / 3600
+    max_wiek = float(ustawienia.get("max_wiek_h", 0) or 0)
+    if max_wiek and wiek_h > max_wiek:
+        return (f"nieaktualny - ostatnia aktualizacja {wiek_h:.0f} h temu (limit {max_wiek:.0f} h)",
+                kiedy_utc.strftime("%Y-%m-%d %H:%M UTC"))
+    return "", kiedy_utc.strftime("%Y-%m-%d %H:%M UTC")
+
+
+def _opis_bledu(exc: Exception) -> str:
+    """Opis bledu pobierania BEZ adresu (URLError potrafi go zawierac)."""
+    kod = getattr(exc, "code", None)
+    return f"{type(exc).__name__} {kod}" if kod else type(exc).__name__
+
+
+def pobierz_feed(settings: dict, teraz: datetime | None = None, pobierz=None,
+                 srodowisko=None) -> tuple[bytes | None, dict]:
+    """Pierwszy dobry feed z listy zrodel: (dane albo None, opis do raportu)."""
+    pobierz = pobierz or fetch_bytes
+    teraz = teraz or datetime.now(timezone.utc)
+    ustawienia = settings.get("zrodla_feedu") or {}
+    proby_na_zrodlo = max(1, int(ustawienia.get("proby", 2) or 1))
+    odrzucone = []
+    zrodla = zrodla_feedu(settings, srodowisko)
+    for etykieta, adres in zrodla:
+        powod, kiedy, dane = "", None, None
+        for _ in range(proby_na_zrodlo):
+            try:
+                dane = pobierz(adres)
+                break
+            except Exception as exc:              # noqa: BLE001 - kazdy blad sieci = nastepne zrodlo
+                powod = "nie pobrano: " + _opis_bledu(exc)
+        if dane is not None:
+            powod, kiedy = sprawdz_feed(dane, teraz, ustawienia)
+        if powod:
+            odrzucone.append({"zrodlo": etykieta, "powod": powod})
+            continue
+        return dane, {"zrodlo": etykieta, "aktualizacja_pliku": kiedy, "zrodel": len(zrodla),
+                      "odrzucone": odrzucone}
+    return None, {"zrodlo": None, "zrodel": len(zrodla), "odrzucone": odrzucone}
 def fetch_nbp_rate(url: str) -> dict[str, Any]:
     payload = json.loads(fetch_bytes(url).decode("utf-8"))
     rate = payload["rates"][0]
@@ -2362,6 +2447,7 @@ def generate(feed_bytes, nbp, cfg, output_dir: Path, tryb: str, raport: Path | N
                                         "numery": sorted(wariantowe)[:50]},
         "warianty": ({"wlaczone": True, "rodzin": len(plan_wariantow["rodziny"]),
                       "w_poczekalni": len(plan_wariantow["poczekalnia"]),
+                      "gw24_po_id_shopera": len(plan_wariantow.get("gw24") or {}),
                       "poczekalnia_wg_powodu": oferty_wariantowe.poczekalnia_wg_powodu(
                           plan_wariantow["poczekalnia"]),
                       "poczekalnia_duble": [
@@ -2495,9 +2581,24 @@ def main() -> int:
         "vocab": load_json(ROOT / pliki["slownik"]),
     }
     cfg["warianty"] = ustawienia_wariantow(settings)
-    feed = args.feed_file.read_bytes() if args.feed_file else fetch_bytes(settings["feed_url"])
+    if args.feed_file:
+        feed, zrodlo_feedu = args.feed_file.read_bytes(), {"zrodlo": "plik lokalny", "odrzucone": []}
+    else:
+        feed, zrodlo_feedu = pobierz_feed(settings)
+    if feed is None:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        powody = "; ".join(f"{x['zrodlo']}: {x['powod']}" for x in zrodlo_feedu["odrzucone"]) \
+            or "brak adresow - ustaw sekret FEED_URL (i FEED_URL_ZAPAS) w repo"
+        raport_blad = {"generated_at_utc": datetime.now(timezone.utc).isoformat(),
+                       "tryb": args.tryb, "kraj": kraj.get("kod"), "ok": False,
+                       "zrodlo_feedu": zrodlo_feedu,
+                       "blokady": ["zadne zrodlo danych nie zadzialalo - " + powody]}
+        (output_dir / "generation-report.json").write_text(
+            json.dumps(raport_blad, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        print(json.dumps(raport_blad, ensure_ascii=False, indent=2))
+        return 2
     raport, zrodlo_raportu = wskaz_raport(settings, args.raport)
-    extra: dict = {"zrodlo_raportu": zrodlo_raportu}
+    extra: dict = {"zrodlo_raportu": zrodlo_raportu, "zrodlo_feedu": zrodlo_feedu}
     # --feed-file znaczy "dane podaje ja" - tak jak --nbp-rate. Bez --allegro-file
     # nie schodzimy po nic do sieci, zeby testy szly offline i szybko.
     offline = bool(args.feed_file) and not args.allegro_file

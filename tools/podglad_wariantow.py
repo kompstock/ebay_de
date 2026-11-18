@@ -77,8 +77,8 @@ def main() -> int:
     cennik = g.load_json(args.cennik)
     limity, bledy_listy = warianty.wczytaj_limity(args.limity)
     bledy = warianty.sprawdz_cennik(cennik) + bledy_listy
-    feed = args.feed_file.read_bytes() if args.feed_file else g.fetch_bytes(args.feed_url or settings["feed_url"])
-    zrodlo = str(args.feed_file or args.feed_url or settings["feed_url"])
+    feed = args.feed_file.read_bytes() if args.feed_file else (g.fetch_bytes(args.feed_url) if args.feed_url else g.pobierz_feed(settings)[0])
+    zrodlo = str(args.feed_file or ("--feed-url" if args.feed_url else "FEED_URL z sekretow/srodowiska"))
 
     funkcje = {"norm": g.norm, "brand_name": g.brand_name, "cpu_candidates": g.cpu_candidates,
                "zrodlo_procesora": g.zrodlo_procesora, "clean_capacity": g.clean_capacity,

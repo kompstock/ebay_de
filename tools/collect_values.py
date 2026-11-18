@@ -9,7 +9,7 @@ produkcie. Feed jest szablonowy - tych samych zdan jest kilkanascie, nie tysiace
 Kolumna 'niemiecki' jest pusta - uzupelniasz ja i wklejasz do
 config/translations.json -> values (klucz = kolumna 'klucz').
 """
-import argparse, csv, json, re, sys, unicodedata, urllib.request
+import argparse, csv, json, os, re, sys, unicodedata, urllib.request
 import xml.etree.ElementTree as ET
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -35,7 +35,10 @@ def main():
     if args.feed_file:
         data = args.feed_file.read_bytes()
     else:
-        req = urllib.request.Request(settings["feed_url"], headers={"User-Agent": "kompre/1.0"})
+        adres = os.environ.get("FEED_URL") or settings.get("feed_url")
+        if not adres:
+            sys.exit("podaj --feed-file albo ustaw zmienna FEED_URL")
+        req = urllib.request.Request(adres, headers={"User-Agent": "kompre/1.0"})
         with urllib.request.urlopen(req, timeout=120) as r:
             data = r.read()
 

@@ -578,6 +578,21 @@ class WariantGwarancyjny(unittest.TestCase):
         # laptop 4220, pecet 3959, nowy gaming 10362. 9999999 nie ma w feedzie.
         self.assertEqual(self.raport["gw_dodane"], 3)
 
+    def test_blizniak_po_id_shopera_w_kolumnie_id(self):
+        # Kolumna ID trafia po atrybucie id wpisu, nigdy po SKU: '3959' w kolumnie ID
+        # to NIE jest komputer o SKU 3959 (w feedzie nie ma wpisu o ID 3959).
+        lista = Path(tempfile.mkdtemp()) / "gw.csv"
+        lista.write_text("SKU;ID\n;SHOPER-ID:7681-16GB-480GB\n;3959\n;cos-dziwnego\n", encoding="utf-8")
+        wiersze, raport, _ = uruchom(gw_lista=lista)
+        sku = {w["CustomLabel"] for w in wiersze}
+        self.assertIn("4220GW24", sku)                    # wpis ID 7681 = SKU 4220
+        self.assertNotIn("3959GW24", sku)
+        self.assertEqual(raport["gw_dodane"], 1)
+        self.assertEqual(raport["gw_id_poza_feedem"], ["3959"])
+        self.assertEqual(raport["gw_id_nieczytelne"], ["cos-dziwnego"])
+        self.assertEqual(len(raport["gw_id_inna_konfiguracja"]), 1)
+        self.assertIn("8 GB / 256 GB", raport["gw_id_inna_konfiguracja"][0])
+
     def test_nowy_gaming_tez_ma_blizniaka(self):
         """Nowy zestaw ma 24 miesiace juz w oryginale, wiec blizniak NIE dodaje
         gwarancji - nazywa ja w tytule i kosztuje 20% wiecej. Swiadoma decyzja
@@ -725,11 +740,151 @@ class ListaSkuGwarancyjnych(unittest.TestCase):
         lista, blad = gw.wczytaj_liste(self.plik("SKU\n"), "SKU")
         self.assertEqual((lista, blad), ([], ""))
 
+    def test_kolumna_id_osobno_od_sku(self):
+        # 18.11.2026: ID Shopera w osobnej kolumnie - samo ID albo cale SKU z oferty.
+        gw = self.modul()
+        sku, ids, zle, blad = gw.wczytaj(self.plik(
+            "SKU;ID\n3808;\n;10207\n;SHOPER-ID:7681-16GB-480GB\n;WSHOPER-ID:7452-8GB-256GB-FRA\n;bzdura\n"),
+            "SKU", "ID")
+        self.assertEqual((sku, zle, blad), (["3808"], ["bzdura"], ""))
+        self.assertEqual(ids, {"10207": ("10207", None),
+                               "7681": ("SHOPER-ID:7681-16GB-480GB", (16, 480)),
+                               "7452": ("WSHOPER-ID:7452-8GB-256GB-FRA", (8, 256))})
+        # sama kolumna ID tez jest dobrym plikiem; stary plik z sama kolumna SKU tez
+        self.assertEqual(gw.wczytaj(self.plik("ID\n10207\n"), "SKU", "ID")[1:], ({"10207": ("10207", None)}, [], ""))
+        self.assertEqual(gw.wczytaj(self.plik("SKU\n3808\n"), "SKU", "ID"), (["3808"], {}, [], ""))
+        self.assertIn("SKU", gw.wczytaj(self.plik("Numer\n3808\n"), "SKU", "ID")[3])
+
+    def test_naglowek_z_id_przy_starych_wierszach_bez_srednika(self):
+        # Wlasciciel dopisuje ';ID' do naglowka, a stare wiersze zostaja z samym SKU.
+        # Lista ma sie dalej czytac w calosci - bez niej aktualizacja zerowalaby GW24.
+        gw = self.modul()
+        tresc = "SKU;ID\n3888_20250724124155\n18407489881\n17618895854\n10356_20260812090814\n;10207\n"
+        self.assertEqual(gw.wczytaj(self.plik(tresc), "SKU", "ID"),
+                         (["3888_20250724124155", "18407489881", "17618895854", "10356_20260812090814"],
+                          {"10207": ("10207", None)}, [], ""))
+        self.assertEqual(gw.wczytaj(self.plik("SKU,ID\n3888\n,10207\n"), "SKU", "ID")[:2],
+                         (["3888"], {"10207": ("10207", None)}))
+        self.assertEqual(gw.wczytaj_liste(self.plik("SKU\n3888\n4220\n"), "SKU"), (["3888", "4220"], ""))
+
     def test_brak_pliku_to_nie_blad(self):
         """Lista jest opcjonalna. Brak pliku ma znaczyc to samo co pusta lista -
         funkcja spi. Inaczej raport wyglada na bledny, choc przebieg jest zdrowy."""
         gw = self.modul()
         self.assertEqual(gw.wczytaj_liste(Path("/nie/ma/takiego.csv"), "SKU"), ([], ""))
+
+
+class ZrodloFeeduTests(unittest.TestCase):
+    """18.11.2026: glowny feed zamanxml/1, zapas esolu - adresy w sekretach FEED_URL
+    i FEED_URL_ZAPAS. Zapas ma sens tylko wtedy, gdy zly plik zostaje rozpoznany,
+    a adres nie moze wyciec na publiczna strone z raportem."""
+
+    USTAWIENIA = {"zrodla_feedu": {"min_ofert": 3, "max_wiek_h": 12, "proby": 2}}
+    TERAZ = None
+
+    @classmethod
+    def setUpClass(cls):
+        sys.path.insert(0, str(ROOT / "src"))
+        import generate
+        from datetime import datetime, timezone
+        cls.g = generate
+        cls.TERAZ = datetime(2026, 11, 18, 10, 0, tzinfo=timezone.utc)
+
+    @staticmethod
+    def feed(ofert=5, kiedy="2026-11-18 09:26", strefa="+1"):
+        znacznik = f"<!-- Last updated: {kiedy} (UTC{strefa}) -->\n" if kiedy else ""
+        return (f'<?xml version="1.0" encoding="UTF-8"?>\n{znacznik}<offers>'
+                + "".join(f'<o id="{i}"/>' for i in range(ofert)) + "</offers>").encode()
+
+    def test_kolejnosc_zrodel_z_sekretow(self):
+        zrodla = self.g.zrodla_feedu({"feed_url": "http://repo"},
+                                     {"FEED_URL": " http://glowny ", "FEED_URL_ZAPAS": "http://a\nhttp://b, http://c"})
+        self.assertEqual(zrodla, [("glowne", "http://glowny"), ("zapas 1", "http://a"),
+                                  ("zapas 2", "http://b"), ("zapas 3", "http://c")])
+        # bez sekretow zostaje adres z settings.json (przebieg lokalny), a bez niego nic
+        self.assertEqual(self.g.zrodla_feedu({"feed_url": "http://repo"}, {}), [("glowne", "http://repo")])
+        self.assertEqual(self.g.zrodla_feedu({"feed_url": ""}, {}), [])
+        self.assertEqual(self.g.zrodla_feedu({"feed_url": "http://repo"}, {"FEED_URL_ZAPAS": "http://a"}),
+                         [("zapas 1", "http://a")])
+
+    def test_rozpoznaje_zly_plik(self):
+        sprawdz = lambda dane: self.g.sprawdz_feed(dane, self.TERAZ, self.USTAWIENIA["zrodla_feedu"])
+        self.assertEqual(sprawdz(self.feed()), ("", "2026-11-18 08:26 UTC"))
+        self.assertIn("XML", sprawdz(b"<html>502 Bad Gateway")[0])
+        self.assertIn("tylko 2 produktow", sprawdz(self.feed(ofert=2))[0])
+        self.assertIn("13 h temu", sprawdz(self.feed(kiedy="2026-11-17 21:00", strefa="+0"))[0])
+        self.assertEqual(sprawdz(self.feed(kiedy="2026-11-17 22:30", strefa="+0"))[0], "")     # 11,5 h
+        self.assertEqual(sprawdz(self.feed(kiedy=None)), ("", None))     # esolu nie ma znacznika
+
+    def test_zapas_gdy_glowny_zawiedzie(self):
+        import urllib.error
+        odpowiedzi = {"http://glowny": urllib.error.URLError("tajny-host.example nie odpowiada"),
+                      "http://a": self.feed(kiedy="2026-11-16 09:00"),
+                      "http://b": self.feed()}
+        pytania = []
+
+        def pobierz(adres):
+            pytania.append(adres)
+            wynik = odpowiedzi[adres]
+            if isinstance(wynik, Exception):
+                raise wynik
+            return wynik
+
+        dane, opis = self.g.pobierz_feed(self.USTAWIENIA, self.TERAZ, pobierz,
+                                         {"FEED_URL": "http://glowny", "FEED_URL_ZAPAS": "http://a http://b"})
+        self.assertEqual(dane, odpowiedzi["http://b"])
+        self.assertEqual(opis["zrodlo"], "zapas 2")
+        self.assertEqual([x["zrodlo"] for x in opis["odrzucone"]], ["glowne", "zapas 1"])
+        self.assertEqual(pytania, ["http://glowny", "http://glowny", "http://a", "http://b"])  # 2 proby
+        self.assertNotIn("tajny-host", json.dumps(opis))                  # adres nie wycieka
+        self.assertNotIn("http://", json.dumps(opis))
+        # nic nie dziala -> None i lista powodow
+        dane, opis = self.g.pobierz_feed(self.USTAWIENIA, self.TERAZ, lambda a: self.feed(ofert=1),
+                                         {"FEED_URL": "http://glowny"})
+        self.assertIsNone(dane)
+        self.assertEqual(opis["zrodlo"], None)
+
+    def test_przebieg_bez_zrodla_zatrzymuje_sie_bez_adresu_w_raporcie(self):
+        out = Path(tempfile.mkdtemp())
+        brak = (Path(tempfile.mkdtemp()) / "nie-ma-mnie.xml").as_uri()
+        srodowisko = dict(os.environ, FEED_URL=brak, FEED_URL_ZAPAS="")
+        wynik = subprocess.run([sys.executable, str(ROOT / "src" / "generate.py"), "--tryb", "test",
+                                "--raport", str(RAPORT), "--nbp-rate", "4.26", "--output-dir", str(out)],
+                               check=False, capture_output=True, env=srodowisko)
+        self.assertEqual(wynik.returncode, 2, wynik.stderr.decode("utf-8", "replace")[-1500:])
+        tekst = (out / "generation-report.json").read_text(encoding="utf-8")
+        self.assertIn("zadne zrodlo danych nie zadzialalo", tekst)
+        self.assertNotIn("nie-ma-mnie", tekst)
+
+    def test_przebieg_bierze_zapas_i_mowi_o_tym_w_raporcie(self):
+        # Prawdziwy przebieg: glowny adres nie istnieje, zapas to feed testowy powiekszony
+        # o 1000 wpisow spoza naszych kategorii (prawdziwy feed tez ma ich tysiace).
+        feed = FIXTURE.read_text(encoding="utf-8").replace(
+            "</offers>", "".join(f'<o id="9{i:05d}" stock="0"><cat>Torby</cat></o>' for i in range(1000)) + "</offers>")
+        plik = Path(tempfile.mkdtemp()) / "zapas.xml"
+        plik.write_text(feed, encoding="utf-8")
+        out = Path(tempfile.mkdtemp())
+        srodowisko = dict(os.environ, FEED_URL=(Path(tempfile.mkdtemp()) / "brak.xml").as_uri(),
+                          FEED_URL_ZAPAS=plik.as_uri())
+        wynik = subprocess.run([sys.executable, str(ROOT / "src" / "generate.py"), "--tryb", "test",
+                                "--raport", str(RAPORT), "--nbp-rate", "4.26", "--min-produktow", "1",
+                                "--output-dir", str(out)], check=False, capture_output=True, env=srodowisko)
+        self.assertEqual(wynik.returncode, 0, wynik.stderr.decode("utf-8", "replace")[-1500:])
+        raport = json.loads((out / "generation-report.json").read_text(encoding="utf-8"))
+        self.assertEqual(raport["zrodlo_feedu"]["zrodlo"], "zapas 1")
+        self.assertEqual([x["zrodlo"] for x in raport["zrodlo_feedu"]["odrzucone"]], ["glowne"])
+        self.assertGreater(raport["do_wystawienia"], 0)
+        self.assertNotIn("brak.xml", json.dumps(raport))
+        self.assertNotIn("zapas.xml", json.dumps(raport))
+        # ten sam feed jako zbyt maly (sam fixture, 7 wpisow) - odrzucony z nazwanym powodem
+        srodowisko["FEED_URL_ZAPAS"] = FIXTURE.as_uri()
+        out2 = Path(tempfile.mkdtemp())
+        subprocess.run([sys.executable, str(ROOT / "src" / "generate.py"), "--tryb", "test",
+                        "--raport", str(RAPORT), "--nbp-rate", "4.26", "--output-dir", str(out2)],
+                       check=False, capture_output=True, env=srodowisko)
+        raport2 = json.loads((out2 / "generation-report.json").read_text(encoding="utf-8"))
+        self.assertFalse(raport2["ok"])
+        self.assertIn("produktow", raport2["zrodlo_feedu"]["odrzucone"][1]["powod"])
 
 
 class OsKraju(unittest.TestCase):

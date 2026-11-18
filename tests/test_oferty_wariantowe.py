@@ -458,7 +458,8 @@ class PrzelacznikTests(unittest.TestCase):
         cls.bez, _ = cls.przebieg("pierwsze", wlaczone=False)
 
     @classmethod
-    def przebieg(cls, tryb, raport=None, wlaczone=True, feed=FEED, kraj="de", ustawienia=None, reczne=None):
+    def przebieg(cls, tryb, raport=None, wlaczone=True, feed=FEED, kraj="de", ustawienia=None, reczne=None,
+                 gw=None):
         wynik = Path(tempfile.mkdtemp())
         polecenie = [sys.executable, str(ROOT / "src" / "generate.py"), "--kraj", kraj, "--tryb", tryb,
                      "--feed-file", str(feed), "--raport", str(raport or ROOT / "tests" / "fixtures" / "aktywne.csv"),
@@ -468,6 +469,9 @@ class PrzelacznikTests(unittest.TestCase):
         plik_reczny = Path(tempfile.mkdtemp()) / "sku-reczne.csv"
         plik_reczny.write_text("SKU;ilosc;cena\n" + (reczne or ""), encoding="utf-8")
         polecenie += ["--sku-reczne", str(plik_reczny)]
+        lista_gw = Path(tempfile.mkdtemp()) / "gwarancja-24.csv"
+        lista_gw.write_text("SKU;ID\n" + (gw or ""), encoding="utf-8")
+        polecenie += ["--gw-lista", str(lista_gw)]
         kod = subprocess.run(polecenie, check=False, capture_output=True)
         assert kod.returncode in (0, 2), kod.stderr.decode("utf-8", "replace")[-2000:]
         return wynik, json.loads((wynik / "generation-report.json").read_text(encoding="utf-8"))
@@ -717,6 +721,32 @@ class PrzelacznikTests(unittest.TestCase):
                  if x["Relationship"] == ""}
         self.assertEqual(stany[self.BAZA]["Available quantity"], "5")
 
+    def test_gw24_laptopa_w_zapisie_id_shopera(self):
+        # 18.11.2026: oferta GW24 laptopa na rynku z nowym systemem niesie ID i konfiguracje.
+        for wpis in (";7681\n", "4220;\n", ";WSHOPER-ID:7681-8GB-256GB\n"):
+            wynik, raport = self.przebieg("pierwsze", gw=wpis)
+            wiersze = {x["CustomLabel"]: x for x in self.add(wynik)[1] if x["Relationship"] == ""}
+            self.assertIn("WSHOPER-ID:7681-8GB-256GB-GW24", wiersze, wpis)
+            self.assertNotIn("4220GW24", wiersze, wpis)
+            gw24, zwykla = wiersze["WSHOPER-ID:7681-8GB-256GB-GW24"], wiersze[self.BAZA]
+            self.assertGreater(float(gw24["*StartPrice"]), float(zwykla["*StartPrice"]))
+            self.assertEqual(gw24["*Quantity"], "2", wpis)              # jak reszta nowej sciezki
+            self.assertEqual(raport["warianty"]["gw24_po_id_shopera"], 1)
+        francja = self.katalog / "warianty-fr-gw.json"
+        francja.write_text(json.dumps(dict(json.loads(self.ustawienia.read_text(encoding="utf-8")),
+                                           wlaczone=["fr"])), encoding="utf-8")
+        wynik, _ = self.przebieg("pierwsze", kraj="fr", ustawienia=francja, gw=";7681\n")
+        self.assertIn("WSHOPER-ID:7681-8GB-256GB-GW24-FRA", [x["CustomLabel"] for x in self.add(wynik)[1]])
+        # bez nowego systemu GW24 zostaje po staremu
+        wynik, _ = self.przebieg("pierwsze", wlaczone=False, gw=";7681\n")
+        self.assertIn("4220GW24", [x["CustomLabel"] for x in self.add(wynik)[1]])
+
+    def test_reczna_ilosc_gw24_po_starym_sku(self):
+        wynik, raport = self.przebieg("pierwsze", gw=";7681\n", reczne="4220GW24;0;\n")
+        self.assertNotIn("WSHOPER-ID:7681-8GB-256GB-GW24", [x["CustomLabel"] for x in self.add(wynik)[1]])
+        self.assertEqual(raport["sku_reczne"]["przepisane_na_oferty_shoper_id"],
+                         {"WSHOPER-ID:7681-8GB-256GB-GW24": "4220GW24"})
+
     def feed_z_dublem(self):
         """Feed testowy + drugi wpis o tych samych szesciu cechach co laptop 4220 (ID 7681):
         ID 99001, SKU 'KLON', TANSZY - czyli "taki sam model pomalowany na zolto"."""
@@ -745,6 +775,21 @@ class PrzelacznikTests(unittest.TestCase):
         self.assertNotIn("KLON", sku)
         self.assertEqual(raport["warianty"]["w_poczekalni"], 1)
         self.assertEqual(raport["pominieto"].get("laptop w poczekalni"), 1)
+
+    def test_oferta_gw24_nie_przypina_rodziny(self):
+        # Na eBayu stoi tylko GW24 wpisu 7681. Rodzina ma dalej wybrac tanszy wpis 99001,
+        # bo GW24 to nie jest oferta rodziny - gdyby przypinala, baza przeszlaby na 7681.
+        plik = Path(tempfile.mkdtemp()) / "aktywne.csv"
+        with plik.open("w", encoding="utf-8-sig", newline="") as uchwyt:
+            zapis = csv.writer(uchwyt)
+            zapis.writerow(["Item number", "Title", "Variation details", "Custom label (SKU)", "Available quantity",
+                            "Currency", "Start price", "End date", "Listing site"])
+            zapis.writerow(["305000000001", "Komputer", "", "3959", "3", "EUR", "300.0", "", "DE"])
+            zapis.writerow(["305000000777", "GW24", "", "WSHOPER-ID:7681-8GB-256GB-GW24", "2", "EUR", "500.0", "", "DE"])
+        wynik, _ = self.przebieg("nowe", raport=plik, feed=self.feed_z_dublem())
+        sku = [x["CustomLabel"] for x in self.add(wynik)[1]]
+        self.assertIn("WSHOPER-ID:99001-8GB-256GB", sku)
+        self.assertNotIn("WSHOPER-ID:7681-8GB-256GB", sku)
 
     def test_tanszy_dubel_nie_przejmuje_oferty_ktora_juz_stoi(self):
         # Na eBayu stoja juz oferty wpisu 7681. Tanszy wpis 99001 dochodzi pozniej: zostaje

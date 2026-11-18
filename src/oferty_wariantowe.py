@@ -412,16 +412,35 @@ def przygotuj(produkty: list, cfg: dict, g, cennik: dict, limity: list[dict],
     laptopy = [(o, a) for o, a in produkty
                if g.typ_produktu(g.text(o.find("./cat")), settings, a) == TYP_LAPTOPA
                and not blizniak_gw(a)]
-    przypiete = {r["id"] for r in map(warianty.rozloz_sku, sku_na_ebay) if r}
+    # Oferta GW24 niesie ID oryginalu, ale nie przypina rodziny - inaczej jej wpis
+    # moglby przejac baze rodziny od wpisu, na ktorym stoja oferty.
+    przypiete = {r["id"] for r in map(warianty.rozloz_sku, sku_na_ebay)
+                 if r and not (sufiks_gw and sufiks_gw in r["dopiski"])}
     wynik = warianty.zbuduj_rodziny(laptopy, cennik, limity, funkcje, przypiete=przypiete)
     z_poczekalni = {(p["id"], p["sku"]) for p in wynik["poczekalnia"]}
     zostaja = [(o, a) for o, a in produkty if (o.get("id", ""), a.get("SKU", "")) not in z_poczekalni]
     for rodzina in wynik["rodziny"]:
         baza = rodzina["baza"]
         baza["attrs"]["SKU"] = warianty.sku_bazy(rodzina["id_bazy"], baza["ram"], baza["dysk"], dopiski)
+    # Oferta GW24 laptopa (decyzja wlasciciela z 18.11.2026): ten sam zapis co zwykla
+    # oferta bazy, z GW24 przed znacznikiem rynku - 'WSHOPER-ID:10207-8GB-256GB-GW24-FRA'.
+    # Dalej zwykla oferta jednej konfiguracji, bez wyboru RAM i dysku.
+    gw24: dict[str, str] = {}
+    for offer, attrs in zostaja:
+        # typ bazowy (bez attrs): z attrs blizniak to juz "Notebook GW24"
+        if not blizniak_gw(attrs) or g.typ_produktu(g.text(offer.find("./cat")), settings) != TYP_LAPTOPA:
+            continue
+        id_ = (offer.get("id", "") or "").strip()
+        ram = warianty.pojemnosc_gb(attrs.get(warianty.POLE_RAM, ""))
+        dysk = warianty.pojemnosc_gb(attrs.get(warianty.POLE_DYSKU, ""))
+        if not (id_.isdigit() and ram and dysk):
+            continue                          # nieczytelna konfiguracja - zostaje stare SKU
+        nowe = warianty.sku_bazy(id_, ram, dysk, [sufiks_gw, sufiks_kraju])
+        gw24[nowe] = attrs.get("SKU", "")
+        attrs["SKU"] = nowe
     return {"produkty": zostaja, "rodziny": wynik["rodziny"], "poczekalnia": wynik["poczekalnia"],
             "bez_rodziny": wynik["bez_rodziny"], "dopiski": dopiski, "ofert_w_pliku": 0,
-            "aktualizacja": None}
+            "aktualizacja": None, "gw24": gw24}
 
 
 def reczne_ilosci(plan: dict, reczne: dict) -> dict[str, dict]:
@@ -454,6 +473,11 @@ def reczne_ilosci(plan: dict, reczne: dict) -> dict[str, dict]:
         rodzina["aktywna"] = ilosc > 0
         for v in rodzina["warianty"]:
             v["stan"] = ilosc
+    # Oferty GW24 w nowym zapisie: wpis po nowym SKU albo po starym ('4771GW24FRA').
+    for nowe_sku, stare_sku in (plan.get("gw24") or {}).items():
+        wpis = next((k for k in (nowe_sku, stare_sku) if k and reczne.get(k) is not None), None)
+        if wpis is not None:
+            wynik[nowe_sku] = {"ilosc": int(reczne[wpis]), "wpis": wpis}
     return wynik
 
 
