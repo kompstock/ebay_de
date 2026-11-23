@@ -262,12 +262,38 @@ def pobierz_feed(settings: dict, teraz: datetime | None = None, pobierz=None,
         return dane, {"zrodlo": etykieta, "aktualizacja_pliku": kiedy, "zrodel": len(zrodla),
                       "odrzucone": odrzucone}
     return None, {"zrodlo": None, "zrodel": len(zrodla), "odrzucone": odrzucone}
-def fetch_nbp_rate(url: str) -> dict[str, Any]:
-    payload = json.loads(fetch_bytes(url).decode("utf-8"))
-    rate = payload["rates"][0]
-    return {"currency": payload["currency"], "code": payload["code"],
-            "table": payload["table"], "number": rate["no"],
-            "effective_date": rate["effectiveDate"], "rate": float(rate["mid"])}
+def _adresy_nbp(url: str) -> list[str]:
+    """Adres z configu i ten sam kurs innym zapytaniem ('/last/1/' = ostatnia tabela)."""
+    zapasowy = re.sub(r"/rates/A/([A-Z]{3})/(\?|$)", r"/rates/A/\1/last/1/\2", url)
+    return [url] + ([zapasowy] if zapasowy != url else [])
+
+
+def fetch_nbp_rate(url: str, proby: int = 4, przerwa_s: float = 10.0, pobierz=None, czekaj=None) -> dict[str, Any]:
+    """Kurs sredni EUR z NBP. 23.11.2026 API dwa razy z rzedu oddalo 404 (rano, Niemcy
+    i Hiszpania), a kilka sekund pozniej dzialalo dla Francji i Wloch - stad kilka
+    prob z przerwa i drugi adres. Gdy nic nie zadziala: KursNbpNiedostepny, a main()
+    zapisuje raport z blokada zamiast wywracac sie bez raportu."""
+    import time
+    pobierz = pobierz or fetch_bytes
+    czekaj = czekaj or time.sleep
+    bledy = []
+    for proba in range(proby):
+        for adres in _adresy_nbp(url):
+            try:
+                payload = json.loads(pobierz(adres).decode("utf-8"))
+                rate = payload["rates"][0]
+                return {"currency": payload["currency"], "code": payload["code"],
+                        "table": payload["table"], "number": rate["no"],
+                        "effective_date": rate["effectiveDate"], "rate": float(rate["mid"])}
+            except Exception as exc:              # noqa: BLE001 - kazdy blad = nastepna proba
+                bledy.append(_opis_bledu(exc))
+        if proba < proby - 1:
+            czekaj(przerwa_s)
+    raise KursNbpNiedostepny(f"{len(bledy)} prob, ostatni blad: {bledy[-1] if bledy else '?'}")
+
+
+class KursNbpNiedostepny(RuntimeError):
+    pass
 def norm(value: str) -> str:
     value = unicodedata.normalize("NFKD", str(value or ""))
     value = "".join(c for c in value if not unicodedata.combining(c))
@@ -2619,9 +2645,20 @@ def main() -> int:
     extra["kraj"] = kraj["kod"]
     if kraj.get("sufiks_sku"):
         extra["sufiks_sku"] = kraj["sufiks_sku"]
-    nbp = ({"currency": "euro", "code": "EUR", "table": "A", "number": "TEST",
-            "effective_date": "TEST", "rate": args.nbp_rate}
-           if args.nbp_rate else fetch_nbp_rate(settings["nbp_url"]))
+    try:
+        nbp = ({"currency": "euro", "code": "EUR", "table": "A", "number": "TEST",
+                "effective_date": "TEST", "rate": args.nbp_rate}
+               if args.nbp_rate else fetch_nbp_rate(settings["nbp_url"]))
+    except KursNbpNiedostepny as exc:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        raport_blad = {"generated_at_utc": datetime.now(timezone.utc).isoformat(),
+                       "tryb": args.tryb, "kraj": kraj.get("kod"), "ok": False,
+                       "zrodlo_feedu": zrodlo_feedu,
+                       "blokady": [f"kurs NBP niedostepny ({exc}) - uruchom przebieg jeszcze raz"]}
+        (output_dir / "generation-report.json").write_text(
+            json.dumps(raport_blad, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        print(json.dumps(raport_blad, ensure_ascii=False, indent=2))
+        return 2
     report = generate(feed, nbp, cfg, output_dir, args.tryb, raport, extra)
     print(json.dumps(report, ensure_ascii=False, indent=2))
     return 0 if report["ok"] else 2

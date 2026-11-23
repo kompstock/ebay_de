@@ -887,6 +887,75 @@ class ZrodloFeeduTests(unittest.TestCase):
         self.assertIn("produktow", raport2["zrodlo_feedu"]["odrzucone"][1]["powod"])
 
 
+class KursNbpTests(unittest.TestCase):
+    """23.11.2026: API NBP oddalo 404 dla Niemiec i Hiszpanii, chwile pozniej dzialalo.
+    Generator wywracal sie bez raportu ('nic nie powstalo'), a Bramka konczyla przebieg."""
+
+    URL = "https://api.nbp.pl/api/exchangerates/rates/A/EUR/?format=json"
+    ODPOWIEDZ = json.dumps({"table": "A", "currency": "euro", "code": "EUR",
+                            "rates": [{"no": "227/A/NBP/2026", "effectiveDate": "2026-11-23",
+                                       "mid": 4.4556}]}).encode()
+
+    @classmethod
+    def setUpClass(cls):
+        sys.path.insert(0, str(ROOT / "src"))
+        import generate
+        cls.g = generate
+
+    def test_zapasowy_adres_ostatniej_tabeli(self):
+        self.assertEqual(self.g._adresy_nbp(self.URL),
+                         [self.URL, "https://api.nbp.pl/api/exchangerates/rates/A/EUR/last/1/?format=json"])
+
+    def test_ponawia_az_api_odpowie(self):
+        import urllib.error
+        pytania, przerwy = [], []
+
+        def pobierz(adres):
+            pytania.append(adres)
+            if len(pytania) < 4:
+                raise urllib.error.HTTPError(adres, 404, "Not Found", None, None)
+            return self.ODPOWIEDZ
+
+        kurs = self.g.fetch_nbp_rate(self.URL, pobierz=pobierz, czekaj=przerwy.append)
+        self.assertEqual((kurs["rate"], kurs["effective_date"]), (4.4556, "2026-11-23"))
+        self.assertEqual(len(pytania), 4)              # 2 adresy x 2 proby
+        self.assertEqual(len(przerwy), 1)              # przerwa miedzy probami, nie po kazdym adresie
+
+    def test_po_wszystkich_probach_nazwany_blad(self):
+        przerwy = []
+
+        def pobierz(adres):
+            raise TimeoutError("timed out")
+
+        with self.assertRaises(self.g.KursNbpNiedostepny) as blad:
+            self.g.fetch_nbp_rate(self.URL, proby=3, pobierz=pobierz, czekaj=przerwy.append)
+        self.assertIn("6 prob", str(blad.exception))
+        self.assertEqual(len(przerwy), 2)
+
+    def test_przebieg_bez_kursu_zapisuje_raport_z_blokada(self):
+        # Prawdziwy przebieg: NBP pod adresem, ktorego nie ma -> raport z blokada,
+        # a nie wywrotka bez raportu (kod 2, nie 1).
+        katalog = Path(tempfile.mkdtemp())
+        ustawienia = json.loads((ROOT / "config" / "settings.json").read_text(encoding="utf-8"))
+        ustawienia["nbp_url"] = (katalog / "brak-nbp.json").as_uri()
+        out = katalog / "out"
+        kopia = katalog / "repo"
+        import shutil
+        shutil.copytree(ROOT, kopia, ignore=shutil.ignore_patterns(".git", "output", "__pycache__"))
+        (kopia / "config" / "settings.json").write_text(json.dumps(ustawienia, ensure_ascii=False), encoding="utf-8")
+        wynik = subprocess.run([sys.executable, "-c",
+                                "import sys, generate; "
+                                "import time; time.sleep = lambda s: None; sys.argv = sys.argv[1:]; "
+                                "sys.exit(generate.main())",
+                                "generate.py", "--tryb", "test", "--feed-file", str(FIXTURE),
+                                "--raport", str(RAPORT), "--min-produktow", "1", "--output-dir", str(out)],
+                               check=False, capture_output=True, cwd=kopia / "src")
+        self.assertEqual(wynik.returncode, 2, wynik.stderr.decode("utf-8", "replace")[-1500:])
+        raport = json.loads((out / "generation-report.json").read_text(encoding="utf-8"))
+        self.assertFalse(raport["ok"])
+        self.assertIn("kurs NBP niedostepny", raport["blokady"][0])
+
+
 class OsKraju(unittest.TestCase):
     """Druga os konfiguracji: typ towaru mowi CO, kraj mowi GDZIE i po jakiemu."""
 
